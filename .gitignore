@@ -1,6 +1,6 @@
 # Binaries
-sidecar
-termdiff
+/sidecar
+/termdiff
 *.exe
 *.exe~
 *.dll
