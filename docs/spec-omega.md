@@ -10,6 +10,12 @@ A standalone Go TUI that runs alongside AI coding agents, displaying real-time s
 4. **Single active panel**: One plugin visible at a time, tab to switch
 5. **Reactive where possible**: fsnotify for immediate updates, polling as fallback
 
+## Scope Notes
+
+- **Monorepo default**: Project root == `WorkDir`; adapters treat `project` as the root path
+- **TD data source**: `{projectRoot}/.td/todos.db` (schema/queries from `../td` at `~/code/td`)
+- **Multi-repo future**: Keep adapter APIs project-root based; config can add a `projects` section later
+
 ---
 
 ## Architecture
@@ -22,7 +28,11 @@ sidecar/
 │   │   ├── model.go                 # Root Bubble Tea model
 │   │   ├── update.go                # Message routing, key dispatch
 │   │   ├── view.go                  # Layout: header, plugin panel, footer
+│   │   ├── ui.go                    # Header/footer UI state
 │   │   └── commands.go              # Shared tea.Cmd helpers
+│   ├── event/                       # Typed events + dispatcher
+│   │   ├── event.go
+│   │   └── dispatcher.go
 │   ├── plugin/                      # Plugin system
 │   │   ├── plugin.go                # Plugin interface
 │   │   ├── registry.go              # Registration, lifecycle
@@ -57,7 +67,7 @@ sidecar/
 │   │       └── messages.go          # Message rendering
 │   ├── styles/                      # Shared Lipgloss styles
 │   │   └── styles.go                # Colors, panels, status indicators
-│   └── config/                      # Configuration
+│   └── config/
 │       ├── config.go                # Config struct, defaults
 │       └── loader.go                # JSON loading from ~/.config/sidecar/
 ├── configs/
@@ -83,7 +93,7 @@ type Plugin interface {
     // Lifecycle
     Init(ctx *Context) error                 // Called once at startup
     Start() tea.Cmd                          // Begin watching/polling
-    Stop()                                   // Cleanup
+    Stop()                                   // Cleanup (must stop watchers)
 
     // Bubble Tea integration
     Update(msg tea.Msg) (Plugin, tea.Cmd)    // Handle messages
@@ -103,7 +113,7 @@ type Context struct {
     WorkDir      string                      // Current working directory
     ConfigDir    string                      // ~/.config/sidecar/
     Adapters     map[string]adapter.Adapter  // Available agent adapters
-    EventBus     chan<- Event                // Cross-plugin communication
+    EventBus     *event.Dispatcher           // Typed event bus (fan-out, buffered)
     Logger       *slog.Logger
 }
 
@@ -113,6 +123,17 @@ type Command struct {
     Name        string                       // "Stage file"
     Handler     func() tea.Cmd
     Context     string                       // When active (plugin ID or "global")
+}
+
+// Optional diagnostics hook (used by diagnostics panel)
+type DiagnosticProvider interface {
+    Diagnostics() []Diagnostic
+}
+
+type Diagnostic struct {
+    ID     string
+    Status string
+    Detail string
 }
 ```
 
@@ -171,6 +192,21 @@ type Message struct {
 
 ---
 
+## Implementation Notes (Risk Mitigations)
+
+- **Plugin state**: Plugins are pointer-backed; `Update` mutates and returns the same instance to avoid accidental copies
+- **Event bus**: Dispatcher uses buffered, per-subscriber channels with best-effort/coalesced delivery to avoid blocking
+- **Watchers**: `Start` binds to a cancelable context; `Stop` cancels and joins goroutines
+- **Large data**: Page/lazy-load (messages, diffs); cap in-memory history with explicit "load more"
+- **Keymap collisions**: Namespace contexts by plugin ID; registry rejects duplicates and logs collisions
+
+### Concurrency & Performance
+- **Critical**: The Bubble Tea `Update` loop is single-threaded. **NEVER** perform blocking I/O (file reads, DB queries, API calls) directly in `Update`.
+- **Pattern**: Always return a `tea.Cmd` that performs the work in a goroutine and returns a `tea.Msg` with the result.
+- **Locking**: If plugins share state (rare), use `sync.RWMutex` but prefer message passing.
+
+---
+
 ## Keymap System
 
 ### Command Registry
@@ -196,6 +232,12 @@ func (r *Registry) Handle(key tea.KeyMsg, activeContext string) tea.Cmd {
     // 3. Fall back to global bindings
 }
 ```
+
+### Complexity Warning
+Managing `activeContext` is the most common source of bugs in this pattern.
+- **Rule**: The root model MUST strictly synchronize `activeContext` with the currently active plugin.
+- **Propagation**: Plugins should return a `FocusContext()` string. The root model polls this on every plugin switch.
+- **Modals**: When a modal is open (e.g., Diff View), the context must switch to the modal's ID (e.g., "git-diff") and switch back when closed.
 
 ### Default Bindings
 
@@ -276,8 +318,8 @@ func (r *Registry) Handle(key tea.KeyMsg, activeContext string) tea.Cmd {
 - Approve/review actions
 
 **Data Source:**
-- SQLite database at `.todos/issues.db` (read-only)
-- Reuse query patterns from td monitor
+- SQLite database at `{projectRoot}/.td/todos.db` (read-only)
+- Reuse schema/query patterns from `../td` (~/code/td)
 - Poll interval: 2s (configurable)
 
 **View:**
@@ -307,6 +349,7 @@ func (r *Registry) Handle(key tea.KeyMsg, activeContext string) tea.Cmd {
 - Token usage per session
 - Tool call summary
 - Read-only (no modifications)
+- Paged message list (last N by default, load more on demand)
 
 **Data Source:**
 - `~/.claude/projects/{project-hash}/*.jsonl`
@@ -348,37 +391,26 @@ func (r *Registry) Handle(key tea.KeyMsg, activeContext string) tea.Cmd {
 
 ## Data Refresh Strategy
 
-### Hybrid Approach
+### Hybrid Approach (Simple & Robust)
 
-1. **fsnotify (reactive)** - Use where reliable:
-   - `.git/index` - git status changes
-   - Claude Code session files - new messages
-   - Config files - hot reload
+1. **fsnotify (Reactive)**:
+   - Use for `.git/index` and Claude Code session files.
+   - Run in a goroutine, sending a `tea.Msg` to the main loop on change.
 
-2. **Polling (fallback)** - Use where fsnotify unreliable or unavailable:
-   - SQLite databases (WAL mode can miss fsnotify)
-   - Cross-filesystem scenarios
-   - Default: 2s interval, configurable per-plugin
+2. **Polling (Fallback)**:
+   - Use for SQLite (`.td/todos.db`) or when fsnotify is unreliable.
+   - **Implementation**: Use standard `tea.Tick` or a recursive `tea.Cmd` pattern.
+   - Avoid complex "Watcher" structs if a simple `time.Sleep` loop in a command works.
 
-3. **Debouncing** - Prevent UI churn:
-   - Batch rapid changes (100ms window)
-   - Skip refresh if previous still pending
+3. **Debouncing**:
+   - If fsnotify is noisy, use a simple timer check: "if last_update < 100ms ago, ignore".
 
 ```go
-type Watcher struct {
-    fsWatcher    *fsnotify.Watcher
-    pollInterval time.Duration
-    debounce     time.Duration
-    onChange     func()
-}
-
-func (w *Watcher) Start() tea.Cmd {
-    // Try fsnotify first
-    if err := w.fsWatcher.Add(path); err == nil {
-        return w.watchFS()
-    }
-    // Fall back to polling
-    return w.poll()
+// Polling Pattern
+func PollStatus(interval time.Duration) tea.Cmd {
+    return tea.Tick(interval, func(t time.Time) tea.Msg {
+        return StatusUpdateMsg{Timestamp: t}
+    })
 }
 ```
 
@@ -412,6 +444,14 @@ func (m Model) viewDiagnostics() string {
     for id, reason := range m.registry.unavailable {
         b.WriteString(fmt.Sprintf(" %s: %s\n", id, reason))
     }
+
+    for _, p := range m.registry.plugins {
+        if dp, ok := p.(plugin.DiagnosticProvider); ok {
+            for _, d := range dp.Diagnostics() {
+                b.WriteString(fmt.Sprintf(" %s: %s\n", d.ID, d.Detail))
+            }
+        }
+    }
     
     if len(m.registry.unavailable) == 0 {
         b.WriteString(" All integrations available\n")
@@ -435,7 +475,7 @@ func (m Model) viewDiagnostics() string {
 │                                                         │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
-│ tab switch  ? help  q quit                  refreshed 2s│  <- Footer
+│ tab switch  ? help  q quit     [Error: Db locked]     2s│  <- Footer
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -443,9 +483,11 @@ func (m Model) viewDiagnostics() string {
 - App title (left)
 - Plugin tabs with active indicator (center)
 - Clock/status (right)
+- Header/footer state lives in `internal/app/ui.go` to keep plugins isolated
 
 ### Footer
 - Context-aware key hints (left)
+- **Status Bar**: Transient notifications (toast messages) center-right (e.g., "Copied to clipboard", "Error: failed to stage").
 - Last refresh timestamp (right)
 - Toggleable with `ctrl+h`
 
@@ -460,6 +502,10 @@ func (m Model) viewDiagnostics() string {
 
 ```json
 {
+  "projects": {
+    "mode": "single",
+    "root": "."
+  },
   "plugins": {
     "git-status": {
       "enabled": true,
@@ -468,7 +514,7 @@ func (m Model) viewDiagnostics() string {
     "td-monitor": {
       "enabled": true,
       "refreshInterval": "2s",
-      "dbPath": ".todos/issues.db"
+      "dbPath": ".td/todos.db"
     },
     "conversations": {
       "enabled": true,
@@ -484,7 +530,13 @@ func (m Model) viewDiagnostics() string {
   "ui": {
     "showFooter": true,
     "showClock": true,
-    "theme": "default"
+    "theme": {
+        "name": "default",
+        "overrides": {
+            "primary": "#FF00FF",
+            "background": "#000000"
+        }
+    }
   }
 }
 ```
@@ -498,15 +550,18 @@ func (m Model) viewDiagnostics() string {
 2. `internal/plugin/plugin.go` - Plugin interface
 3. `internal/plugin/registry.go` - Registration, lifecycle
 4. `internal/plugin/context.go` - PluginContext
-5. `internal/keymap/registry.go` - Command registry
-6. `internal/keymap/bindings.go` - Default bindings
-7. `internal/styles/styles.go` - Color palette, panel styles
+5. `internal/event/event.go` - Event types
+6. `internal/event/dispatcher.go` - Fan-out dispatcher
+7. `internal/keymap/registry.go` - Command registry
+8. `internal/keymap/bindings.go` - Default bindings
+9. `internal/styles/styles.go` - Color palette, panel styles
 
 ### Phase 2: Main TUI Shell (Days 2-3)
 1. `internal/app/model.go` - Root model, plugin management
-2. `internal/app/view.go` - Header, footer, plugin panel
-3. `internal/app/update.go` - Key dispatch, message routing
-4. `cmd/sidecar/main.go` - Entry point
+2. `internal/app/ui.go` - Header/footer state
+3. `internal/app/view.go` - Header, footer, plugin panel
+4. `internal/app/update.go` - Key dispatch, message routing
+5. `cmd/sidecar/main.go` - Entry point
 
 ### Phase 3: Git Status Plugin (Days 3-5)
 1. `internal/plugins/gitstatus/plugin.go` - Plugin interface
@@ -594,8 +649,8 @@ Focus testing effort on boundaries and data parsing—the areas most likely to b
 
 **Manual testing (required before release):**
 - 80x24 minimum terminal size
-- Missing .git directory (silent degradation)
-- Missing .todos directory (silent degradation)
+- Missing `.git` directory (silent degradation)
+- Missing `.todos` directory (silent degradation)
 - Missing Claude Code data (silent degradation)
 - Rapid file changes (debounce works)
 
