@@ -1,24 +1,24 @@
 # Sidecar
 
-Terminal UI for viewing AI coding agent sessions. Monitor Claude Code conversations, git status, and task progress in a unified interface.
+Terminal UI for monitoring AI coding agent sessions.
+
+**Status: Alpha** - Functional but expect rough edges and breaking changes.
+
+## Overview
+
+Sidecar provides a unified terminal interface for viewing Claude Code conversations, git status, and task progress. Built for developers who want visibility into their AI coding sessions without leaving the terminal.
 
 ## Requirements
 
 - Go 1.23+
 
-## Installation
+## Quick Start
 
 ```bash
-# Clone and install with version info
-git clone https://github.com/sst/sidecar
+git clone https://github.com/marcus/sidecar
 cd sidecar
-make install-dev
-
-# Or basic install (no version info)
 make install
-
-# Or direct go install
-go install ./cmd/sidecar
+sidecar
 ```
 
 ## Usage
@@ -30,9 +30,6 @@ sidecar
 # Specify project root
 sidecar --project /path/to/project
 
-# Use custom config
-sidecar --config ~/.config/sidecar/config.json
-
 # Enable debug logging
 sidecar --debug
 
@@ -42,41 +39,27 @@ sidecar --version
 
 ## Plugins
 
-Sidecar includes three built-in plugins:
-
 ### Git Status
-Shows changed files with staging actions.
-- View staged, modified, and untracked files
-- Stage/unstage files with `s`/`u`
-- View diffs with `d`
+View staged, modified, and untracked files. Stage/unstage with `s`/`u`, view diffs with `d`.
 
 ### TD Monitor
-Shows tasks from the TD task management system.
-- View in-progress, ready, and reviewable issues
-- Approve issues with `a`
-- Switch lists with `tab`
+Track tasks from the TD task management system. View in-progress, ready, and reviewable issues.
 
 ### Conversations
-Browse Claude Code session history.
-- View recent sessions for the current project
-- Read conversation messages and tool usage
-- Token usage stats
+Browse Claude Code session history with message content and token usage.
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
 | `q`, `ctrl+c` | Quit |
-| `tab` | Next plugin |
-| `shift+tab` | Previous plugin |
+| `tab` / `shift+tab` | Navigate plugins |
 | `1-9` | Focus plugin by number |
-| `?` | Toggle help |
-| `!` | Toggle diagnostics |
-| `ctrl+h` | Toggle footer |
-| `r` | Refresh |
-| `j/k` or `↓/↑` | Navigate |
+| `j/k`, `↓/↑` | Navigate items |
 | `enter` | Select |
 | `esc` | Back/close |
+| `r` | Refresh |
+| `?` | Toggle help |
 
 ## Configuration
 
@@ -99,42 +82,13 @@ Config file: `~/.config/sidecar/config.json`
 ## Development
 
 ```bash
-# Build binary to ./bin/
-make build
-
-# Run tests
-make test
-
-# Run tests with verbose output
-make test-v
-
-# Install with version from git
-make install-dev
-
-# Format code
-make fmt
-
-# Show current version
-make version
+make build        # Build to ./bin/sidecar
+make test         # Run tests
+make test-v       # Verbose test output
+make install-dev  # Install with git version info
+make fmt          # Format code
 ```
 
-## Releasing
+## License
 
-```bash
-# Create a version tag (validates semver format)
-make tag VERSION=v0.1.0
-
-# Push tag to origin
-make release VERSION=v0.1.0
-```
-
-## Build Targets
-
-| Target | Description |
-|--------|-------------|
-| `make build` | Build binary to `./bin/sidecar` |
-| `make install` | Install to GOBIN |
-| `make install-dev` | Install with git-derived version |
-| `make test` | Run tests |
-| `make clean` | Remove build artifacts |
-| `make build-all` | Cross-platform builds |
+MIT
