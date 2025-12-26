@@ -190,8 +190,13 @@ func (a *Adapter) Watch(projectRoot string) (<-chan adapter.Event, error) {
 // projectDirPath converts a project root path to the Claude Code projects directory path.
 // Claude Code uses the path with slashes replaced by dashes.
 func (a *Adapter) projectDirPath(projectRoot string) string {
+	// Ensure absolute path for consistent hashing
+	absPath, err := filepath.Abs(projectRoot)
+	if err != nil {
+		absPath = projectRoot
+	}
 	// Convert /Users/foo/code/project to -Users-foo-code-project
-	hash := strings.ReplaceAll(projectRoot, "/", "-")
+	hash := strings.ReplaceAll(absPath, "/", "-")
 	return filepath.Join(a.projectsDir, hash)
 }
 

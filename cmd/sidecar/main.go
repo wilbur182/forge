@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 
@@ -61,9 +62,16 @@ func main() {
 	dispatcher := event.NewWithLogger(logger)
 	defer dispatcher.Close()
 
+	// Convert project root to absolute path
+	workDir, err := filepath.Abs(*projectRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to resolve project root: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Create plugin context
 	pluginCtx := &plugin.Context{
-		WorkDir:   *projectRoot,
+		WorkDir:   workDir,
 		ConfigDir: config.ConfigPath(),
 		Adapters:  make(map[string]adapter.Adapter),
 		EventBus:  dispatcher,

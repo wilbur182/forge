@@ -168,3 +168,89 @@ func TestCapabilities(t *testing.T) {
 		t.Error("expected watch capability")
 	}
 }
+
+func TestProjectDirPath_RelativePath(t *testing.T) {
+	a := New()
+
+	// Get absolute path for comparison
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+
+	// Test that relative "." gets converted to absolute path
+	relPath := a.projectDirPath(".")
+	absPath := a.projectDirPath(cwd)
+
+	if relPath != absPath {
+		t.Errorf("relative path '.' should resolve to same as absolute path\ngot:  %s\nwant: %s", relPath, absPath)
+	}
+}
+
+func TestProjectDirPath_AbsolutePath(t *testing.T) {
+	a := New()
+
+	// Test known absolute path produces expected result
+	path := a.projectDirPath("/Users/test/code/project")
+
+	// Should contain the hashed path
+	expected := "-Users-test-code-project"
+	if !containsPath(path, expected) {
+		t.Errorf("path %q should contain %q", path, expected)
+	}
+}
+
+func TestDetect_RelativePath(t *testing.T) {
+	a := New()
+
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+
+	// Both relative and absolute should return same result
+	foundRel, errRel := a.Detect(".")
+	foundAbs, errAbs := a.Detect(cwd)
+
+	if errRel != nil {
+		t.Fatalf("Detect(.) error: %v", errRel)
+	}
+	if errAbs != nil {
+		t.Fatalf("Detect(cwd) error: %v", errAbs)
+	}
+
+	if foundRel != foundAbs {
+		t.Errorf("Detect('.') = %v, Detect(cwd) = %v - should be equal", foundRel, foundAbs)
+	}
+}
+
+func containsPath(path, substr string) bool {
+	return len(path) > 0 && len(substr) > 0 && path[len(path)-len(substr):] == substr ||
+		(len(path) >= len(substr) && path[len(path)-len(substr)-1:len(path)-1] == substr)
+}
+
+func TestSessions_RelativePath(t *testing.T) {
+	a := New()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+
+	// Both should return same sessions
+	sessionsRel, errRel := a.Sessions(".")
+	sessionsAbs, errAbs := a.Sessions(cwd)
+
+	if errRel != nil {
+		t.Fatalf("Sessions(.) error: %v", errRel)
+	}
+	if errAbs != nil {
+		t.Fatalf("Sessions(cwd) error: %v", errAbs)
+	}
+
+	if len(sessionsRel) != len(sessionsAbs) {
+		t.Errorf("Sessions('.') = %d sessions, Sessions(cwd) = %d sessions - should be equal",
+			len(sessionsRel), len(sessionsAbs))
+	}
+}
