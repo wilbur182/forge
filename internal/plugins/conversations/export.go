@@ -41,8 +41,11 @@ func ExportSessionAsMarkdown(session *adapter.Session, messages []adapter.Messag
 
 	// Messages
 	for _, msg := range messages {
-		// Role and timestamp
-		role := strings.Title(msg.Role)
+		// Role and timestamp (capitalize first letter)
+		role := msg.Role
+		if len(role) > 0 {
+			role = strings.ToUpper(role[:1]) + role[1:]
+		}
 		ts := msg.Timestamp.Format("15:04:05")
 		sb.WriteString(fmt.Sprintf("## %s (%s)\n\n", role, ts))
 

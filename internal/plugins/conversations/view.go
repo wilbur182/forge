@@ -368,7 +368,7 @@ func (p *Plugin) renderMessage(msg adapter.Message, msgIndex int, maxWidth int) 
 
 	// Header line: [timestamp] role  model  tokens  cost
 	ts := msg.Timestamp.Local().Format("15:04:05")
-	roleStyle := styles.Muted
+	var roleStyle lipgloss.Style
 	if msg.Role == "user" {
 		roleStyle = styles.StatusInProgress
 	} else {
@@ -695,9 +695,10 @@ func (p *Plugin) renderSidebarPane(height int) string {
 	if p.searchMode && p.searchQuery != "" {
 		countStr = fmt.Sprintf("%d/%d", len(sessions), len(p.sessions))
 	}
-	header := fmt.Sprintf("Sessions %s", countStr)
-	if len(header) > contentWidth {
-		header = header[:contentWidth]
+	// Truncate count if needed
+	maxCountLen := contentWidth - len("Sessions ")
+	if maxCountLen > 0 && len(countStr) > maxCountLen {
+		countStr = countStr[:maxCountLen]
 	}
 	sb.WriteString(styles.Title.Render("Sessions"))
 	sb.WriteString(styles.Muted.Render(" " + countStr))
@@ -922,7 +923,7 @@ func (p *Plugin) renderCompactMessage(msg adapter.Message, msgIndex int, maxWidt
 
 	// Header line: [timestamp] role  tokens
 	ts := msg.Timestamp.Local().Format("15:04")
-	roleStyle := styles.Muted
+	var roleStyle lipgloss.Style
 	if msg.Role == "user" {
 		roleStyle = styles.StatusInProgress
 	} else {
@@ -930,33 +931,31 @@ func (p *Plugin) renderCompactMessage(msg adapter.Message, msgIndex int, maxWidt
 	}
 
 	// Cursor indicator
-	cursor := "  "
+	var styledCursor string
 	if msgIndex == p.msgCursor {
-		cursor = "> "
+		styledCursor = styles.ListCursor.Render("> ")
+	} else {
+		styledCursor = "  "
 	}
 
-	// Token info
+	// Token info - truncate if needed
 	tokens := ""
 	if msg.OutputTokens > 0 || msg.InputTokens > 0 {
 		tokens = fmt.Sprintf(" (%s→%s)", formatK(msg.InputTokens), formatK(msg.OutputTokens))
 	}
 
-	// Build header without styles first to check length
-	headerText := fmt.Sprintf("%s[%s] %s%s", cursor, ts, msg.Role, tokens)
-	if len(headerText) > maxWidth {
-		headerText = headerText[:maxWidth-3] + "..."
+	// Calculate if we need to truncate role
+	role := msg.Role
+	// Account for: cursor(2) + [](2) + ts(5) + space(1) + role + tokens
+	usedWidth := 2 + 2 + len(ts) + 1 + len(role) + len(tokens)
+	if usedWidth > maxWidth && len(role) > 4 {
+		role = role[:4]
 	}
 
-	// Apply styles to truncated header
-	styledHeader := cursor
-	if msgIndex == p.msgCursor {
-		styledHeader = styles.ListCursor.Render("> ")
-	} else {
-		styledHeader = "  "
-	}
-	styledHeader += fmt.Sprintf("[%s] %s%s",
+	// Build styled header
+	styledHeader := styledCursor + fmt.Sprintf("[%s] %s%s",
 		styles.Muted.Render(ts),
-		roleStyle.Render(msg.Role),
+		roleStyle.Render(role),
 		styles.Muted.Render(tokens))
 	lines = append(lines, styledHeader)
 

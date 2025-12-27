@@ -1,6 +1,7 @@
 package conversations
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -154,11 +155,10 @@ func (f *SearchFilters) String() string {
 // formatTokenCount formats a token count for display.
 func formatTokenCount(n int) string {
 	if n >= 1000000 {
-		return strings.TrimSuffix(strings.TrimSuffix(
-			strings.Replace(string(rune('0'+n/1000000)), "0", "", 1), "0"), "0") + "M"
+		return fmt.Sprintf("%.0fM", float64(n)/1000000)
 	}
 	if n >= 1000 {
-		return strings.TrimSuffix(string(rune('0'+n/1000)), "0") + "k"
+		return fmt.Sprintf("%.0fk", float64(n)/1000)
 	}
-	return string(rune('0' + n))
+	return fmt.Sprintf("%d", n)
 }
