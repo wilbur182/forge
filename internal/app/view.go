@@ -204,7 +204,7 @@ func (m Model) globalFooterHints() []footerHint {
 		label string
 	}{
 		{id: "next-plugin", label: "switch"},
-		{id: "toggle-help", label: "help"},
+		{id: "toggle-palette", label: "help"},
 		{id: "quit", label: "quit"},
 	}
 
