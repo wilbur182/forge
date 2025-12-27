@@ -45,6 +45,12 @@ func DefaultBindings() []Binding {
 		{Key: "d", Command: "view-commit", Context: "git-status-commits"},
 		{Key: "h", Command: "show-history", Context: "git-status-commits"},
 
+		// Git commit preview context (commit preview in right pane)
+		{Key: "esc", Command: "back", Context: "git-commit-preview"},
+		{Key: "h", Command: "back", Context: "git-commit-preview"},
+		{Key: "enter", Command: "view-diff", Context: "git-commit-preview"},
+		{Key: "d", Command: "view-diff", Context: "git-commit-preview"},
+
 		// Git Diff context
 		{Key: "esc", Command: "close-diff", Context: "git-diff"},
 		{Key: "j", Command: "scroll", Context: "git-diff"},

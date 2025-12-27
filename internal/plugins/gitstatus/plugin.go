@@ -63,6 +63,11 @@ type Plugin struct {
 	diffPaneHorizScroll int         // Horizontal scroll for inline diff
 	diffPaneParsedDiff  *ParsedDiff // Parsed diff for inline view
 
+	// Commit preview state (for three-pane view when on commit)
+	previewCommit       *Commit // Commit being previewed in right pane
+	previewCommitCursor int     // Cursor for file list in preview
+	previewCommitScroll int     // Scroll offset for preview content
+
 	// Diff state (for full-screen diff view)
 	showDiff     bool
 	diffContent  string
@@ -266,6 +271,13 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 		return p, nil
 
+	case CommitPreviewLoadedMsg:
+		// Commit preview loaded for right pane (in status view)
+		p.previewCommit = msg.Commit
+		p.previewCommitCursor = 0
+		p.previewCommitScroll = 0
+		return p, nil
+
 	case PushSuccessMsg:
 		p.pushInProgress = false
 		p.pushError = ""
@@ -322,9 +334,10 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		if p.cursor < totalItems-1 {
 			p.cursor++
 			p.ensureCursorVisible()
-			if !p.cursorOnCommit() {
-				return p, p.autoLoadDiff()
+			if p.cursorOnCommit() {
+				return p, p.autoLoadCommitPreview()
 			}
+			return p, p.autoLoadDiff()
 		}
 		return p, nil
 
@@ -332,9 +345,10 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		if p.cursor > 0 {
 			p.cursor--
 			p.ensureCursorVisible()
-			if !p.cursorOnCommit() {
-				return p, p.autoLoadDiff()
+			if p.cursorOnCommit() {
+				return p, p.autoLoadCommitPreview()
 			}
+			return p, p.autoLoadDiff()
 		}
 		return p, nil
 
@@ -347,16 +361,21 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		if totalItems > 0 {
 			p.cursor = totalItems - 1
 			p.ensureCursorVisible()
-			if !p.cursorOnCommit() {
-				return p, p.autoLoadDiff()
+			if p.cursorOnCommit() {
+				return p, p.autoLoadCommitPreview()
 			}
+			return p, p.autoLoadDiff()
 		}
 		return p, nil
 
 	case "l", "right":
-		// Focus diff pane (only when on a file)
-		if p.sidebarVisible && p.selectedDiffFile != "" && !p.cursorOnCommit() {
-			p.activePane = PaneDiff
+		// Focus diff pane (when on a file) or commit preview pane (when on a commit)
+		if p.sidebarVisible {
+			if p.cursorOnCommit() && p.previewCommit != nil {
+				p.activePane = PaneDiff
+			} else if p.selectedDiffFile != "" {
+				p.activePane = PaneDiff
+			}
 		}
 
 	case "tab":
@@ -399,17 +418,8 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		}
 
 	case "d":
-		// Open full-screen diff view (for files) or commit detail (for commits)
-		if p.cursorOnCommit() {
-			commitIdx := p.selectedCommitIndex()
-			if commitIdx >= 0 && commitIdx < len(p.recentCommits) {
-				commit := p.recentCommits[commitIdx]
-				p.viewMode = ViewModeCommitDetail
-				p.commitDetailCursor = 0
-				p.commitDetailScroll = 0
-				return p, p.loadCommitDetail(commit.Hash)
-			}
-		} else if len(entries) > 0 && p.cursor < len(entries) {
+		// Open full-screen diff view for files
+		if !p.cursorOnCommit() && len(entries) > 0 && p.cursor < len(entries) {
 			entry := entries[p.cursor]
 			p.viewMode = ViewModeDiff
 			p.diffFile = entry.Path
@@ -417,17 +427,17 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.diffScroll = 0
 			return p, p.loadDiff(entry.Path, entry.Staged, entry.Status)
 		}
+		// For commits, focus the preview pane (same as l/right)
+		if p.cursorOnCommit() && p.previewCommit != nil {
+			p.activePane = PaneDiff
+		}
 
 	case "enter":
-		// Open file (for files) or commit detail (for commits)
+		// For files: open in editor
+		// For commits: focus the preview pane
 		if p.cursorOnCommit() {
-			commitIdx := p.selectedCommitIndex()
-			if commitIdx >= 0 && commitIdx < len(p.recentCommits) {
-				commit := p.recentCommits[commitIdx]
-				p.viewMode = ViewModeCommitDetail
-				p.commitDetailCursor = 0
-				p.commitDetailScroll = 0
-				return p, p.loadCommitDetail(commit.Hash)
+			if p.previewCommit != nil {
+				p.activePane = PaneDiff
 			}
 		} else if len(entries) > 0 && p.cursor < len(entries) {
 			entry := entries[p.cursor]
@@ -473,6 +483,11 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 
 // updateStatusDiffPane handles key events when the diff pane is focused.
 func (p *Plugin) updateStatusDiffPane(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
+	// If showing commit preview, handle file list navigation
+	if p.previewCommit != nil && p.cursorOnCommit() {
+		return p.updateCommitPreviewPane(msg)
+	}
+
 	switch msg.String() {
 	case "esc":
 		// ESC always returns to sidebar
@@ -578,6 +593,78 @@ func (p *Plugin) updateStatusDiffPane(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 	return p, nil
 }
 
+// updateCommitPreviewPane handles key events when viewing commit preview in the diff pane.
+func (p *Plugin) updateCommitPreviewPane(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
+	c := p.previewCommit
+	if c == nil {
+		return p, nil
+	}
+
+	switch msg.String() {
+	case "esc", "h", "left":
+		// Return to sidebar
+		p.activePane = PaneSidebar
+
+	case "j", "down":
+		// Navigate file list
+		if p.previewCommitCursor < len(c.Files)-1 {
+			p.previewCommitCursor++
+			p.ensurePreviewCursorVisible()
+		}
+
+	case "k", "up":
+		if p.previewCommitCursor > 0 {
+			p.previewCommitCursor--
+			p.ensurePreviewCursorVisible()
+		}
+
+	case "g":
+		p.previewCommitCursor = 0
+		p.previewCommitScroll = 0
+
+	case "G":
+		if len(c.Files) > 0 {
+			p.previewCommitCursor = len(c.Files) - 1
+			p.ensurePreviewCursorVisible()
+		}
+
+	case "enter", "d":
+		// Open full-screen diff for selected file in commit
+		if p.previewCommitCursor < len(c.Files) {
+			file := c.Files[p.previewCommitCursor]
+			p.viewMode = ViewModeDiff
+			p.diffFile = file.Path
+			p.diffCommit = c.Hash
+			p.diffScroll = 0
+			return p, p.loadCommitFileDiff(c.Hash, file.Path)
+		}
+
+	case "tab":
+		// Toggle sidebar visibility
+		p.sidebarVisible = !p.sidebarVisible
+		if p.sidebarVisible {
+			p.activePane = PaneSidebar
+		}
+	}
+
+	return p, nil
+}
+
+// ensurePreviewCursorVisible adjusts scroll to keep commit preview cursor visible.
+func (p *Plugin) ensurePreviewCursorVisible() {
+	// Estimate visible file rows (rough - matches renderCommitPreview calculation)
+	visibleRows := p.height - 15
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+
+	if p.previewCommitCursor < p.previewCommitScroll {
+		p.previewCommitScroll = p.previewCommitCursor
+	} else if p.previewCommitCursor >= p.previewCommitScroll+visibleRows {
+		p.previewCommitScroll = p.previewCommitCursor - visibleRows + 1
+	}
+}
+
 // autoLoadDiff triggers loading the diff for the currently selected file.
 func (p *Plugin) autoLoadDiff() tea.Cmd {
 	entries := p.tree.AllEntries()
@@ -595,7 +682,54 @@ func (p *Plugin) autoLoadDiff() tea.Cmd {
 	p.selectedDiffFile = entry.Path
 	// Keep old diff visible until new one loads (prevents flashing)
 	p.diffPaneScroll = 0
+	// Clear commit preview when switching to file
+	p.previewCommit = nil
 	return p.loadInlineDiff(entry.Path, entry.Staged, entry.Status)
+}
+
+// autoLoadCommitPreview triggers loading commit detail for the currently selected commit.
+func (p *Plugin) autoLoadCommitPreview() tea.Cmd {
+	if !p.cursorOnCommit() {
+		p.previewCommit = nil
+		return nil
+	}
+
+	commitIdx := p.selectedCommitIndex()
+	if commitIdx < 0 || commitIdx >= len(p.recentCommits) {
+		p.previewCommit = nil
+		return nil
+	}
+
+	commit := p.recentCommits[commitIdx]
+	// Already loaded this commit?
+	if p.previewCommit != nil && p.previewCommit.Hash == commit.Hash {
+		return nil
+	}
+
+	// Clear file diff when switching to commit
+	p.selectedDiffFile = ""
+	p.diffPaneParsedDiff = nil
+	p.previewCommitCursor = 0
+	p.previewCommitScroll = 0
+
+	return p.loadCommitDetailForPreview(commit.Hash)
+}
+
+// loadCommitDetailForPreview loads commit detail for inline preview.
+func (p *Plugin) loadCommitDetailForPreview(hash string) tea.Cmd {
+	workDir := p.ctx.WorkDir
+	return func() tea.Msg {
+		commit, err := GetCommitDetail(workDir, hash)
+		if err != nil {
+			return ErrorMsg{Err: err}
+		}
+		return CommitPreviewLoadedMsg{Commit: commit}
+	}
+}
+
+// CommitPreviewLoadedMsg is sent when commit preview is loaded.
+type CommitPreviewLoadedMsg struct {
+	Commit *Commit
 }
 
 // countParsedDiffLines counts total lines in a parsed diff.
@@ -845,6 +979,9 @@ func (p *Plugin) Commands() []plugin.Command {
 		// git-commit-detail context
 		{ID: "back", Name: "Back", Description: "Return to history", Category: plugin.CategoryNavigation, Context: "git-commit-detail"},
 		{ID: "view-diff", Name: "Diff", Description: "View file diff", Category: plugin.CategoryView, Context: "git-commit-detail"},
+		// git-commit-preview context (commit preview in right pane)
+		{ID: "back", Name: "Back", Description: "Return to sidebar", Category: plugin.CategoryNavigation, Context: "git-commit-preview"},
+		{ID: "view-diff", Name: "Diff", Description: "View file diff", Category: plugin.CategoryView, Context: "git-commit-preview"},
 		// git-diff context
 		{ID: "close-diff", Name: "Close", Description: "Close diff view", Category: plugin.CategoryView, Context: "git-diff"},
 		{ID: "scroll", Name: "Scroll", Description: "Scroll diff content", Category: plugin.CategoryNavigation, Context: "git-diff"},
@@ -867,9 +1004,13 @@ func (p *Plugin) FocusContext() string {
 		return "git-commit"
 	default:
 		if p.activePane == PaneDiff {
+			// Commit preview pane has different context than file diff pane
+			if p.previewCommit != nil && p.cursorOnCommit() {
+				return "git-commit-preview"
+			}
 			return "git-status-diff"
 		}
-		// Show different context when on a commit
+		// Show different context when on a commit in sidebar
 		if p.cursorOnCommit() {
 			return "git-status-commits"
 		}

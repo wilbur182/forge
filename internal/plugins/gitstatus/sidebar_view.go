@@ -313,6 +313,11 @@ func (p *Plugin) renderRecentCommits() string {
 
 // renderDiffPane renders the right diff pane.
 func (p *Plugin) renderDiffPane(visibleHeight int) string {
+	// If previewing a commit, render commit preview instead of diff
+	if p.previewCommit != nil && p.cursorOnCommit() {
+		return p.renderCommitPreview(visibleHeight)
+	}
+
 	var sb strings.Builder
 
 	// Header
@@ -359,6 +364,158 @@ func (p *Plugin) renderDiffPane(visibleHeight int) string {
 	sb.WriteString(strings.Join(lines, "\n"))
 
 	return sb.String()
+}
+
+// renderCommitPreview renders commit detail in the right pane.
+func (p *Plugin) renderCommitPreview(visibleHeight int) string {
+	var sb strings.Builder
+
+	c := p.previewCommit
+	if c == nil {
+		sb.WriteString(styles.Muted.Render("Loading commit..."))
+		return sb.String()
+	}
+
+	maxWidth := p.diffPaneWidth - 4
+
+	// Header with commit hash
+	header := fmt.Sprintf("Commit %s", c.ShortHash)
+	sb.WriteString(styles.Title.Render(header))
+	sb.WriteString("\n\n")
+
+	// Metadata
+	sb.WriteString(styles.Subtitle.Render("Author: "))
+	authorStr := c.Author
+	if len(authorStr) > maxWidth-10 {
+		authorStr = authorStr[:maxWidth-13] + "..."
+	}
+	sb.WriteString(styles.Body.Render(authorStr))
+	sb.WriteString("\n")
+
+	sb.WriteString(styles.Subtitle.Render("Date:   "))
+	sb.WriteString(styles.Muted.Render(RelativeTime(c.Date)))
+	sb.WriteString("\n\n")
+
+	// Subject
+	subject := c.Subject
+	if len(subject) > maxWidth-2 {
+		subject = subject[:maxWidth-5] + "..."
+	}
+	sb.WriteString(styles.Body.Render(subject))
+	sb.WriteString("\n")
+
+	// Body (if present, truncated)
+	if c.Body != "" {
+		sb.WriteString("\n")
+		bodyLines := strings.Split(strings.TrimSpace(c.Body), "\n")
+		maxBodyLines := 3
+		for i, line := range bodyLines {
+			if i >= maxBodyLines {
+				sb.WriteString(styles.Muted.Render("..."))
+				sb.WriteString("\n")
+				break
+			}
+			if len(line) > maxWidth-2 {
+				line = line[:maxWidth-5] + "..."
+			}
+			sb.WriteString(styles.Muted.Render(line))
+			sb.WriteString("\n")
+		}
+	}
+
+	// Separator
+	sb.WriteString("\n")
+	sb.WriteString(styles.Muted.Render(strings.Repeat("─", maxWidth)))
+	sb.WriteString("\n")
+
+	// Files header with stats
+	statsLine := fmt.Sprintf("Files (%d)", len(c.Files))
+	if c.Stats.Additions > 0 || c.Stats.Deletions > 0 {
+		addStr := styles.DiffAdd.Render(fmt.Sprintf("+%d", c.Stats.Additions))
+		delStr := styles.DiffRemove.Render(fmt.Sprintf("-%d", c.Stats.Deletions))
+		statsLine = fmt.Sprintf("Files (%d)  %s %s", len(c.Files), addStr, delStr)
+	}
+	sb.WriteString(styles.Subtitle.Render(statsLine))
+	sb.WriteString("\n")
+
+	// Calculate remaining height for file list
+	linesUsed := 10 // header, metadata, subject, separator, files header
+	if c.Body != "" {
+		bodyLineCount := len(strings.Split(strings.TrimSpace(c.Body), "\n"))
+		if bodyLineCount > 3 {
+			bodyLineCount = 4 // includes "..."
+		}
+		linesUsed += bodyLineCount + 1
+	}
+	fileListHeight := visibleHeight - linesUsed
+	if fileListHeight < 3 {
+		fileListHeight = 3
+	}
+
+	// Files list with cursor
+	if len(c.Files) == 0 {
+		sb.WriteString(styles.Muted.Render("No files changed"))
+	} else {
+		start := p.previewCommitScroll
+		if start >= len(c.Files) {
+			start = 0
+		}
+		end := start + fileListHeight
+		if end > len(c.Files) {
+			end = len(c.Files)
+		}
+
+		for i := start; i < end; i++ {
+			file := c.Files[i]
+			selected := i == p.previewCommitCursor && p.activePane == PaneDiff
+
+			line := p.renderCommitPreviewFile(file, selected, maxWidth-4)
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
+}
+
+// renderCommitPreviewFile renders a single file in the commit preview.
+func (p *Plugin) renderCommitPreviewFile(file CommitFile, selected bool, maxWidth int) string {
+	// Cursor indicator
+	cursor := "  "
+	if selected {
+		cursor = styles.ListCursor.Render("> ")
+	}
+
+	// Status indicator with color
+	var statusStyle lipgloss.Style
+	switch file.Status {
+	case StatusModified:
+		statusStyle = styles.StatusModified
+	case StatusAdded:
+		statusStyle = styles.StatusStaged
+	case StatusDeleted:
+		statusStyle = styles.StatusDeleted
+	case StatusRenamed:
+		statusStyle = styles.StatusStaged
+	default:
+		statusStyle = styles.Muted
+	}
+	status := statusStyle.Render(string(file.Status))
+
+	// Path - truncate if needed
+	path := file.Path
+	pathWidth := maxWidth - 8 // cursor + status + spacing
+	if len(path) > pathWidth && pathWidth > 3 {
+		path = "…" + path[len(path)-pathWidth+1:]
+	}
+
+	// Compose line
+	lineStyle := styles.ListItemNormal
+	if selected {
+		lineStyle = styles.ListItemSelected
+	}
+
+	return lineStyle.Render(fmt.Sprintf("%s%s %s", cursor, status, path))
 }
 
 // truncateStyledLine truncates a line that may contain ANSI codes to a visual width.
