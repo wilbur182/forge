@@ -78,11 +78,7 @@ func (m Model) renderHeader() string {
 	plugins := m.registry.Plugins()
 	var tabs []string
 	for i, p := range plugins {
-		icon := p.Icon()
-		if icon == "" {
-			icon = "•"
-		}
-		label := fmt.Sprintf(" %s %s ", icon, p.Name())
+		label := fmt.Sprintf(" %s ", p.Name())
 		if i == m.activePlugin {
 			tabs = append(tabs, styles.TabActive.Render(label))
 		} else {

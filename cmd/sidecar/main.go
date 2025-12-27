@@ -93,8 +93,8 @@ func main() {
 	// Register plugins (order determines tab order)
 	registry.Register(tdmonitor.New())
 	registry.Register(gitstatus.New())
-	registry.Register(conversations.New())
 	registry.Register(filebrowser.New())
+	registry.Register(conversations.New())
 
 	// Create keymap registry
 	km := keymap.NewRegistry()
