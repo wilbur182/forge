@@ -390,12 +390,15 @@ func (p *Plugin) renderQuickOpenModal() string {
 	if modalWidth < 30 {
 		modalWidth = 30
 	}
-	modalHeight := p.height - 4
-	if modalHeight > 20 {
-		modalHeight = 20
+
+	// Calculate max visible items based on available height
+	// Leave room for: header (2 lines), footer (2 lines), border (2 lines), some padding
+	maxListHeight := p.height - 8
+	if maxListHeight < 5 {
+		maxListHeight = 5
 	}
-	if modalHeight < 5 {
-		modalHeight = 5
+	if maxListHeight > 20 {
+		maxListHeight = 20
 	}
 
 	var sb strings.Builder
@@ -409,16 +412,7 @@ func (p *Plugin) renderQuickOpenModal() string {
 	// Error message if scan was limited
 	if p.quickOpenError != "" {
 		sb.WriteString(styles.Muted.Render("⚠ " + p.quickOpenError))
-		sb.WriteString("\n\n")
-	}
-
-	// Results list
-	listHeight := modalHeight - 5 // Account for header, footer, borders
-	if p.quickOpenError == "" {
-		listHeight += 2
-	}
-	if listHeight < 3 {
-		listHeight = 3
+		sb.WriteString("\n")
 	}
 
 	if len(p.quickOpenMatches) == 0 {
@@ -429,6 +423,11 @@ func (p *Plugin) renderQuickOpenModal() string {
 		}
 	} else {
 		// Determine visible range (scroll if cursor out of view)
+		listHeight := maxListHeight
+		if listHeight > len(p.quickOpenMatches) {
+			listHeight = len(p.quickOpenMatches)
+		}
+
 		start := 0
 		if p.quickOpenCursor >= listHeight {
 			start = p.quickOpenCursor - listHeight + 1
@@ -458,35 +457,27 @@ func (p *Plugin) renderQuickOpenModal() string {
 	}
 
 	// Footer with match count
-	footer := ""
 	if len(p.quickOpenMatches) > 0 {
-		footer = fmt.Sprintf("\n\n(%d/%d)", p.quickOpenCursor+1, len(p.quickOpenMatches))
+		sb.WriteString(fmt.Sprintf("\n\n%s", styles.Muted.Render(fmt.Sprintf("(%d/%d)", p.quickOpenCursor+1, len(p.quickOpenMatches)))))
 	} else if len(p.quickOpenFiles) > 0 {
-		footer = fmt.Sprintf("\n\n(%d files)", len(p.quickOpenFiles))
-	}
-	if footer != "" {
-		sb.WriteString(styles.Muted.Render(footer))
+		sb.WriteString(fmt.Sprintf("\n\n%s", styles.Muted.Render(fmt.Sprintf("(%d files)", len(p.quickOpenFiles)))))
 	}
 
-	// Wrap in modal box and center
+	// Wrap in modal box and center horizontally
 	content := sb.String()
 	modal := styles.ModalBox.
 		Width(modalWidth).
 		Render(content)
 
-	// Center the modal
+	// Center horizontally, position near top
 	hPad := (p.width - modalWidth - 4) / 2
-	vPad := (p.height - modalHeight - 2) / 2
 	if hPad < 0 {
 		hPad = 0
-	}
-	if vPad < 0 {
-		vPad = 0
 	}
 
 	centered := lipgloss.NewStyle().
 		PaddingLeft(hPad).
-		PaddingTop(vPad).
+		PaddingTop(2).
 		Render(modal)
 
 	return centered
