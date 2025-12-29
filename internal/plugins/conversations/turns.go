@@ -28,6 +28,9 @@ func (t *Turn) FirstTimestamp() string {
 
 // Preview returns a content preview from the first message with meaningful content.
 func (t *Turn) Preview(maxLen int) string {
+	if maxLen < 4 {
+		maxLen = 4 // minimum to show "x..."
+	}
 	for _, msg := range t.Messages {
 		if msg.Content != "" && msg.Content != "[1 tool result(s)]" {
 			content := msg.Content

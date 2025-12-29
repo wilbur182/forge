@@ -102,6 +102,8 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
 			ID:           meta.SessionID,
 			Name:         name,
 			Slug:         meta.Slug,
+			AdapterID:    adapterID,
+			AdapterName:  adapterName,
 			CreatedAt:    meta.FirstMsg,
 			UpdatedAt:    meta.LastMsg,
 			Duration:     meta.LastMsg.Sub(meta.FirstMsg),

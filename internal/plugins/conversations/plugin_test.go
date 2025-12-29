@@ -72,7 +72,7 @@ func TestDiagnosticsNoAdapter(t *testing.T) {
 
 func TestDiagnosticsWithSessions(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{} // Set a non-nil adapter
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}} // Set a non-nil adapter
 	p.sessions = []adapter.Session{
 		{ID: "test-1"},
 		{ID: "test-2"},
@@ -335,7 +335,7 @@ func TestFormatK(t *testing.T) {
 
 func TestDiagnosticsEmptySessions(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{} // Empty but adapter exists
 
 	diags := p.Diagnostics()
@@ -351,7 +351,7 @@ func TestDiagnosticsEmptySessions(t *testing.T) {
 
 func TestDiagnosticsActiveSessions(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", IsActive: true},
 		{ID: "test-2", IsActive: false},
@@ -376,7 +376,7 @@ func TestDiagnosticsActiveSessions(t *testing.T) {
 
 func TestDiagnosticsWatcherOn(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.watchChan = make(chan adapter.Event) // Non-nil channel
 
 	diags := p.Diagnostics()
@@ -393,7 +393,7 @@ func TestDiagnosticsWatcherOn(t *testing.T) {
 // Test WatchStartedMsg with nil channel
 func TestUpdateWatchStartedMsgNilChannel(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 
 	msg := WatchStartedMsg{Channel: nil}
 	newPlugin, cmd := p.Update(msg)
@@ -412,7 +412,7 @@ func TestUpdateWatchStartedMsgNilChannel(t *testing.T) {
 // Test WatchStartedMsg with valid channel
 func TestUpdateWatchStartedMsgValidChannel(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 
 	ch := make(chan adapter.Event)
 	msg := WatchStartedMsg{Channel: ch}
@@ -432,7 +432,7 @@ func TestUpdateWatchStartedMsgValidChannel(t *testing.T) {
 // Test WatchEventMsg triggers session reload
 func TestUpdateWatchEventMsg(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.watchChan = make(chan adapter.Event)
 
 	msg := WatchEventMsg{}
@@ -501,7 +501,7 @@ func TestListenForWatchEventsReceivesEvent(t *testing.T) {
 // Test SessionsLoadedMsg updates sessions
 func TestUpdateSessionsLoadedMsg(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 
 	sessions := []adapter.Session{
 		{ID: "s1", Name: "Session 1"},
@@ -522,7 +522,7 @@ func TestUpdateSessionsLoadedMsg(t *testing.T) {
 // Test MessagesLoadedMsg updates messages and hasMore flag
 func TestUpdateMessagesLoadedMsg(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.pageSize = 2
 
 	// Test with fewer messages than page size
@@ -574,7 +574,7 @@ func (m *mockAdapter) Watch(projectRoot string) (<-chan adapter.Event, error) { 
 // TestUpdateSearchModeEnter tests entering search mode with '/' key.
 func TestUpdateSearchModeEnter(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "beta"},
@@ -606,7 +606,7 @@ func TestUpdateSearchModeEnter(t *testing.T) {
 // TestUpdateSearchModeExit tests exiting search mode with 'esc' key.
 func TestUpdateSearchModeExit(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "beta"},
@@ -637,7 +637,7 @@ func TestUpdateSearchModeExit(t *testing.T) {
 // TestUpdateSearchTypingCharacters tests typing characters to build searchQuery.
 func TestUpdateSearchTypingCharacters(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "beta"},
@@ -681,7 +681,7 @@ func TestUpdateSearchTypingCharacters(t *testing.T) {
 // TestUpdateSearchBackspace tests backspace deleting from searchQuery.
 func TestUpdateSearchBackspace(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "beta"},
@@ -724,7 +724,7 @@ func TestUpdateSearchBackspace(t *testing.T) {
 // TestUpdateSearchNavigationDown tests down navigation in search results.
 func TestUpdateSearchNavigationDown(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "also-alpha"},
@@ -765,7 +765,7 @@ func TestUpdateSearchNavigationDown(t *testing.T) {
 // TestUpdateSearchNavigationUp tests up navigation in search results.
 func TestUpdateSearchNavigationUp(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "also-alpha"},
@@ -803,7 +803,7 @@ func TestUpdateSearchNavigationUp(t *testing.T) {
 // TestUpdateSearchNavigationCtrlN tests ctrl+n navigation in search results.
 func TestUpdateSearchNavigationCtrlN(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "also-alpha"},
@@ -825,7 +825,7 @@ func TestUpdateSearchNavigationCtrlN(t *testing.T) {
 // TestUpdateSearchNavigationCtrlP tests ctrl+p navigation in search results.
 func TestUpdateSearchNavigationCtrlP(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "also-alpha"},
@@ -848,7 +848,7 @@ func TestUpdateSearchNavigationCtrlP(t *testing.T) {
 // TestUpdateSearchEnterSelectsSession tests enter key selects session in search mode.
 func TestUpdateSearchEnterSelectsSession(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "beta"},
@@ -883,7 +883,7 @@ func TestUpdateSearchEnterSelectsSession(t *testing.T) {
 // TestUpdateSearchCursorResetOnQuery tests cursor resets when query changes.
 func TestUpdateSearchCursorResetOnQuery(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "also-alpha"},
@@ -918,7 +918,7 @@ func TestUpdateSearchCursorResetOnQuery(t *testing.T) {
 // TestUpdateSearchEmptyResults tests behavior with no matching results.
 func TestUpdateSearchEmptyResults(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.sessions = []adapter.Session{
 		{ID: "test-1", Name: "alpha"},
 		{ID: "test-2", Name: "beta"},
@@ -963,7 +963,7 @@ func TestUpdateSearchEmptyResults(t *testing.T) {
 // persists when scrolling away and back to a message.
 func TestThinkingBlockTogglePersistence(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.view = ViewMessages
 	p.height = 20
 
@@ -977,8 +977,8 @@ func TestThinkingBlockTogglePersistence(t *testing.T) {
 			},
 		},
 		{
-			ID:   "msg-2",
-			Role: "user",
+			ID:      "msg-2",
+			Role:    "user",
 			Content: "user message",
 		},
 		{
@@ -1042,7 +1042,7 @@ func TestThinkingBlockTogglePersistence(t *testing.T) {
 // TestThinkingBlockToggleNoThinkingBlocks tests toggle on turn without thinking blocks.
 func TestThinkingBlockToggleNoThinkingBlocks(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.view = ViewMessages
 	p.height = 20
 
@@ -1069,7 +1069,7 @@ func TestThinkingBlockToggleNoThinkingBlocks(t *testing.T) {
 // TestThinkingBlockResetOnSessionChange tests that expanded state resets when changing sessions.
 func TestThinkingBlockResetOnSessionChange(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.view = ViewMessages
 	p.height = 20
 	p.selectedSession = "session-1"
@@ -1111,7 +1111,7 @@ func TestThinkingBlockResetOnSessionChange(t *testing.T) {
 // TestThinkingBlockToggleMultipleIndependent tests independent toggle state for multiple turns.
 func TestThinkingBlockToggleMultipleIndependent(t *testing.T) {
 	p := New()
-	p.adapter = &mockAdapter{}
+	p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
 	p.view = ViewMessages
 	p.height = 20
 

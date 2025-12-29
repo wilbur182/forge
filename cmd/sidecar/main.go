@@ -11,7 +11,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sst/sidecar/internal/adapter"
-	"github.com/sst/sidecar/internal/adapter/claudecode"
+	_ "github.com/sst/sidecar/internal/adapter/claudecode"
+	_ "github.com/sst/sidecar/internal/adapter/codex"
 	"github.com/sst/sidecar/internal/app"
 	"github.com/sst/sidecar/internal/config"
 	"github.com/sst/sidecar/internal/event"
@@ -83,9 +84,14 @@ func main() {
 		Logger:    logger,
 	}
 
-	// Register adapters
-	ccAdapter := claudecode.New()
-	pluginCtx.Adapters["claude-code"] = ccAdapter
+	// Detect adapters
+	adapters, err := adapter.DetectAdapters(workDir)
+	if err != nil {
+		logger.Warn("adapter detection failed", "err", err)
+	}
+	if len(adapters) > 0 {
+		pluginCtx.Adapters = adapters
+	}
 
 	// Create plugin registry
 	registry := plugin.NewRegistry(pluginCtx)

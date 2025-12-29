@@ -24,9 +24,9 @@ func TestComputeSessionSummary_Empty(t *testing.T) {
 func TestComputeSessionSummary_SingleMessage(t *testing.T) {
 	messages := []adapter.Message{
 		{
-			Model:        "claude-opus-4-5-20251101",
-			TokenUsage:   adapter.TokenUsage{InputTokens: 1000, OutputTokens: 500},
-			ToolUses:     []adapter.ToolUse{{Name: "Read", Input: `{"file_path": "/foo/bar.go"}`}},
+			Model:      "claude-opus-4-5-20251101",
+			TokenUsage: adapter.TokenUsage{InputTokens: 1000, OutputTokens: 500},
+			ToolUses:   []adapter.ToolUse{{Name: "Read", Input: `{"file_path": "/foo/bar.go"}`}},
 		},
 	}
 	summary := ComputeSessionSummary(messages, 5*time.Minute)
@@ -54,19 +54,19 @@ func TestComputeSessionSummary_SingleMessage(t *testing.T) {
 func TestComputeSessionSummary_MultipleMessages(t *testing.T) {
 	messages := []adapter.Message{
 		{
-			Model:        "claude-sonnet-4-5-20250929",
-			TokenUsage:   adapter.TokenUsage{InputTokens: 1000, OutputTokens: 500},
-			ToolUses:     []adapter.ToolUse{{Name: "Read", Input: `{"file_path": "/a.go"}`}},
+			Model:      "claude-sonnet-4-5-20250929",
+			TokenUsage: adapter.TokenUsage{InputTokens: 1000, OutputTokens: 500},
+			ToolUses:   []adapter.ToolUse{{Name: "Read", Input: `{"file_path": "/a.go"}`}},
 		},
 		{
-			Model:        "claude-sonnet-4-5-20250929",
-			TokenUsage:   adapter.TokenUsage{InputTokens: 2000, OutputTokens: 1000},
-			ToolUses:     []adapter.ToolUse{{Name: "Edit", Input: `{"file_path": "/a.go"}`}},
+			Model:      "claude-sonnet-4-5-20250929",
+			TokenUsage: adapter.TokenUsage{InputTokens: 2000, OutputTokens: 1000},
+			ToolUses:   []adapter.ToolUse{{Name: "Edit", Input: `{"file_path": "/a.go"}`}},
 		},
 		{
-			Model:        "claude-opus-4-5-20251101",
-			TokenUsage:   adapter.TokenUsage{InputTokens: 500, OutputTokens: 250},
-			ToolUses:     []adapter.ToolUse{{Name: "Read", Input: `{"file_path": "/b.go"}`}},
+			Model:      "claude-opus-4-5-20251101",
+			TokenUsage: adapter.TokenUsage{InputTokens: 500, OutputTokens: 250},
+			ToolUses:   []adapter.ToolUse{{Name: "Read", Input: `{"file_path": "/b.go"}`}},
 		},
 	}
 	summary := ComputeSessionSummary(messages, 15*time.Minute)

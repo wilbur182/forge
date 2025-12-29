@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -41,9 +42,9 @@ const (
 
 // Plugin implements the conversations plugin.
 type Plugin struct {
-	ctx     *plugin.Context
-	adapter adapter.Adapter
-	focused bool
+	ctx      *plugin.Context
+	adapters map[string]adapter.Adapter
+	focused  bool
 
 	// Current view
 	view View
@@ -56,9 +57,9 @@ type Plugin struct {
 	// Message view state
 	selectedSession  string
 	messages         []adapter.Message
-	turns            []Turn            // messages grouped into turns
-	turnCursor       int               // cursor for turn selection in list view
-	turnScrollOff    int               // scroll offset for turns
+	turns            []Turn // messages grouped into turns
+	turnCursor       int    // cursor for turn selection in list view
+	turnScrollOff    int    // scroll offset for turns
 	msgCursor        int
 	msgScrollOff     int
 	pageSize         int
@@ -119,16 +120,15 @@ func (p *Plugin) Icon() string { return pluginIcon }
 func (p *Plugin) Init(ctx *plugin.Context) error {
 	p.ctx = ctx
 
-	// Get Claude Code adapter
-	if a, ok := ctx.Adapters["claude-code"]; ok {
-		p.adapter = a
-	} else {
-		return nil // No adapter, silent degradation
+	p.adapters = make(map[string]adapter.Adapter)
+	for id, a := range ctx.Adapters {
+		found, err := a.Detect(ctx.WorkDir)
+		if err != nil || !found {
+			continue
+		}
+		p.adapters[id] = a
 	}
-
-	// Check if adapter can detect this project
-	found, err := p.adapter.Detect(ctx.WorkDir)
-	if err != nil || !found {
+	if len(p.adapters) == 0 {
 		return nil
 	}
 
@@ -137,7 +137,7 @@ func (p *Plugin) Init(ctx *plugin.Context) error {
 
 // Start begins plugin operation.
 func (p *Plugin) Start() tea.Cmd {
-	if p.adapter == nil {
+	if len(p.adapters) == 0 {
 		return nil
 	}
 
@@ -442,7 +442,8 @@ func (p *Plugin) filterSessions() {
 	for _, s := range p.sessions {
 		if strings.Contains(strings.ToLower(s.Name), query) ||
 			strings.Contains(strings.ToLower(s.Slug), query) ||
-			strings.Contains(s.ID, query) {
+			strings.Contains(s.ID, query) ||
+			strings.Contains(strings.ToLower(s.AdapterName), query) {
 			results = append(results, s)
 		}
 	}
@@ -625,7 +626,7 @@ func (p *Plugin) View(width, height int) string {
 	}
 
 	var content string
-	if p.adapter == nil {
+	if len(p.adapters) == 0 {
 		content = renderNoAdapter()
 	} else {
 		switch p.view {
@@ -730,9 +731,9 @@ func (p *Plugin) FocusContext() string {
 func (p *Plugin) Diagnostics() []plugin.Diagnostic {
 	status := "ok"
 	detail := ""
-	if p.adapter == nil {
+	if len(p.adapters) == 0 {
 		status = "disabled"
-		detail = "no adapter"
+		detail = "no adapters"
 	} else if len(p.sessions) == 0 {
 		status = "empty"
 		detail = "no sessions"
@@ -765,13 +766,31 @@ func (p *Plugin) Diagnostics() []plugin.Diagnostic {
 // loadSessions loads sessions from the adapter.
 func (p *Plugin) loadSessions() tea.Cmd {
 	return func() tea.Msg {
-		if p.adapter == nil {
+		if len(p.adapters) == 0 {
 			return SessionsLoadedMsg{}
 		}
-		sessions, err := p.adapter.Sessions(p.ctx.WorkDir)
-		if err != nil {
-			return ErrorMsg{Err: err}
+
+		var sessions []adapter.Session
+		for id, a := range p.adapters {
+			adapterSessions, err := a.Sessions(p.ctx.WorkDir)
+			if err != nil {
+				continue
+			}
+			for i := range adapterSessions {
+				if adapterSessions[i].AdapterID == "" {
+					adapterSessions[i].AdapterID = id
+				}
+				if adapterSessions[i].AdapterName == "" {
+					adapterSessions[i].AdapterName = a.Name()
+				}
+			}
+			sessions = append(sessions, adapterSessions...)
 		}
+
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
+		})
+
 		return SessionsLoadedMsg{Sessions: sessions}
 	}
 }
@@ -779,10 +798,14 @@ func (p *Plugin) loadSessions() tea.Cmd {
 // loadMessages loads messages for a session.
 func (p *Plugin) loadMessages(sessionID string) tea.Cmd {
 	return func() tea.Msg {
-		if p.adapter == nil {
+		if len(p.adapters) == 0 {
 			return MessagesLoadedMsg{}
 		}
-		messages, err := p.adapter.Messages(sessionID)
+		adapter := p.adapterForSession(sessionID)
+		if adapter == nil {
+			return MessagesLoadedMsg{}
+		}
+		messages, err := adapter.Messages(sessionID)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
@@ -799,14 +822,31 @@ func (p *Plugin) loadMessages(sessionID string) tea.Cmd {
 // startWatcher starts watching for session changes.
 func (p *Plugin) startWatcher() tea.Cmd {
 	return func() tea.Msg {
-		if p.adapter == nil {
+		if len(p.adapters) == 0 {
 			return WatchStartedMsg{Channel: nil}
 		}
-		ch, err := p.adapter.Watch(p.ctx.WorkDir)
-		if err != nil {
+
+		merged := make(chan adapter.Event, 32)
+		watchCount := 0
+		for _, a := range p.adapters {
+			ch, err := a.Watch(p.ctx.WorkDir)
+			if err != nil || ch == nil {
+				continue
+			}
+			watchCount++
+			go func(c <-chan adapter.Event) {
+				for evt := range c {
+					select {
+					case merged <- evt:
+					default:
+					}
+				}
+			}(ch)
+		}
+		if watchCount == 0 {
 			return WatchStartedMsg{Channel: nil}
 		}
-		return WatchStartedMsg{Channel: ch}
+		return WatchStartedMsg{Channel: merged}
 	}
 }
 
@@ -957,7 +997,15 @@ func (p *Plugin) updateMessageDetail(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 
 // updateFilter handles key events in filter mode.
 func (p *Plugin) updateFilter(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
-	switch msg.String() {
+	key := msg.String()
+	for _, opt := range adapterFilterOptions(p.adapters) {
+		if key == opt.key {
+			p.filters.ToggleAdapter(opt.id)
+			return p, nil
+		}
+	}
+
+	switch key {
 	case "esc":
 		p.filterMode = false
 
@@ -995,7 +1043,7 @@ func (p *Plugin) updateFilter(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		// Toggle active only
 		p.filters.ActiveOnly = !p.filters.ActiveOnly
 
-	case "c":
+	case "x":
 		// Clear all filters
 		p.filters = SearchFilters{}
 	}
@@ -1036,6 +1084,18 @@ func (p *Plugin) findSelectedSession() *adapter.Session {
 	for i := range p.sessions {
 		if p.sessions[i].ID == p.selectedSession {
 			return &p.sessions[i]
+		}
+	}
+	return nil
+}
+
+func (p *Plugin) adapterForSession(sessionID string) adapter.Adapter {
+	for i := range p.sessions {
+		if p.sessions[i].ID == sessionID {
+			if p.sessions[i].AdapterID == "" {
+				return nil
+			}
+			return p.adapters[p.sessions[i].AdapterID]
 		}
 	}
 	return nil

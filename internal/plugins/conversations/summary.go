@@ -81,6 +81,8 @@ func ComputeSessionSummary(messages []adapter.Message, duration time.Duration) S
 func estimateTotalCost(model string, inputTokens, outputTokens, cacheRead int) float64 {
 	var inRate, outRate float64
 	switch {
+	case strings.HasPrefix(model, "gpt-") || strings.HasPrefix(model, "o") || strings.Contains(model, "codex"):
+		return 0
 	case strings.Contains(model, "opus"):
 		inRate, outRate = 15.0, 75.0
 	case strings.Contains(model, "sonnet"):

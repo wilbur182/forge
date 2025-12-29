@@ -11,6 +11,7 @@ import (
 // SearchFilters holds multi-dimensional filter criteria.
 type SearchFilters struct {
 	Query      string    // Text search
+	Adapters   []string  // ["claude-code", "codex"]
 	Models     []string  // ["opus", "sonnet", "haiku"]
 	DateRange  DateRange // today, week, custom
 	MinTokens  int       // Sessions with > N tokens
@@ -29,12 +30,34 @@ type DateRange struct {
 // IsActive returns true if any filter is active.
 func (f *SearchFilters) IsActive() bool {
 	return f.Query != "" ||
+		len(f.Adapters) > 0 ||
 		len(f.Models) > 0 ||
 		f.DateRange.Preset != "" ||
 		f.MinTokens > 0 ||
 		f.MaxTokens > 0 ||
 		f.ActiveOnly ||
 		len(f.HasFiles) > 0
+}
+
+// ToggleAdapter toggles an adapter in the filter list.
+func (f *SearchFilters) ToggleAdapter(adapterID string) {
+	for i, id := range f.Adapters {
+		if id == adapterID {
+			f.Adapters = append(f.Adapters[:i], f.Adapters[i+1:]...)
+			return
+		}
+	}
+	f.Adapters = append(f.Adapters, adapterID)
+}
+
+// HasAdapter returns true if the adapter is in the filter list.
+func (f *SearchFilters) HasAdapter(adapterID string) bool {
+	for _, id := range f.Adapters {
+		if id == adapterID {
+			return true
+		}
+	}
+	return false
 }
 
 // ToggleModel toggles a model in the filter list.
@@ -95,9 +118,15 @@ func (f *SearchFilters) Matches(session adapter.Session) bool {
 		query := strings.ToLower(f.Query)
 		if !strings.Contains(strings.ToLower(session.Name), query) &&
 			!strings.Contains(strings.ToLower(session.Slug), query) &&
-			!strings.Contains(session.ID, query) {
+			!strings.Contains(session.ID, query) &&
+			!strings.Contains(strings.ToLower(session.AdapterName), query) {
 			return false
 		}
+	}
+
+	// Adapter filter
+	if len(f.Adapters) > 0 && !f.HasAdapter(session.AdapterID) {
+		return false
 	}
 
 	// Model filter
@@ -135,6 +164,9 @@ func (f *SearchFilters) String() string {
 
 	if len(f.Models) > 0 {
 		parts = append(parts, "[model:"+strings.Join(f.Models, ",")+"]")
+	}
+	if len(f.Adapters) > 0 {
+		parts = append(parts, "[adapter:"+strings.Join(f.Adapters, ",")+"]")
 	}
 	if f.DateRange.Preset != "" {
 		parts = append(parts, "["+f.DateRange.Preset+"]")

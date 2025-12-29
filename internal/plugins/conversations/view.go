@@ -3,6 +3,7 @@ package conversations
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 // renderNoAdapter renders the view when no adapter is available.
 func renderNoAdapter() string {
-	return styles.Muted.Render(" Claude Code sessions not available")
+	return styles.Muted.Render(" No AI sessions available")
 }
 
 // renderSessions renders the session list view with time grouping.
@@ -24,10 +25,13 @@ func (p *Plugin) renderSessions() string {
 
 	// Header with count
 	countStr := fmt.Sprintf("%d sessions", len(p.sessions))
+	if breakdown := adapterBreakdown(p.sessions); breakdown != "" {
+		countStr = fmt.Sprintf("%s (%s)", countStr, breakdown)
+	}
 	if p.searchMode && p.searchQuery != "" {
 		countStr = fmt.Sprintf("%d/%d", len(sessions), len(p.sessions))
 	}
-	header := fmt.Sprintf(" Claude Code Sessions                    %s", countStr)
+	header := fmt.Sprintf(" Sessions                                %s", countStr)
 	sb.WriteString(styles.PanelHeader.Render(header))
 	sb.WriteString("\n")
 
@@ -152,6 +156,9 @@ func (p *Plugin) renderSessionRow(session adapter.Session, selected bool) string
 		typeIndicator = styles.Muted.Render("↳")
 	}
 
+	badgeText := adapterBadgeText(session)
+	badge := styles.Muted.Render(badgeText)
+
 	// Timestamp - just time for today, date otherwise
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -182,7 +189,7 @@ func (p *Plugin) renderSessionRow(session adapter.Session, selected bool) string
 
 	// Build the row: cursor + active + time + name + duration
 	// Format: ● 14:23  "Add auth flow"                        12m
-	maxNameWidth := p.width - 25
+	maxNameWidth := p.width - 25 - len(badgeText) - 1
 	if len(name) > maxNameWidth && maxNameWidth > 3 {
 		name = name[:maxNameWidth-3] + "..."
 	}
@@ -193,9 +200,10 @@ func (p *Plugin) renderSessionRow(session adapter.Session, selected bool) string
 		namePadded = name + strings.Repeat(" ", maxNameWidth-len(name))
 	}
 
-	return lineStyle.Render(fmt.Sprintf("%s%s %s  %s  %s",
+	return lineStyle.Render(fmt.Sprintf("%s%s %s %s  %s  %s",
 		cursor,
 		typeIndicator,
+		badge,
 		styles.Muted.Render(ts),
 		namePadded,
 		styles.Muted.Render(dur)))
@@ -280,7 +288,7 @@ func (p *Plugin) renderSessionHeader(sb *strings.Builder, sessionName string, se
 		s := p.sessionSummary
 		modelShort := modelShortName(s.PrimaryModel)
 		if modelShort == "" {
-			modelShort = "claude"
+			modelShort = adapterShortName(session)
 		}
 
 		statsLine := fmt.Sprintf(" %s  │  %d msgs  │  %s in  %s out",
@@ -553,8 +561,166 @@ func formatK(n int) string {
 	return fmt.Sprintf("%d", n)
 }
 
+func adapterBreakdown(sessions []adapter.Session) string {
+	counts := make(map[string]int)
+	for _, session := range sessions {
+		abbr := adapterAbbrev(session)
+		if abbr == "" {
+			continue
+		}
+		counts[abbr]++
+	}
+	if len(counts) <= 1 {
+		return ""
+	}
+	var keys []string
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var parts []string
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%d %s", counts[key], key))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func adapterBadgeText(session adapter.Session) string {
+	abbr := adapterAbbrev(session)
+	if abbr == "" {
+		return ""
+	}
+	return "●" + abbr
+}
+
+func adapterAbbrev(session adapter.Session) string {
+	switch session.AdapterID {
+	case "claude-code":
+		return "CC"
+	case "codex":
+		return "CX"
+	default:
+		name := session.AdapterName
+		if name == "" {
+			name = session.AdapterID
+		}
+		name = strings.ReplaceAll(name, " ", "")
+		if name == "" {
+			return ""
+		}
+		if len(name) <= 2 {
+			return strings.ToUpper(name)
+		}
+		return strings.ToUpper(name[:2])
+	}
+}
+
+func adapterShortName(session *adapter.Session) string {
+	if session == nil {
+		return ""
+	}
+	switch session.AdapterID {
+	case "claude-code":
+		return "claude"
+	case "codex":
+		return "codex"
+	default:
+		if session.AdapterName != "" {
+			return strings.ToLower(session.AdapterName)
+		}
+		return session.AdapterID
+	}
+}
+
+type adapterFilterOption struct {
+	key  string
+	id   string
+	name string
+}
+
+func adapterFilterOptions(adapters map[string]adapter.Adapter) []adapterFilterOption {
+	if len(adapters) == 0 {
+		return nil
+	}
+
+	reservedKeys := map[string]bool{
+		"1": true,
+		"2": true,
+		"3": true,
+		"t": true,
+		"y": true,
+		"w": true,
+		"a": true,
+		"x": true,
+	}
+
+	usedKeys := make(map[string]bool)
+	var options []adapterFilterOption
+
+	addOption := func(id string, name string, key string) {
+		if key == "" || usedKeys[key] || reservedKeys[key] {
+			return
+		}
+		usedKeys[key] = true
+		options = append(options, adapterFilterOption{key: key, id: id, name: name})
+	}
+
+	if a, ok := adapters["claude-code"]; ok {
+		addOption("claude-code", a.Name(), "c")
+	}
+	if a, ok := adapters["codex"]; ok {
+		addOption("codex", a.Name(), "o")
+	}
+
+	var extra []adapterFilterOption
+	for id, a := range adapters {
+		if id == "claude-code" || id == "codex" {
+			continue
+		}
+		name := a.Name()
+		if name == "" {
+			name = id
+		}
+		key := ""
+		for _, r := range strings.ToLower(name) {
+			candidate := string(r)
+			if usedKeys[candidate] || reservedKeys[candidate] {
+				continue
+			}
+			key = candidate
+			break
+		}
+		if key != "" {
+			usedKeys[key] = true
+			extra = append(extra, adapterFilterOption{key: key, id: id, name: name})
+		}
+	}
+
+	sort.Slice(extra, func(i, j int) bool {
+		return extra[i].name < extra[j].name
+	})
+
+	options = append(options, extra...)
+	return options
+}
+
+func resumeCommand(session *adapter.Session) string {
+	if session == nil || session.ID == "" {
+		return ""
+	}
+	switch session.AdapterID {
+	case "claude-code":
+		return fmt.Sprintf("claude --resume %s", session.ID)
+	case "codex":
+		return fmt.Sprintf("codex resume %s", session.ID)
+	default:
+		return ""
+	}
+}
+
 // modelShortName maps model IDs to short display names.
 func modelShortName(model string) string {
+	model = strings.ToLower(model)
 	switch {
 	case strings.Contains(model, "opus"):
 		return "opus"
@@ -562,6 +728,18 @@ func modelShortName(model string) string {
 		return "sonnet"
 	case strings.Contains(model, "haiku"):
 		return "haiku"
+	case strings.HasPrefix(model, "gpt-"):
+		parts := strings.Split(model, "-")
+		if len(parts) > 1 {
+			return "gpt" + parts[1]
+		}
+		return "gpt"
+	case strings.HasPrefix(model, "o"):
+		parts := strings.Split(model, "-")
+		if len(parts) > 0 && parts[0] != "" {
+			return parts[0]
+		}
+		return "o"
 	default:
 		return ""
 	}
@@ -767,7 +945,9 @@ func (p *Plugin) renderSidebarPane(height int) string {
 func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool, maxWidth int) string {
 	// Calculate prefix length for width calculations
 	// cursor(2) + active(1) + selected(0-1) + subagent indent(2)
-	prefixLen := 3
+	badgeText := adapterBadgeText(session)
+	badge := styles.Muted.Render(badgeText)
+	prefixLen := 3 + len(badgeText) + 1
 	if session.ID == p.selectedSession {
 		prefixLen++
 	}
@@ -818,6 +998,8 @@ func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool,
 		sb.WriteString(styles.StatusStaged.Render("*"))
 	}
 
+	sb.WriteString(badge)
+	sb.WriteString(" ")
 	sb.WriteString(name)
 
 	result := sb.String()
@@ -870,7 +1052,7 @@ func (p *Plugin) renderMainPane(paneWidth, height int) string {
 		s := p.sessionSummary
 		modelShort := modelShortName(s.PrimaryModel)
 		if modelShort == "" {
-			modelShort = "claude"
+			modelShort = adapterShortName(session)
 		}
 		statsLine := fmt.Sprintf("%s │ %d msgs │ %s→%s",
 			modelShort,
@@ -886,12 +1068,14 @@ func (p *Plugin) renderMainPane(paneWidth, height int) string {
 
 	// Resume command
 	if session != nil {
-		resumeCmd := fmt.Sprintf("claude --resume %s", session.ID)
-		if len(resumeCmd) > contentWidth {
-			resumeCmd = resumeCmd[:contentWidth-3] + "..."
+		resumeCmd := resumeCommand(session)
+		if resumeCmd != "" {
+			if len(resumeCmd) > contentWidth {
+				resumeCmd = resumeCmd[:contentWidth-3] + "..."
+			}
+			sb.WriteString(styles.Code.Render(resumeCmd))
+			sb.WriteString("\n")
 		}
-		sb.WriteString(styles.Code.Render(resumeCmd))
-		sb.WriteString("\n")
 	}
 
 	sepWidth := contentWidth
@@ -1093,6 +1277,21 @@ func (p *Plugin) renderFilterMenu(height int) string {
 	sb.WriteString(styles.Muted.Render(strings.Repeat("─", p.sidebarWidth-4)))
 	sb.WriteString("\n\n")
 
+	// Adapter filters
+	adapterOptions := adapterFilterOptions(p.adapters)
+	if len(adapterOptions) > 0 {
+		sb.WriteString(styles.Subtitle.Render("Adapter:"))
+		sb.WriteString("\n")
+		for _, opt := range adapterOptions {
+			checkbox := "[ ]"
+			if p.filters.HasAdapter(opt.id) {
+				checkbox = "[✓]"
+			}
+			sb.WriteString(fmt.Sprintf("  %s %s %s\n", styles.Code.Render(opt.key), checkbox, opt.name))
+		}
+		sb.WriteString("\n")
+	}
+
 	// Model filters
 	sb.WriteString(styles.Subtitle.Render("Model:"))
 	sb.WriteString("\n")
@@ -1144,7 +1343,7 @@ func (p *Plugin) renderFilterMenu(height int) string {
 	sb.WriteString("\n")
 
 	// Clear filters
-	sb.WriteString(fmt.Sprintf("  %s Clear all filters\n", styles.Code.Render("c")))
+	sb.WriteString(fmt.Sprintf("  %s Clear all filters\n", styles.Code.Render("x")))
 
 	return sb.String()
 }

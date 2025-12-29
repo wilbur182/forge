@@ -29,17 +29,19 @@ type CapabilitySet map[Capability]bool
 
 // Session represents an AI coding session.
 type Session struct {
-	ID          string
-	Name        string
-	Slug        string // Short identifier for display (e.g., "ses_abc123")
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Duration    time.Duration
-	IsActive    bool
-	TotalTokens int     // Sum of input + output tokens
-	EstCost     float64 // Estimated cost in dollars
-	IsSubAgent  bool    // True if this is a sub-agent spawned by another session
-	MessageCount int    // Number of user/assistant messages (0 = metadata-only)
+	ID           string
+	Name         string
+	Slug         string // Short identifier for display (e.g., "ses_abc123")
+	AdapterID    string // Adapter identifier (e.g., "claude-code", "codex")
+	AdapterName  string // Human-readable adapter name
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Duration     time.Duration
+	IsActive     bool
+	TotalTokens  int     // Sum of input + output tokens
+	EstCost      float64 // Estimated cost in dollars
+	IsSubAgent   bool    // True if this is a sub-agent spawned by another session
+	MessageCount int     // Number of user/assistant messages (0 = metadata-only)
 }
 
 // ThinkingBlock represents Claude's extended thinking content.
