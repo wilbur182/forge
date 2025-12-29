@@ -399,16 +399,24 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 				stagedCount := len(p.tree.Staged)
 				totalEntries := len(entries)
 
-				if err := p.tree.StageFile(entry.Path); err == nil {
-					// After staging, move cursor to first unstaged file position
-					newFirstUnstaged := stagedCount + 1
-					if newFirstUnstaged < totalEntries {
-						p.cursor = newFirstUnstaged
-					} else {
-						p.cursor = totalEntries - 1
+				// Handle folder entries - stage all children
+				if entry.IsFolder {
+					for _, child := range entry.Children {
+						_ = p.tree.StageFile(child.Path)
 					}
-					return p, tea.Batch(p.refresh(), p.loadRecentCommits())
+				} else {
+					if err := p.tree.StageFile(entry.Path); err != nil {
+						return p, nil
+					}
 				}
+				// After staging, move cursor to first unstaged file position
+				newFirstUnstaged := stagedCount + 1
+				if newFirstUnstaged < totalEntries {
+					p.cursor = newFirstUnstaged
+				} else {
+					p.cursor = totalEntries - 1
+				}
+				return p, tea.Batch(p.refresh(), p.loadRecentCommits())
 			}
 		}
 
@@ -431,6 +439,9 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.diffFile = entry.Path
 			p.diffCommit = ""
 			p.diffScroll = 0
+			if entry.IsFolder {
+				return p, p.loadFullFolderDiff(entry)
+			}
 			return p, p.loadDiff(entry.Path, entry.Staged, entry.Status)
 		}
 		// For commits, focus the preview pane (same as l/right)
@@ -439,6 +450,7 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		}
 
 	case "enter":
+		// For folders: toggle expand/collapse
 		// For files: open in editor
 		// For commits: focus the preview pane
 		if p.cursorOnCommit() {
@@ -447,6 +459,12 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			}
 		} else if len(entries) > 0 && p.cursor < len(entries) {
 			entry := entries[p.cursor]
+			if entry.IsFolder {
+				// Toggle folder expansion
+				entry.IsExpanded = !entry.IsExpanded
+				// Reload diff for this folder
+				return p, p.autoLoadDiff()
+			}
 			return p, p.openFile(entry.Path)
 		}
 
@@ -680,7 +698,7 @@ func (p *Plugin) ensurePreviewCursorVisible() {
 	}
 }
 
-// autoLoadDiff triggers loading the diff for the currently selected file.
+// autoLoadDiff triggers loading the diff for the currently selected file or folder.
 func (p *Plugin) autoLoadDiff() tea.Cmd {
 	entries := p.tree.AllEntries()
 	if len(entries) == 0 || p.cursor >= len(entries) {
@@ -699,6 +717,12 @@ func (p *Plugin) autoLoadDiff() tea.Cmd {
 	p.diffPaneScroll = 0
 	// Clear commit preview when switching to file
 	p.previewCommit = nil
+
+	// Handle folder entries
+	if entry.IsFolder {
+		return p.loadFolderDiff(entry)
+	}
+
 	return p.loadInlineDiff(entry.Path, entry.Staged, entry.Status)
 }
 
@@ -1262,6 +1286,44 @@ func (p *Plugin) loadRecentCommits() tea.Cmd {
 			return RecentCommitsLoadedMsg{Commits: nil, PushStatus: nil}
 		}
 		return RecentCommitsLoadedMsg{Commits: commits, PushStatus: pushStatus}
+	}
+}
+
+// loadFolderDiff loads a concatenated diff for all files in a folder.
+func (p *Plugin) loadFolderDiff(entry *FileEntry) tea.Cmd {
+	workDir := p.ctx.WorkDir
+	folderPath := entry.Path
+	children := entry.Children
+	return func() tea.Msg {
+		rawDiff, err := GetFolderDiff(workDir, children)
+		if err != nil {
+			return InlineDiffLoadedMsg{File: folderPath, Raw: "", Parsed: nil}
+		}
+		parsed, _ := ParseUnifiedDiff(rawDiff)
+		return InlineDiffLoadedMsg{File: folderPath, Raw: rawDiff, Parsed: parsed}
+	}
+}
+
+// loadFullFolderDiff loads a concatenated diff for full-screen view.
+func (p *Plugin) loadFullFolderDiff(entry *FileEntry) tea.Cmd {
+	workDir := p.ctx.WorkDir
+	extTool := p.externalTool
+	width := p.width
+	children := entry.Children
+	return func() tea.Msg {
+		rawDiff, err := GetFolderDiff(workDir, children)
+		if err != nil {
+			return ErrorMsg{Err: err}
+		}
+
+		// Try to render with delta if available
+		content := rawDiff
+		if extTool != nil && extTool.ShouldUseDelta() {
+			rendered, _ := extTool.RenderWithDelta(rawDiff, false, width)
+			content = rendered
+		}
+
+		return DiffLoadedMsg{Content: content, Raw: rawDiff}
 	}
 }
 

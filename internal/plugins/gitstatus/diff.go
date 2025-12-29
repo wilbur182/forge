@@ -154,3 +154,27 @@ func isBinaryContent(content []byte) bool {
 	}
 	return false
 }
+
+// GetFolderDiff creates a concatenated diff for all files in an untracked folder.
+// Each file gets a header with its path, followed by its content as additions.
+func GetFolderDiff(workDir string, files []*FileEntry) (string, error) {
+	var sb strings.Builder
+
+	for i, file := range files {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+
+		fileDiff, err := GetNewFileDiff(workDir, file.Path)
+		if err != nil {
+			// Write error placeholder for this file
+			sb.WriteString(fmt.Sprintf("diff --git a/%s b/%s\n", file.Path, file.Path))
+			sb.WriteString(fmt.Sprintf("Error reading file: %s\n", err))
+			continue
+		}
+
+		sb.WriteString(fileDiff)
+	}
+
+	return sb.String(), nil
+}

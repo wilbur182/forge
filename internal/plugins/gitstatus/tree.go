@@ -25,7 +25,7 @@ const (
 	StatusUnmerged  FileStatus = "U"
 )
 
-// FileEntry represents a single file in the git status.
+// FileEntry represents a single file or folder in the git status.
 type FileEntry struct {
 	Path       string
 	Status     FileStatus
@@ -34,6 +34,8 @@ type FileEntry struct {
 	OldPath    string // For renames
 	DiffStats  DiffStats
 	IsExpanded bool
+	IsFolder   bool         // True if this represents an untracked folder
+	Children   []*FileEntry // Files within this folder (when IsFolder is true)
 }
 
 // DiffStats holds addition/deletion counts.
@@ -75,6 +77,9 @@ func (t *FileTree) Refresh() error {
 	if err := temp.loadDiffStats(); err != nil {
 		// Non-fatal: continue without stats
 	}
+
+	// Group untracked files by folder
+	temp.groupUntrackedFolders()
 
 	// Swap in new data atomically
 	t.Staged = temp.Staged
@@ -309,6 +314,68 @@ func (t *FileTree) TotalCount() int {
 	return len(t.Staged) + len(t.Modified) + len(t.Untracked)
 }
 
+// groupUntrackedFolders groups untracked files that share a common top-level directory.
+// Files within a folder are collapsed into a single folder entry with Children.
+func (t *FileTree) groupUntrackedFolders() {
+	if len(t.Untracked) == 0 {
+		return
+	}
+
+	// Group files by their top-level directory
+	folderMap := make(map[string][]*FileEntry)
+	var standaloneFiles []*FileEntry
+
+	for _, entry := range t.Untracked {
+		// Check if file is in a subdirectory
+		idx := strings.Index(entry.Path, "/")
+		if idx > 0 {
+			folder := entry.Path[:idx]
+			folderMap[folder] = append(folderMap[folder], entry)
+		} else {
+			standaloneFiles = append(standaloneFiles, entry)
+		}
+	}
+
+	// Build new untracked list with folder entries
+	var newUntracked []*FileEntry
+
+	// Add folder entries (only for folders with multiple files or deep nesting)
+	folders := make([]string, 0, len(folderMap))
+	for folder := range folderMap {
+		folders = append(folders, folder)
+	}
+	sort.Strings(folders)
+
+	for _, folder := range folders {
+		files := folderMap[folder]
+		if len(files) >= 2 {
+			// Create a folder entry with children
+			folderEntry := &FileEntry{
+				Path:       folder + "/",
+				Status:     StatusUntracked,
+				Unstaged:   true,
+				IsFolder:   true,
+				IsExpanded: false,
+				Children:   files,
+			}
+			newUntracked = append(newUntracked, folderEntry)
+		} else {
+			// Single file in folder - keep as standalone
+			newUntracked = append(newUntracked, files...)
+		}
+	}
+
+	// Add standalone files
+	newUntracked = append(newUntracked, standaloneFiles...)
+
+	// Sort by path
+	sort.Slice(newUntracked, func(i, j int) bool {
+		return newUntracked[i].Path < newUntracked[j].Path
+	})
+
+	t.Untracked = newUntracked
+}
+
 // Summary returns a summary string like "2 staged, 3 modified".
 func (t *FileTree) Summary() string {
 	var parts []string
@@ -328,11 +395,19 @@ func (t *FileTree) Summary() string {
 }
 
 // AllEntries returns all entries in display order.
+// Folder entries are included, and if expanded, their children follow.
 func (t *FileTree) AllEntries() []*FileEntry {
 	var all []*FileEntry
 	all = append(all, t.Staged...)
 	all = append(all, t.Modified...)
-	all = append(all, t.Untracked...)
+
+	// For untracked, handle folder expansion
+	for _, entry := range t.Untracked {
+		all = append(all, entry)
+		if entry.IsFolder && entry.IsExpanded {
+			all = append(all, entry.Children...)
+		}
+	}
 	return all
 }
 

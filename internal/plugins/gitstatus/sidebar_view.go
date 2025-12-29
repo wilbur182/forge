@@ -224,6 +224,32 @@ func (p *Plugin) renderSidebarEntry(entry *FileEntry, selected bool, maxWidth in
 
 	status := statusStyle.Render(string(entry.Status))
 
+	// Handle folder entries specially
+	if entry.IsFolder {
+		// Show expand/collapse indicator and file count
+		indicator := "▶"
+		if entry.IsExpanded {
+			indicator = "▼"
+		}
+		folderName := entry.Path
+		fileCount := len(entry.Children)
+		countStr := fmt.Sprintf("(%d)", fileCount)
+
+		// Calculate available width
+		availableWidth := maxWidth - 6 // cursor + status + indicator + spacing
+		displayName := folderName
+		if len(folderName)+len(countStr)+1 > availableWidth && availableWidth > 10 {
+			displayName = folderName[:availableWidth-len(countStr)-4] + "…/"
+		}
+
+		lineStyle := styles.ListItemNormal
+		if selected {
+			lineStyle = styles.ListItemSelected
+		}
+
+		return lineStyle.Render(fmt.Sprintf("%s%s %s %s %s", cursor, status, indicator, displayName, styles.Muted.Render(countStr)))
+	}
+
 	// Path - truncate if needed
 	path := entry.Path
 	availableWidth := maxWidth - 4 // cursor + status + space
