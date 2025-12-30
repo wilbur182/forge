@@ -367,22 +367,20 @@ func (a *Adapter) parseSessionFile(path, projectID string) (*SessionMetadata, er
 		meta.Additions = sess.Summary.Additions
 		meta.Deletions = sess.Summary.Deletions
 		meta.FileCount = sess.Summary.Files
-	}
-
-	// Load session diff for additional stats
-	diffPath := filepath.Join(a.storageDir, "session_diff", sess.ID+".json")
-	if diffData, err := os.ReadFile(diffPath); err == nil {
-		var diffs []SessionDiffEntry
-		if json.Unmarshal(diffData, &diffs) == nil {
-			for _, d := range diffs {
-				if d.Additions != nil {
-					meta.Additions += *d.Additions
+	} else {
+		// Fallback: load stats from session_diff only if Summary not available
+		diffPath := filepath.Join(a.storageDir, "session_diff", sess.ID+".json")
+		if diffData, err := os.ReadFile(diffPath); err == nil {
+			var diffs []SessionDiffEntry
+			if json.Unmarshal(diffData, &diffs) == nil {
+				for _, d := range diffs {
+					if d.Additions != nil {
+						meta.Additions += *d.Additions
+					}
+					if d.Deletions != nil {
+						meta.Deletions += *d.Deletions
+					}
 				}
-				if d.Deletions != nil {
-					meta.Deletions += *d.Deletions
-				}
-			}
-			if meta.FileCount == 0 {
 				meta.FileCount = len(diffs)
 			}
 		}
