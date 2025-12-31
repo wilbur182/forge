@@ -58,16 +58,9 @@ func DefaultBindings() []Binding {
 		{Key: "k", Command: "scroll", Context: "git-diff"},
 		{Key: "O", Command: "open-in-file-browser", Context: "git-diff"},
 
-		// TD Monitor context
-		{Key: "a", Command: "approve-issue", Context: "td-monitor"},
-		{Key: "r", Command: "mark-review", Context: "td-monitor"},
-		{Key: "x", Command: "delete-issue", Context: "td-monitor"},
-		{Key: "enter", Command: "view-details", Context: "td-monitor"},
-
-		// TD Detail context
-		{Key: "esc", Command: "back", Context: "td-detail"},
-		{Key: "a", Command: "approve-issue", Context: "td-detail"},
-		{Key: "x", Command: "delete-issue", Context: "td-detail"},
+		// TD Monitor bindings are registered dynamically by the TD plugin
+		// via ctx.Keymap.RegisterPluginBinding() in Init()
+		// This keeps TD as the single source of truth for shortcuts
 
 		// Conversations context
 		{Key: "enter", Command: "view-session", Context: "conversations"},

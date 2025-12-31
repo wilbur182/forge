@@ -201,10 +201,22 @@ Each plugin returns a context string that determines which bindings are active.
 | `file-browser-quick-open` | Quick open | Fuzzy file finder |
 
 ### TD Monitor Plugin
+
+**Note:** TD shortcuts are dynamically exported from TD itself. The TD plugin consumes
+`ExportBindings()` and `ExportCommands()` from TD's keymap package, making TD the single
+source of truth. To add new TD shortcuts, modify TD's `pkg/monitor/keymap/bindings.go`.
+
 | Context | View | Description |
 |---------|------|-------------|
 | `td-monitor` | Issue list | Root view, 'q' quits |
-| `td-detail` | Issue detail | Single issue view |
+| `td-modal` | Issue detail modal | Issue details open |
+| `td-stats` | Statistics modal | Stats dashboard |
+| `td-search` | Search mode | Search input active |
+| `td-confirm` | Confirm dialog | Confirmation prompt |
+| `td-epic-tasks` | Epic task list | Task section focused in epic modal |
+| `td-parent-epic` | Parent epic focused | Parent epic row focused |
+| `td-handoffs` | Handoffs modal | Handoffs list open |
+| `td-global` | Global TD context | TD global shortcuts |
 
 ## Root Contexts ('q' to Quit)
 
@@ -221,7 +233,7 @@ In root contexts, pressing 'q' shows the quit confirmation. In non-root contexts
 - `conversation-detail`, `message-detail`, `analytics`
 - `git-diff`, `git-commit`, `git-history`, etc.
 - `file-browser-preview`, etc.
-- `td-detail`
+- `td-modal`, `td-stats`, `td-search`, `td-confirm`, `td-epic-tasks`, `td-parent-epic`, `td-handoffs`
 
 ## Complete Example: Adding "edit" to File Browser
 
@@ -401,3 +413,75 @@ The palette uses virtual scrolling - only visible entries are rendered. Scroll i
 5. Test that keys trigger correct actions
 6. Test context switches (enter subview, verify new bindings active)
 7. Test 'q' behavior in each context (quit vs back)
+
+## TD Monitor: Dynamic Shortcut Integration
+
+The TD Monitor plugin uses a **dynamic export pattern** instead of hardcoded bindings.
+TD itself is the single source of truth for shortcuts.
+
+### How It Works
+
+1. **TD exports metadata** via `pkg/monitor/keymap/export.go`:
+   - `ExportBindings()` - Returns all key→command mappings
+   - `ExportCommands()` - Returns command metadata (name, description, priority)
+   - `CurrentContextString()` - Returns current context for sidecar
+
+2. **Sidecar consumes exports** in `internal/plugins/tdmonitor/plugin.go`:
+   - `Init()` - Registers TD bindings with sidecar's keymap
+   - `Commands()` - Returns TD's exported command metadata
+   - `FocusContext()` - Delegates to TD's context tracking
+
+3. **Context mapping** from TD to sidecar:
+   | TD Context | Sidecar Context |
+   |------------|-----------------|
+   | main | td-monitor |
+   | modal | td-modal |
+   | stats | td-stats |
+   | search | td-search |
+   | confirm | td-confirm |
+   | epic-tasks | td-epic-tasks |
+   | parent-epic-focused | td-parent-epic |
+   | handoffs | td-handoffs |
+   | global | td-global |
+
+### Adding a New TD Shortcut
+
+**Step 1:** Add binding to TD's `pkg/monitor/keymap/bindings.go`:
+```go
+{Key: "n", Command: CmdNewIssue, Context: ContextMain, Description: "Create new issue"},
+```
+
+**Step 2:** Add command constant to TD's `pkg/monitor/keymap/registry.go`:
+```go
+CmdNewIssue Command = "new-issue"
+```
+
+**Step 3:** Add metadata to TD's `pkg/monitor/keymap/export.go`:
+```go
+CmdNewIssue: {"New", "Create new issue", 2},
+```
+
+**Step 4:** Handle the command in TD's `pkg/monitor/model.go`:
+```go
+case keymap.CmdNewIssue:
+    return m.createNewIssue()
+```
+
+The shortcut automatically appears in sidecar's footer and command palette.
+
+### Priority Levels
+
+Priority determines footer visibility:
+- **1-3**: Shown in footer (space permitting)
+- **4+**: Palette only
+
+```go
+// High priority - always visible
+CmdOpenDetails: {"Details", "Open issue details", 1},
+
+// Medium priority - shown when space allows
+CmdOpenStats: {"Stats", "Open statistics", 2},
+
+// Low priority - palette only
+CmdCursorDown: {"Down", "Move cursor down", 5},
+```

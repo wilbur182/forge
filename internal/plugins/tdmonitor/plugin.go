@@ -61,6 +61,14 @@ func (p *Plugin) Init(ctx *plugin.Context) error {
 	}
 
 	p.model = model
+
+	// Register TD bindings with sidecar's keymap (single source of truth)
+	if ctx.Keymap != nil && model.Keymap != nil {
+		for _, b := range model.Keymap.ExportBindings() {
+			ctx.Keymap.RegisterPluginBinding(b.Key, b.Command, b.Context)
+		}
+	}
+
 	return nil
 }
 
@@ -142,38 +150,61 @@ func (p *Plugin) IsFocused() bool { return p.focused }
 // SetFocused sets the focus state.
 func (p *Plugin) SetFocused(f bool) { p.focused = f }
 
-// Commands returns the available commands.
+// Commands returns the available commands by consuming TD's exported command metadata.
 func (p *Plugin) Commands() []plugin.Command {
-	if p.model == nil {
+	if p.model == nil || p.model.Keymap == nil {
 		return nil
 	}
 
-	// Expose td monitor's key commands
-	return []plugin.Command{
-		{ID: "open-details", Name: "Details", Description: "View task details", Category: plugin.CategoryView, Context: "td-monitor", Priority: 1},
-		{ID: "approve", Name: "Approve", Description: "Approve task for completion", Category: plugin.CategoryActions, Context: "td-monitor", Priority: 2},
-		{ID: "mark-review", Name: "Review", Description: "Mark task for review", Category: plugin.CategoryActions, Context: "td-monitor", Priority: 2},
-		{ID: "search", Name: "Search", Description: "Filter tasks", Category: plugin.CategorySearch, Context: "td-monitor", Priority: 3},
-		{ID: "toggle-closed", Name: "Closed", Description: "Show/hide closed tasks", Category: plugin.CategoryView, Context: "td-monitor", Priority: 3},
-		{ID: "delete", Name: "Delete", Description: "Delete task", Category: plugin.CategoryActions, Context: "td-monitor", Priority: 4},
-		{ID: "stats", Name: "Stats", Description: "Show session statistics", Category: plugin.CategoryView, Context: "td-monitor", Priority: 4},
-		{ID: "help", Name: "Help", Description: "Show help", Category: plugin.CategorySystem, Context: "td-monitor", Priority: 5},
-		{ID: "close-modal", Name: "Close", Description: "Close modal", Category: plugin.CategoryNavigation, Context: "td-modal", Priority: 1},
+	// Get exported commands from TD (single source of truth)
+	exported := p.model.Keymap.ExportCommands()
+	commands := make([]plugin.Command, 0, len(exported))
+
+	for _, cmd := range exported {
+		commands = append(commands, plugin.Command{
+			ID:          cmd.ID,
+			Name:        cmd.Name,
+			Description: cmd.Description,
+			Context:     cmd.Context,
+			Priority:    cmd.Priority,
+			Category:    categorizeCommand(cmd.ID),
+		})
+	}
+
+	return commands
+}
+
+// categorizeCommand returns the appropriate category for a command ID.
+func categorizeCommand(id string) plugin.Category {
+	switch id {
+	case "open-details", "toggle-closed", "open-stats", "toggle-help":
+		return plugin.CategoryView
+	case "search", "search-confirm", "search-cancel", "search-clear":
+		return plugin.CategorySearch
+	case "approve", "mark-for-review", "delete", "confirm", "cancel", "refresh", "copy-to-clipboard":
+		return plugin.CategoryActions
+	case "cursor-down", "cursor-up", "cursor-top", "cursor-bottom",
+		"half-page-down", "half-page-up", "full-page-down", "full-page-up",
+		"scroll-down", "scroll-up", "next-panel", "prev-panel",
+		"focus-panel-1", "focus-panel-2", "focus-panel-3",
+		"navigate-prev", "navigate-next", "close", "back", "select",
+		"focus-task-section", "open-epic-task", "open-parent-epic", "open-handoffs":
+		return plugin.CategoryNavigation
+	case "quit":
+		return plugin.CategorySystem
+	default:
+		return plugin.CategoryActions
 	}
 }
 
-// FocusContext returns the current focus context based on monitor state.
+// FocusContext returns the current focus context by consuming TD's context state.
 func (p *Plugin) FocusContext() string {
 	if p.model == nil {
 		return "td-monitor"
 	}
 
-	// Check if modal is open
-	if p.model.ModalOpen() || p.model.StatsOpen || p.model.ConfirmOpen {
-		return "td-modal"
-	}
-
-	return "td-monitor"
+	// Delegate to TD's context tracking (single source of truth)
+	return p.model.CurrentContextString()
 }
 
 // Diagnostics returns plugin health info.

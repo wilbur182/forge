@@ -58,6 +58,12 @@ func (r *Registry) RegisterBinding(b Binding) {
 	r.bindings[b.Context] = append(r.bindings[b.Context], b)
 }
 
+// RegisterPluginBinding satisfies plugin.BindingRegistrar interface.
+// It converts plugin.Binding to keymap.Binding and registers it.
+func (r *Registry) RegisterPluginBinding(key, command, context string) {
+	r.RegisterBinding(Binding{Key: key, Command: command, Context: context})
+}
+
 // SetUserOverride sets a user-configured key override.
 func (r *Registry) SetUserOverride(key, commandID string) {
 	r.mu.Lock()

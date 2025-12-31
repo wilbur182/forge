@@ -77,13 +77,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create plugin context
+	// Create keymap registry first (plugins may register bindings during Init)
+	km := keymap.NewRegistry()
+	keymap.RegisterDefaults(km)
+
+	// Create plugin context with keymap for dynamic binding registration
 	pluginCtx := &plugin.Context{
 		WorkDir:   workDir,
 		ConfigDir: config.ConfigPath(),
 		Adapters:  make(map[string]adapter.Adapter),
 		EventBus:  dispatcher,
 		Logger:    logger,
+		Keymap:    km,
 	}
 
 	// Detect adapters
@@ -99,14 +104,11 @@ func main() {
 	registry := plugin.NewRegistry(pluginCtx)
 
 	// Register plugins (order determines tab order)
+	// TD plugin registers its bindings dynamically via p.ctx.Keymap
 	registry.Register(tdmonitor.New())
 	registry.Register(gitstatus.New())
 	registry.Register(filebrowser.New())
 	registry.Register(conversations.New())
-
-	// Create keymap registry
-	km := keymap.NewRegistry()
-	keymap.RegisterDefaults(km)
 
 	// Apply user keymap overrides
 	for key, cmdID := range cfg.Keymap.Overrides {
