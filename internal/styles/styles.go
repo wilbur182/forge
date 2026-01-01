@@ -83,6 +83,10 @@ var (
 		Foreground(TextMuted).
 		Background(BgTertiary).
 		Padding(0, 1)
+
+	Logo = lipgloss.NewStyle().
+		Foreground(Primary).
+		Bold(true)
 )
 
 // Status indicator styles

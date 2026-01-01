@@ -512,7 +512,14 @@ func (m Model) renderDiagnosticsOverlay(content string) string {
 func (m Model) buildDiagnosticsContent() string {
 	var b strings.Builder
 
-	b.WriteString(styles.ModalTitle.Render("Diagnostics"))
+	logo := `
+   _____ _     __                    
+  / ___/(_)___/ /__  _________ ______
+  \__ \/ / __  / _ \/ ___/ __ \/ ___/
+ ___/ / / /_/ /  __/ /__/ /_/ / /    
+/____/_/\__,_/\___/\___/\__,_/_/     
+`
+	b.WriteString(styles.Logo.Render(logo))
 	b.WriteString("\n\n")
 
 	// Plugins status
