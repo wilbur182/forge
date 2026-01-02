@@ -221,6 +221,57 @@ func GetCommitHistoryWithPushStatus(workDir string, limit int) ([]*Commit, *Push
 	return commits, pushStatus, nil
 }
 
+// GetCommitHistoryWithOffset fetches commits starting from skip, up to limit.
+// Uses git log --skip=N to paginate through history.
+func GetCommitHistoryWithOffset(workDir string, limit, skip int) ([]*Commit, error) {
+	format := "%H%x00%h%x00%an%x00%ae%x00%at%x00%s"
+	args := []string{"log", "--format=" + format, "-n", strconv.Itoa(limit), "--skip", strconv.Itoa(skip)}
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = workDir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var commits []*Commit
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\x00")
+		if len(parts) < 6 {
+			continue
+		}
+
+		timestamp, _ := strconv.ParseInt(parts[4], 10, 64)
+		commits = append(commits, &Commit{
+			Hash:        parts[0],
+			ShortHash:   parts[1],
+			Author:      parts[2],
+			AuthorEmail: parts[3],
+			Date:        time.Unix(timestamp, 0),
+			Subject:     parts[5],
+		})
+	}
+
+	return commits, nil
+}
+
+// GetCommitHistoryWithPushStatusOffset fetches commits with offset and populates push status.
+func GetCommitHistoryWithPushStatusOffset(workDir string, limit, skip int) ([]*Commit, *PushStatus, error) {
+	commits, err := GetCommitHistoryWithOffset(workDir, limit, skip)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pushStatus := GetPushStatus(workDir)
+	PopulatePushStatus(commits, pushStatus)
+
+	return commits, pushStatus, nil
+}
+
 // RelativeTime returns a human-readable relative time string.
 func RelativeTime(t time.Time) string {
 	now := time.Now()

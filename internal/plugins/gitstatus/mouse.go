@@ -74,12 +74,14 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) (*Plugin, tea.Cmd) {
 
 	case regionCommit:
 		// Click on commit - select it
+		// idx is now absolute index into recentCommits
 		if idx, ok := action.Region.Data.(int); ok {
 			fileCount := len(p.tree.AllEntries())
 			newCursor := fileCount + idx
 			if newCursor != p.cursor {
 				p.cursor = newCursor
 				p.ensureCursorVisible()
+				p.ensureCommitVisible(idx)
 				return p, p.autoLoadCommitPreview()
 			}
 		}
@@ -113,10 +115,12 @@ func (p *Plugin) handleMouseDoubleClick(action mouse.MouseAction) (*Plugin, tea.
 
 	case regionCommit:
 		// Double-click on commit - focus preview pane
+		// idx is now absolute index into recentCommits
 		if idx, ok := action.Region.Data.(int); ok {
 			fileCount := len(p.tree.AllEntries())
 			p.cursor = fileCount + idx
 			p.ensureCursorVisible()
+			p.ensureCommitVisible(idx)
 			if p.previewCommit != nil {
 				p.activePane = PaneDiff
 			}
@@ -188,7 +192,14 @@ func (p *Plugin) scrollSidebar(delta int) (*Plugin, tea.Cmd) {
 		p.cursor = newCursor
 		p.ensureCursorVisible()
 		if p.cursorOnCommit() {
-			return p, p.autoLoadCommitPreview()
+			commitIdx := p.selectedCommitIndex()
+			p.ensureCommitVisible(commitIdx)
+			// Trigger load-more when within 3 commits of end
+			var loadMoreCmd tea.Cmd
+			if commitIdx >= len(p.recentCommits)-3 && !p.loadingMoreCommits {
+				loadMoreCmd = p.loadMoreCommits()
+			}
+			return p, tea.Batch(p.autoLoadCommitPreview(), loadMoreCmd)
 		}
 		return p, p.autoLoadDiff()
 	}

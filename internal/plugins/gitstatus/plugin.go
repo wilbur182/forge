@@ -58,7 +58,9 @@ type Plugin struct {
 	sidebarVisible bool      // Toggle sidebar with Tab
 	sidebarWidth   int       // Calculated width (~30%)
 	diffPaneWidth  int       // Calculated width (~70%)
-	recentCommits  []*Commit // Cached recent commits for sidebar
+	recentCommits      []*Commit // Cached recent commits for sidebar
+	commitScrollOff    int       // Scroll offset for commits section in sidebar
+	loadingMoreCommits bool      // Prevents duplicate load-more requests
 
 	// Inline diff state (for three-pane view)
 	selectedDiffFile    string      // File being previewed in diff pane
@@ -291,6 +293,13 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 		return p, nil
 
+	case MoreCommitsLoadedMsg:
+		p.loadingMoreCommits = false
+		if msg.Commits != nil && len(msg.Commits) > 0 {
+			p.recentCommits = append(p.recentCommits, msg.Commits...)
+		}
+		return p, nil
+
 	case CommitPreviewLoadedMsg:
 		// Commit preview loaded for right pane (in status view)
 		p.previewCommit = msg.Commit
@@ -327,11 +336,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 // totalSelectableItems returns the count of all selectable items (files + commits).
 func (p *Plugin) totalSelectableItems() int {
 	entries := p.tree.AllEntries()
-	commits := len(p.recentCommits)
-	if commits > 5 {
-		commits = 5 // Match renderRecentCommits limit
-	}
-	return len(entries) + commits
+	return len(entries) + len(p.recentCommits)
 }
 
 // cursorOnCommit returns true if cursor is on a commit (past all files).
@@ -361,7 +366,14 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.cursor++
 			p.ensureCursorVisible()
 			if p.cursorOnCommit() {
-				return p, p.autoLoadCommitPreview()
+				commitIdx := p.selectedCommitIndex()
+				p.ensureCommitVisible(commitIdx)
+				// Trigger load-more when within 3 commits of end
+				var loadMoreCmd tea.Cmd
+				if commitIdx >= len(p.recentCommits)-3 && !p.loadingMoreCommits {
+					loadMoreCmd = p.loadMoreCommits()
+				}
+				return p, tea.Batch(p.autoLoadCommitPreview(), loadMoreCmd)
 			}
 			return p, p.autoLoadDiff()
 		}
@@ -372,6 +384,7 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.cursor--
 			p.ensureCursorVisible()
 			if p.cursorOnCommit() {
+				p.ensureCommitVisible(p.selectedCommitIndex())
 				return p, p.autoLoadCommitPreview()
 			}
 			return p, p.autoLoadDiff()
@@ -381,6 +394,7 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 	case "g":
 		p.cursor = 0
 		p.scrollOff = 0
+		p.commitScrollOff = 0 // Reset commit scroll when jumping to top
 		if p.cursorOnCommit() {
 			return p, p.autoLoadCommitPreview()
 		}
@@ -391,7 +405,14 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.cursor = totalItems - 1
 			p.ensureCursorVisible()
 			if p.cursorOnCommit() {
-				return p, p.autoLoadCommitPreview()
+				commitIdx := p.selectedCommitIndex()
+				p.ensureCommitVisible(commitIdx)
+				// Trigger load-more when jumping to end
+				var loadMoreCmd tea.Cmd
+				if commitIdx >= len(p.recentCommits)-3 && !p.loadingMoreCommits {
+					loadMoreCmd = p.loadMoreCommits()
+				}
+				return p, tea.Batch(p.autoLoadCommitPreview(), loadMoreCmd)
 			}
 			return p, p.autoLoadDiff()
 		}
@@ -1252,6 +1273,43 @@ func (p *Plugin) ensureCursorVisible() {
 	}
 }
 
+// visibleCommitCount returns how many commits can display in the sidebar.
+func (p *Plugin) visibleCommitCount() int {
+	// Estimate available height for commits section
+	// Sidebar height - files area - section headers - borders
+	filesHeight := len(p.tree.AllEntries()) + 6 // entries + headers + spacing
+	available := p.height - filesHeight - 4     // borders, commit header
+	if available < 2 {
+		available = 2
+	}
+	return available
+}
+
+// ensureCommitVisible adjusts commitScrollOff to keep selected commit visible.
+// commitIdx is the absolute index into recentCommits.
+func (p *Plugin) ensureCommitVisible(commitIdx int) {
+	visibleCommits := p.visibleCommitCount()
+
+	if commitIdx < p.commitScrollOff {
+		p.commitScrollOff = commitIdx
+	}
+	if commitIdx >= p.commitScrollOff+visibleCommits {
+		p.commitScrollOff = commitIdx - visibleCommits + 1
+	}
+
+	// Clamp to valid range
+	maxOff := len(p.recentCommits) - visibleCommits
+	if maxOff < 0 {
+		maxOff = 0
+	}
+	if p.commitScrollOff > maxOff {
+		p.commitScrollOff = maxOff
+	}
+	if p.commitScrollOff < 0 {
+		p.commitScrollOff = 0
+	}
+}
+
 // countLines counts newlines in a string.
 func countLines(s string) int {
 	n := 1
@@ -1300,6 +1358,12 @@ type InlineDiffLoadedMsg struct {
 
 // RecentCommitsLoadedMsg is sent when recent commits are loaded for sidebar.
 type RecentCommitsLoadedMsg struct {
+	Commits    []*Commit
+	PushStatus *PushStatus
+}
+
+// MoreCommitsLoadedMsg is sent when additional commits are fetched for infinite scroll.
+type MoreCommitsLoadedMsg struct {
 	Commits    []*Commit
 	PushStatus *PushStatus
 }
@@ -1359,11 +1423,29 @@ func (p *Plugin) loadInlineDiff(path string, staged bool, status FileStatus) tea
 func (p *Plugin) loadRecentCommits() tea.Cmd {
 	workDir := p.ctx.WorkDir
 	return func() tea.Msg {
-		commits, pushStatus, err := GetCommitHistoryWithPushStatus(workDir, 8)
+		commits, pushStatus, err := GetCommitHistoryWithPushStatus(workDir, 50)
 		if err != nil {
 			return RecentCommitsLoadedMsg{Commits: nil, PushStatus: nil}
 		}
 		return RecentCommitsLoadedMsg{Commits: commits, PushStatus: pushStatus}
+	}
+}
+
+// loadMoreCommits fetches the next batch of commits for infinite scroll.
+func (p *Plugin) loadMoreCommits() tea.Cmd {
+	if p.loadingMoreCommits {
+		return nil
+	}
+	p.loadingMoreCommits = true
+
+	workDir := p.ctx.WorkDir
+	skip := len(p.recentCommits)
+	return func() tea.Msg {
+		commits, pushStatus, err := GetCommitHistoryWithPushStatusOffset(workDir, 50, skip)
+		if err != nil {
+			return MoreCommitsLoadedMsg{Commits: nil, PushStatus: nil}
+		}
+		return MoreCommitsLoadedMsg{Commits: commits, PushStatus: pushStatus}
 	}
 }
 

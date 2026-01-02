@@ -200,7 +200,12 @@ func (p *Plugin) renderSidebar(visibleHeight int) string {
 	}
 
 	// Recent commits section
-	sb.WriteString(p.renderRecentCommits(&currentY))
+	// Calculate available height for commits (remaining space minus header line)
+	commitsAvailable := visibleHeight - currentY + 3 - 1 // +3 to account for initial offset, -1 for header
+	if commitsAvailable < 2 {
+		commitsAvailable = 2
+	}
+	sb.WriteString(p.renderRecentCommits(&currentY, commitsAvailable))
 
 	return sb.String()
 }
@@ -316,7 +321,8 @@ func (p *Plugin) renderSidebarEntry(entry *FileEntry, selected bool, maxWidth in
 }
 
 // renderRecentCommits renders the recent commits section in the sidebar.
-func (p *Plugin) renderRecentCommits(currentY *int) string {
+// maxVisible is the maximum number of commits that can be displayed.
+func (p *Plugin) renderRecentCommits(currentY *int, maxVisible int) string {
 	var sb strings.Builder
 
 	// Section header with push status
@@ -339,13 +345,24 @@ func (p *Plugin) renderRecentCommits(currentY *int) string {
 	// Cursor selection: cursor indexes files first, then commits
 	fileCount := len(p.tree.AllEntries())
 	maxWidth := p.sidebarWidth - 4
-	maxCommits := 5
-	if len(p.recentCommits) < maxCommits {
-		maxCommits = len(p.recentCommits)
+
+	// Calculate visible range based on scroll offset
+	startIdx := p.commitScrollOff
+	endIdx := startIdx + maxVisible
+	if endIdx > len(p.recentCommits) {
+		endIdx = len(p.recentCommits)
+	}
+	if startIdx >= len(p.recentCommits) {
+		startIdx = 0
+		endIdx = maxVisible
+		if endIdx > len(p.recentCommits) {
+			endIdx = len(p.recentCommits)
+		}
 	}
 
-	for i := 0; i < maxCommits; i++ {
+	for i := startIdx; i < endIdx; i++ {
 		commit := p.recentCommits[i]
+		// Use absolute commit index for cursor comparison
 		selected := p.cursor == fileCount+i
 
 		// Cursor indicator
@@ -378,12 +395,12 @@ func (p *Plugin) renderRecentCommits(currentY *int) string {
 			lineStyle = styles.ListItemSelected
 		}
 
-		// Register hit region for this commit
+		// Register hit region for this commit with ABSOLUTE index
 		p.mouseHandler.HitMap.AddRect(regionCommit, 1, *currentY, p.sidebarWidth-2, 1, i)
 
 		sb.WriteString(lineStyle.Render(fmt.Sprintf("%s%s%s %s", cursor, indicator, hash, msg)))
 		*currentY++
-		if i < maxCommits-1 {
+		if i < endIdx-1 {
 			sb.WriteString("\n")
 		}
 	}
