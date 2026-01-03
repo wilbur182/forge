@@ -105,6 +105,9 @@ func (p *Plugin) renderCommitLine(c *Commit, selected bool) string {
 
 // renderCommitDetail renders the commit detail view.
 func (p *Plugin) renderCommitDetail() string {
+	// Clear hit regions for mouse support
+	p.mouseHandler.Clear()
+
 	var sb strings.Builder
 
 	if p.selectedCommit == nil {
@@ -114,37 +117,49 @@ func (p *Plugin) renderCommitDetail() string {
 
 	c := p.selectedCommit
 
+	// Track Y position for hit regions
+	currentY := 0
+
 	// Header with commit info
 	sb.WriteString(styles.ModalTitle.Render(" Commit: " + c.ShortHash))
 	sb.WriteString("\n")
+	currentY++
 	sb.WriteString(styles.Muted.Render(strings.Repeat("━", p.width-2)))
 	sb.WriteString("\n\n")
+	currentY += 2
 
 	// Metadata
 	sb.WriteString(styles.Subtitle.Render(" Author: "))
 	sb.WriteString(styles.Body.Render(fmt.Sprintf("%s <%s>", c.Author, c.AuthorEmail)))
 	sb.WriteString("\n")
+	currentY++
 
 	sb.WriteString(styles.Subtitle.Render(" Date:   "))
 	sb.WriteString(styles.Body.Render(c.Date.Format("Mon Jan 2 15:04:05 2006")))
 	sb.WriteString("\n\n")
+	currentY += 2
 
 	// Subject
 	sb.WriteString(styles.Title.Render(" " + c.Subject))
 	sb.WriteString("\n")
+	currentY++
 
 	// Body (if present)
 	if c.Body != "" {
 		sb.WriteString("\n")
+		currentY++
 		for _, line := range strings.Split(c.Body, "\n") {
 			sb.WriteString(styles.Body.Render(" " + line))
 			sb.WriteString("\n")
+			currentY++
 		}
 	}
 
 	sb.WriteString("\n")
+	currentY++
 	sb.WriteString(styles.Muted.Render(strings.Repeat("─", p.width-2)))
 	sb.WriteString("\n")
+	currentY++
 
 	// Stats
 	statsLine := fmt.Sprintf(" %d files changed", c.Stats.FilesChanged)
@@ -156,6 +171,7 @@ func (p *Plugin) renderCommitDetail() string {
 	}
 	sb.WriteString(statsLine)
 	sb.WriteString("\n\n")
+	currentY += 2
 
 	// Files list
 	contentHeight := p.height - 12 // Account for header, metadata, etc.
@@ -176,9 +192,13 @@ func (p *Plugin) renderCommitDetail() string {
 		file := c.Files[i]
 		selected := i == p.commitDetailCursor
 
+		// Register hit region for this file row
+		p.mouseHandler.HitMap.AddRect(regionCommitDetailFile, 0, currentY, p.width, 1, i)
+
 		line := p.renderCommitFile(file, selected)
 		sb.WriteString(line)
 		sb.WriteString("\n")
+		currentY++
 	}
 
 	return sb.String()

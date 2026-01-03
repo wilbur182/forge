@@ -203,9 +203,14 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 
 	case tea.MouseMsg:
-		// Handle mouse events in status view only
-		if p.viewMode == ViewModeStatus {
+		// Handle mouse events based on view mode
+		switch p.viewMode {
+		case ViewModeStatus:
 			return p.handleMouse(msg)
+		case ViewModeDiff:
+			return p.handleDiffMouse(msg)
+		case ViewModeCommitDetail:
+			return p.handleCommitDetailMouse(msg)
 		}
 
 	case app.RefreshMsg:

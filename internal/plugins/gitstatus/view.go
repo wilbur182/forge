@@ -164,8 +164,19 @@ func (p *Plugin) renderEntry(entry *FileEntry, selected bool) string {
 	return styles.ListItemNormal.Render(fmt.Sprintf("%s%s %s%s", cursor, status, path, stats))
 }
 
-// renderDiffModal renders the diff modal.
+// renderDiffModal renders the diff modal with panel border.
 func (p *Plugin) renderDiffModal() string {
+	// Calculate dimensions accounting for panel border (2) + padding (2)
+	paneHeight := p.height - 2
+	contentWidth := p.width - 4
+	if contentWidth < 20 {
+		contentWidth = 20
+	}
+
+	// Register hit region for mouse scrolling
+	p.mouseHandler.Clear()
+	p.mouseHandler.HitMap.AddRect(regionDiffModal, 0, 0, p.width, p.height, nil)
+
 	var sb strings.Builder
 
 	// Header with view mode indicator
@@ -173,10 +184,10 @@ func (p *Plugin) renderDiffModal() string {
 	if p.diffViewMode == DiffViewSideBySide {
 		viewModeStr = "side-by-side"
 	}
-	header := fmt.Sprintf(" Diff: %s [%s]", p.diffFile, viewModeStr)
+	header := fmt.Sprintf("Diff: %s [%s]", p.diffFile, viewModeStr)
 	sb.WriteString(styles.ModalTitle.Render(header))
 	sb.WriteString("\n")
-	sb.WriteString(styles.Muted.Render(strings.Repeat("━", p.width-2)))
+	sb.WriteString(styles.Muted.Render(strings.Repeat("━", contentWidth)))
 	sb.WriteString("\n")
 
 	// Show delta tip if not installed (one-time)
@@ -188,9 +199,10 @@ func (p *Plugin) renderDiffModal() string {
 
 	// Content
 	if p.diffContent == "" {
-		sb.WriteString(styles.Muted.Render(" Loading diff..."))
+		sb.WriteString(styles.Muted.Render("Loading diff..."))
 	} else {
-		visibleLines := p.height - 3
+		// Visible lines = pane height - header (2 lines)
+		visibleLines := paneHeight - 2
 		if visibleLines < 1 {
 			visibleLines = 1
 		}
@@ -202,7 +214,7 @@ func (p *Plugin) renderDiffModal() string {
 		if p.diffViewMode == DiffViewSideBySide {
 			if useDelta {
 				// Use delta's side-by-side mode
-				rendered, _ := p.externalTool.RenderWithDelta(p.diffRaw, true, p.width)
+				rendered, _ := p.externalTool.RenderWithDelta(p.diffRaw, true, contentWidth)
 				displayContent = rendered
 			} else {
 				// Use built-in side-by-side renderer
@@ -211,19 +223,19 @@ func (p *Plugin) renderDiffModal() string {
 					parsed, _ = ParseUnifiedDiff(p.diffRaw)
 				}
 				if parsed != nil {
-					sb.WriteString(RenderSideBySide(parsed, p.width, p.diffScroll, visibleLines, p.diffHorizOff))
+					sb.WriteString(RenderSideBySide(parsed, contentWidth, p.diffScroll, visibleLines, p.diffHorizOff))
 				} else {
-					sb.WriteString(styles.Muted.Render(" Unable to parse diff for side-by-side view"))
+					sb.WriteString(styles.Muted.Render("Unable to parse diff for side-by-side view"))
 				}
-				return sb.String()
+				return p.wrapDiffContent(sb.String(), paneHeight)
 			}
 		} else {
 			// Unified view
 			if useDelta && p.diffContent != p.diffRaw {
 				displayContent = p.diffContent
 			} else if p.parsedDiff != nil {
-				sb.WriteString(RenderLineDiff(p.parsedDiff, p.width, p.diffScroll, visibleLines, p.diffHorizOff))
-				return sb.String()
+				sb.WriteString(RenderLineDiff(p.parsedDiff, contentWidth, p.diffScroll, visibleLines, p.diffHorizOff))
+				return p.wrapDiffContent(sb.String(), paneHeight)
 			} else {
 				displayContent = p.diffRaw
 			}
@@ -250,7 +262,15 @@ func (p *Plugin) renderDiffModal() string {
 		}
 	}
 
-	return sb.String()
+	return p.wrapDiffContent(sb.String(), paneHeight)
+}
+
+// wrapDiffContent wraps diff content with panel border.
+func (p *Plugin) wrapDiffContent(content string, paneHeight int) string {
+	return styles.PanelActive.
+		Width(p.width - 2).
+		Height(paneHeight).
+		Render(content)
 }
 
 // renderDiffLine renders a single diff line with appropriate styling.
@@ -259,8 +279,8 @@ func (p *Plugin) renderDiffLine(line string) string {
 		return ""
 	}
 
-	// Truncate long lines
-	maxWidth := p.width - 4
+	// Truncate long lines (account for panel border+padding: 4 chars, plus margin: 4 chars)
+	maxWidth := p.width - 8
 	if len(line) > maxWidth && maxWidth > 3 {
 		line = line[:maxWidth-3] + "..."
 	}
