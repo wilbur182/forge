@@ -16,6 +16,11 @@ type IntroModel struct {
 	StartTime time.Time
 	Letters   []*IntroLetter
 	Done      bool // Set to true when animation is finished
+
+	// Repo name fade-in (starts after logo animation completes)
+	RepoName      string
+	RepoOpacity   float64   // 0.0 to 1.0
+	RepoFadeStart time.Time // When the fade began
 }
 
 type IntroLetter struct {
@@ -50,7 +55,7 @@ func (c RGB) toLipgloss() lipgloss.Color {
 	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", int(c.R), int(c.G), int(c.B)))
 }
 
-func NewIntroModel() IntroModel {
+func NewIntroModel(repoName string) IntroModel {
 	text := "Sidecar"
 	letters := make([]*IntroLetter, len(text))
 
@@ -93,8 +98,9 @@ func NewIntroModel() IntroModel {
 	}
 
 	return IntroModel{
-		Active:  true,
-		Letters: letters,
+		Active:   true,
+		Letters:  letters,
+		RepoName: repoName,
 	}
 }
 
@@ -176,6 +182,16 @@ func (m *IntroModel) Update(dt time.Duration) {
 	if allSettled {
 		m.Done = true
 	}
+
+	// Repo name fade-in (starts after logo animation completes)
+	if m.Done && m.RepoName != "" && m.RepoOpacity < 1.0 {
+		if m.RepoFadeStart.IsZero() {
+			m.RepoFadeStart = time.Now()
+		}
+		// Fade duration: 300ms
+		elapsed := time.Since(m.RepoFadeStart)
+		m.RepoOpacity = math.Min(1.0, elapsed.Seconds()/0.3)
+	}
 }
 
 func (m IntroModel) View() string {
@@ -193,7 +209,7 @@ func (m IntroModel) View() string {
 			maxX = x
 		}
 	}
-	
+
 	// Add a little padding to the width to avoid clipping the last character during movement
 	width := maxX + 1
 	buf := make([]string, width)
@@ -210,6 +226,28 @@ func (m IntroModel) View() string {
 	}
 
 	return strings.Join(buf, "")
+}
+
+// RepoNameView returns the repo name with current fade opacity applied.
+// Returns empty string if no repo name or opacity is 0.
+func (m IntroModel) RepoNameView() string {
+	if m.RepoName == "" || m.RepoOpacity <= 0 {
+		return ""
+	}
+
+	// Interpolate color from background to target based on opacity
+	// Background: #1F2937 (header bg), Target: #9CA3AF (TextSecondary - visible)
+	bgColor := hexToRGB("#1F2937")
+	targetColor := hexToRGB("#9CA3AF")
+
+	currentColor := RGB{
+		R: bgColor.R + (targetColor.R-bgColor.R)*m.RepoOpacity,
+		G: bgColor.G + (targetColor.G-bgColor.G)*m.RepoOpacity,
+		B: bgColor.B + (targetColor.B-bgColor.B)*m.RepoOpacity,
+	}
+
+	style := lipgloss.NewStyle().Foreground(currentColor.toLipgloss())
+	return style.Render(" / " + m.RepoName)
 }
 
 // IntroTickMsg is sent to update the animation frame.

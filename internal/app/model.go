@@ -58,7 +58,10 @@ type Model struct {
 }
 
 // New creates a new application model.
-func New(reg *plugin.Registry, km *keymap.Registry, currentVersion string) Model {
+func New(reg *plugin.Registry, km *keymap.Registry, currentVersion, workDir string) Model {
+	repoName := GetRepoName(workDir)
+	ui := NewUIState()
+	ui.WorkDir = workDir
 	return Model{
 		registry:       reg,
 		keymap:         km,
@@ -66,9 +69,9 @@ func New(reg *plugin.Registry, km *keymap.Registry, currentVersion string) Model
 		activeContext:  "global",
 		showFooter:     true,
 		palette:        palette.New(),
-		ui:             NewUIState(),
+		ui:             ui,
 		ready:          false,
-		intro:          NewIntroModel(),
+		intro:          NewIntroModel(repoName),
 		currentVersion: currentVersion,
 	}
 }

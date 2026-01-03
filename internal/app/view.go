@@ -110,13 +110,18 @@ func (m Model) renderQuitConfirmOverlay(content string) string {
 
 // renderHeader renders the top bar with title, tabs, and clock.
 func (m Model) renderHeader() string {
-	// Title
+	// Title with optional repo name
 	var title string
 	if m.intro.Active {
-		// Use the animated/gradient title
-		title = styles.BarTitle.Render(" " + m.intro.View() + " ")
+		// Use the animated/gradient title + fading repo name
+		title = styles.BarTitle.Render(" "+m.intro.View()) + m.intro.RepoNameView() + " "
 	} else {
-		title = styles.BarTitle.Render(" Sidecar ")
+		// Static title with repo name
+		repoSuffix := ""
+		if m.intro.RepoName != "" {
+			repoSuffix = styles.Subtitle.Render(" / " + m.intro.RepoName)
+		}
+		title = styles.BarTitle.Render(" Sidecar") + repoSuffix + " "
 	}
 
 	// Plugin tabs
@@ -154,12 +159,16 @@ func (m Model) renderHeader() string {
 // getTabBounds calculates the X position bounds for each tab in the header.
 // Used for mouse click detection on tabs.
 func (m Model) getTabBounds() []TabBounds {
-	// Title width
+	// Title width (must match renderHeader logic)
 	var title string
 	if m.intro.Active {
-		title = styles.BarTitle.Render(" " + m.intro.View() + " ")
+		title = styles.BarTitle.Render(" "+m.intro.View()) + m.intro.RepoNameView() + " "
 	} else {
-		title = styles.BarTitle.Render(" Sidecar ")
+		repoSuffix := ""
+		if m.intro.RepoName != "" {
+			repoSuffix = styles.Subtitle.Render(" / " + m.intro.RepoName)
+		}
+		title = styles.BarTitle.Render(" Sidecar") + repoSuffix + " "
 	}
 	titleWidth := lipgloss.Width(title)
 

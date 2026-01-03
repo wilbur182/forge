@@ -6,7 +6,7 @@ import (
 )
 
 func TestIntroModel_Update(t *testing.T) {
-	m := NewIntroModel()
+	m := NewIntroModel("")
 
 	if !m.Active {
 		t.Error("NewIntroModel should be active")
