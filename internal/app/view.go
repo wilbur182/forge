@@ -9,6 +9,7 @@ import (
 	"github.com/marcus/sidecar/internal/keymap"
 	"github.com/marcus/sidecar/internal/plugin"
 	"github.com/marcus/sidecar/internal/styles"
+	"github.com/marcus/sidecar/internal/ui"
 )
 
 const (
@@ -79,14 +80,7 @@ func (m Model) View() string {
 // renderPaletteOverlay renders the command palette modal.
 func (m Model) renderPaletteOverlay(content string) string {
 	modal := m.palette.View()
-
-	return lipgloss.Place(
-		m.width, m.height,
-		lipgloss.Center, lipgloss.Center,
-		modal,
-		lipgloss.WithWhitespaceChars(" "),
-		lipgloss.WithWhitespaceForeground(lipgloss.Color("#000000")),
-	)
+	return ui.OverlayModal(content, modal, m.width, m.height)
 }
 
 // renderQuitConfirmOverlay renders the quit confirmation modal.
@@ -105,13 +99,7 @@ func (m Model) renderQuitConfirmOverlay(content string) string {
 	b.WriteString(" to cancel")
 
 	modal := styles.ModalBox.Render(b.String())
-	return lipgloss.Place(
-		m.width, m.height,
-		lipgloss.Center, lipgloss.Center,
-		modal,
-		lipgloss.WithWhitespaceChars(" "),
-		lipgloss.WithWhitespaceForeground(lipgloss.Color("#000000")),
-	)
+	return ui.OverlayModal(content, modal, m.width, m.height)
 }
 
 // renderHeader renders the top bar with title, tabs, and clock.
@@ -422,15 +410,7 @@ func renderHintLineTruncated(hints []footerHint, maxWidth int) string {
 func (m Model) renderHelpOverlay(content string) string {
 	help := m.buildHelpContent()
 	modal := styles.ModalBox.Render(help)
-
-	// Center the modal
-	return lipgloss.Place(
-		m.width, m.height,
-		lipgloss.Center, lipgloss.Center,
-		modal,
-		lipgloss.WithWhitespaceChars(" "),
-		lipgloss.WithWhitespaceForeground(lipgloss.Color("#000000")),
-	)
+	return ui.OverlayModal(content, modal, m.width, m.height)
 }
 
 // buildHelpContent creates the help modal content.
@@ -520,14 +500,7 @@ func formatCommandName(cmd string) string {
 func (m Model) renderDiagnosticsOverlay(content string) string {
 	diag := m.buildDiagnosticsContent()
 	modal := styles.ModalBox.Render(diag)
-
-	return lipgloss.Place(
-		m.width, m.height,
-		lipgloss.Center, lipgloss.Center,
-		modal,
-		lipgloss.WithWhitespaceChars(" "),
-		lipgloss.WithWhitespaceForeground(lipgloss.Color("#000000")),
-	)
+	return ui.OverlayModal(content, modal, m.width, m.height)
 }
 
 // buildDiagnosticsContent creates the diagnostics modal content.
