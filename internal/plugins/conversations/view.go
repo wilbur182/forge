@@ -1591,8 +1591,23 @@ func (p *Plugin) renderDetailPaneContent(contentWidth, height int) string {
 		p.detailScroll = 0
 	}
 
+	// Reserve space for scroll indicators (up to 2 lines)
+	indicatorLines := 0
+	if maxScroll > 0 {
+		if p.detailScroll > 0 {
+			indicatorLines++
+		}
+		if p.detailScroll < maxScroll {
+			indicatorLines++
+		}
+	}
+	displayHeight := contentHeight - indicatorLines
+	if displayHeight < 1 {
+		displayHeight = 1
+	}
+
 	start := p.detailScroll
-	end := start + contentHeight
+	end := start + displayHeight
 	if end > len(contentLines) {
 		end = len(contentLines)
 	}
@@ -1602,7 +1617,7 @@ func (p *Plugin) renderDetailPaneContent(contentWidth, height int) string {
 		sb.WriteString("\n")
 	}
 
-	// Scroll indicator
+	// Scroll indicators (space already reserved)
 	if maxScroll > 0 {
 		if p.detailScroll > 0 {
 			sb.WriteString(styles.Muted.Render(fmt.Sprintf("↑ %d more above", p.detailScroll)))

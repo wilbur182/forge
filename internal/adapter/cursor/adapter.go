@@ -23,6 +23,9 @@ const (
 	adapterName = "Cursor CLI"
 )
 
+// xmlTagRegex is pre-compiled for performance in hot path
+var xmlTagRegex = regexp.MustCompile(`<[^>]+>`)
+
 // Adapter implements the adapter.Adapter interface for Cursor CLI sessions.
 type Adapter struct {
 	chatsDir string
@@ -545,7 +548,6 @@ func stripXMLTags(s string) string {
 	if query := extractUserQuery(s); query != "" {
 		return query
 	}
-	// Remove all XML tags
-	re := regexp.MustCompile(`<[^>]+>`)
-	return strings.TrimSpace(re.ReplaceAllString(s, ""))
+	// Remove all XML tags (using pre-compiled regex for performance)
+	return strings.TrimSpace(xmlTagRegex.ReplaceAllString(s, ""))
 }

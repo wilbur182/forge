@@ -760,6 +760,10 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		p.width = msg.Width
 		p.height = msg.Height
+		// Invalidate markdown cache when size changes (width affects rendering)
+		if p.markdownRenderMode && p.isMarkdownFile() {
+			p.markdownRendered = nil
+		}
 
 	case TreeBuiltMsg:
 		if msg.Err != nil {
