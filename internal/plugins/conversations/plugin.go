@@ -87,6 +87,7 @@ type Plugin struct {
 	showToolSummary  bool            // toggle for tool impact view
 
 	// Message detail view state
+	detailMode   bool  // true when showing detail in right pane (two-pane mode)
 	detailTurn   *Turn // turn being viewed in detail
 	detailScroll int
 
@@ -325,6 +326,7 @@ func (p *Plugin) setSelectedSession(sessionID string) {
 	p.turnScrollOff = 0
 	p.sessionSummary = nil
 	p.showToolSummary = false
+	p.detailMode = false
 	p.detailTurn = nil
 	p.detailScroll = 0
 	p.expandedThinking = make(map[string]bool)
@@ -725,8 +727,13 @@ func (p *Plugin) updateAnalytics(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 
 // updateMessages handles key events in message view (now uses turns).
 func (p *Plugin) updateMessages(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
+	// In detail mode, handle detail-specific navigation
+	if p.detailMode {
+		return p.updateDetailMode(msg)
+	}
+
 	switch msg.String() {
-	case "esc", "q":
+	case "esc":
 		// In two-pane mode, ESC returns focus to sidebar
 		if p.twoPane {
 			p.activePane = PaneSidebar
@@ -740,6 +747,19 @@ func (p *Plugin) updateMessages(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		p.expandedThinking = make(map[string]bool) // reset thinking state
 		p.sessionSummary = nil
 		p.showToolSummary = false
+
+	case "q":
+		// In single-pane mode only, 'q' returns to sessions view
+		// In two-pane mode, 'q' falls through to app for quit confirmation
+		if !p.twoPane {
+			p.view = ViewSessions
+			p.messages = nil
+			p.turns = nil
+			p.selectedSession = ""
+			p.expandedThinking = make(map[string]bool)
+			p.sessionSummary = nil
+			p.showToolSummary = false
+		}
 
 	case "h", "left":
 		// In two-pane mode, return focus to sidebar
@@ -811,11 +831,17 @@ func (p *Plugin) updateMessages(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		p.showToolSummary = !p.showToolSummary
 
 	case "enter":
-		// Open turn detail view (shows all messages in the turn)
+		// Open turn detail view
 		if p.turnCursor < len(p.turns) {
 			p.detailTurn = &p.turns[p.turnCursor]
 			p.detailScroll = 0
-			p.view = ViewMessageDetail
+			if p.twoPane {
+				// In two-pane mode, set detail mode (renders in right pane)
+				p.detailMode = true
+			} else {
+				// In single-pane mode, switch to full-screen detail view
+				p.view = ViewMessageDetail
+			}
 		}
 
 	case "c":
@@ -833,6 +859,57 @@ func (p *Plugin) updateMessages(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 	case " ":
 		// Load more messages (would need to implement paging in adapter)
 		return p, nil
+
+	case "y":
+		// Yank current turn content to clipboard
+		return p, p.yankTurnContent()
+
+	case "Y":
+		// Yank resume command to clipboard
+		return p, p.yankResumeCommand()
+	}
+
+	return p, nil
+}
+
+// updateDetailMode handles key events when in detail mode (two-pane).
+func (p *Plugin) updateDetailMode(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		// Exit detail mode, back to turn list
+		p.detailMode = false
+		p.detailTurn = nil
+		p.detailScroll = 0
+
+	case "h", "left":
+		// In detail mode, h/left goes back to turn list (same as esc)
+		p.detailMode = false
+		p.detailTurn = nil
+		p.detailScroll = 0
+
+	case "j", "down":
+		p.detailScroll++
+
+	case "k", "up":
+		if p.detailScroll > 0 {
+			p.detailScroll--
+		}
+
+	case "g":
+		p.detailScroll = 0
+
+	case "G":
+		// Scroll to bottom - will be clamped by renderer
+		p.detailScroll = 9999
+
+	case "ctrl+d":
+		p.detailScroll += 10
+
+	case "ctrl+u":
+		p.detailScroll -= 10
+		if p.detailScroll < 0 {
+			p.detailScroll = 0
+		}
 
 	case "y":
 		// Yank current turn content to clipboard
@@ -868,7 +945,13 @@ func (p *Plugin) View(width, height int) string {
 				content = p.renderMessages()
 			}
 		case ViewMessageDetail:
-			content = p.renderMessageDetail()
+			// In two-pane mode, use renderTwoPane (detailMode handles right pane)
+			// In single-pane mode, use full-screen detail view
+			if p.twoPane {
+				content = p.renderTwoPane()
+			} else {
+				content = p.renderMessageDetail()
+			}
 		case ViewAnalytics:
 			content = p.renderAnalytics()
 		default:
@@ -905,6 +988,15 @@ func (p *Plugin) Commands() []plugin.Command {
 			{ID: "cancel", Name: "Cancel", Description: "Cancel filter", Category: plugin.CategoryActions, Context: "conversations-filter", Priority: 1},
 		}
 	}
+	// Detail mode in two-pane (right pane shows turn detail)
+	if p.detailMode && p.twoPane {
+		return []plugin.Command{
+			{ID: "back", Name: "Back", Description: "Return to turn list", Category: plugin.CategoryNavigation, Context: "turn-detail", Priority: 1},
+			{ID: "scroll", Name: "Scroll", Description: "Scroll detail", Category: plugin.CategoryNavigation, Context: "turn-detail", Priority: 2},
+			{ID: "yank", Name: "Yank", Description: "Yank turn content", Category: plugin.CategoryActions, Context: "turn-detail", Priority: 3},
+		}
+	}
+	// Full-screen detail view (single-pane mode)
 	if p.view == ViewMessageDetail {
 		return []plugin.Command{
 			{ID: "back", Name: "Back", Description: "Return to messages", Category: plugin.CategoryNavigation, Context: "message-detail", Priority: 1},
@@ -915,10 +1007,9 @@ func (p *Plugin) Commands() []plugin.Command {
 	}
 	if p.view == ViewMessages || (p.twoPane && p.activePane == PaneMessages) {
 		return []plugin.Command{
-			{ID: "back", Name: "Back", Description: "Return to session list", Category: plugin.CategoryNavigation, Context: "conversation-detail", Priority: 1},
-			{ID: "detail", Name: "Detail", Description: "View message details", Category: plugin.CategoryView, Context: "conversation-detail", Priority: 2},
-			{ID: "yank", Name: "Yank", Description: "Yank turn content", Category: plugin.CategoryActions, Context: "conversation-detail", Priority: 3},
-			{ID: "yank-resume", Name: "Resume", Description: "Yank resume command", Category: plugin.CategoryActions, Context: "conversation-detail", Priority: 3},
+			{ID: "detail", Name: "Detail", Description: "View turn details", Category: plugin.CategoryView, Context: "conversations-main", Priority: 1},
+			{ID: "back", Name: "Back", Description: "Return to sidebar", Category: plugin.CategoryNavigation, Context: "conversations-main", Priority: 2},
+			{ID: "yank", Name: "Yank", Description: "Yank turn content", Category: plugin.CategoryActions, Context: "conversations-main", Priority: 3},
 		}
 	}
 	if p.view == ViewAnalytics {
@@ -943,10 +1034,22 @@ func (p *Plugin) FocusContext() string {
 	if p.filterMode {
 		return "conversations-filter"
 	}
+	// Detail mode in two-pane (right pane shows turn detail)
+	if p.detailMode && p.twoPane {
+		return "turn-detail"
+	}
 	switch p.view {
 	case ViewMessageDetail:
 		return "message-detail"
 	case ViewMessages:
+		// In two-pane mode, return context based on active pane
+		// so 'q' triggers quit from root contexts (sidebar/main)
+		if p.twoPane {
+			if p.activePane == PaneSidebar {
+				return "conversations-sidebar"
+			}
+			return "conversations-main"
+		}
 		return "conversation-detail"
 	case ViewAnalytics:
 		return "analytics"

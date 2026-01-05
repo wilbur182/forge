@@ -1314,8 +1314,6 @@ func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool,
 
 // renderMainPane renders the message list for the main pane.
 func (p *Plugin) renderMainPane(paneWidth, height int) string {
-	var sb strings.Builder
-
 	// Content width = pane width - padding (2 chars for Padding(0,1))
 	contentWidth := paneWidth - 2
 	if contentWidth < 20 {
@@ -1323,9 +1321,15 @@ func (p *Plugin) renderMainPane(paneWidth, height int) string {
 	}
 
 	if p.selectedSession == "" {
-		sb.WriteString(styles.Muted.Render("Select a session to view messages"))
-		return sb.String()
+		return styles.Muted.Render("Select a session to view messages")
 	}
+
+	// If in detail mode, render the turn detail instead of turn list
+	if p.detailMode && p.detailTurn != nil {
+		return p.renderDetailPaneContent(contentWidth, height)
+	}
+
+	var sb strings.Builder
 
 	// Find session info
 	var session *adapter.Session
@@ -1434,6 +1438,154 @@ func (p *Plugin) renderMainPane(paneWidth, height int) string {
 			sb.WriteString(line)
 			sb.WriteString("\n")
 			lineCount++
+		}
+	}
+
+	return sb.String()
+}
+
+// renderDetailPaneContent renders the turn detail in the right pane (two-pane mode).
+func (p *Plugin) renderDetailPaneContent(contentWidth, height int) string {
+	var sb strings.Builder
+
+	if p.detailTurn == nil {
+		return styles.Muted.Render("No turn selected")
+	}
+
+	turn := p.detailTurn
+	msgCount := len(turn.Messages)
+
+	// Header: Turn Role (with message count if > 1)
+	roleLabel := turn.Role
+	if msgCount > 1 {
+		roleLabel = fmt.Sprintf("%s (%d messages)", turn.Role, msgCount)
+	}
+	header := fmt.Sprintf("%s Turn", strings.Title(roleLabel))
+	if len(header) > contentWidth-10 {
+		header = header[:contentWidth-13] + "..."
+	}
+	sb.WriteString(styles.Title.Render(header))
+	sb.WriteString("  ")
+	sb.WriteString(styles.Muted.Render("[esc]"))
+	sb.WriteString("\n")
+
+	// Stats line
+	var stats []string
+	if turn.TotalTokensIn > 0 || turn.TotalTokensOut > 0 {
+		stats = append(stats, fmt.Sprintf("%s→%s tokens", formatK(turn.TotalTokensIn), formatK(turn.TotalTokensOut)))
+	}
+	if turn.ThinkingTokens > 0 {
+		stats = append(stats, fmt.Sprintf("%s thinking", formatK(turn.ThinkingTokens)))
+	}
+	if turn.ToolCount > 0 {
+		stats = append(stats, fmt.Sprintf("%d tools", turn.ToolCount))
+	}
+	if len(stats) > 0 {
+		statsLine := strings.Join(stats, " │ ")
+		if len(statsLine) > contentWidth {
+			statsLine = statsLine[:contentWidth-3] + "..."
+		}
+		sb.WriteString(styles.Muted.Render(statsLine))
+		sb.WriteString("\n")
+	}
+
+	// Separator
+	sepWidth := contentWidth
+	if sepWidth > 60 {
+		sepWidth = 60
+	}
+	sb.WriteString(styles.Muted.Render(strings.Repeat("─", sepWidth)))
+	sb.WriteString("\n")
+
+	// Build content lines for all messages in turn
+	var contentLines []string
+
+	for msgIdx, msg := range turn.Messages {
+		// Message separator (except for first)
+		if msgIdx > 0 {
+			contentLines = append(contentLines, "")
+			contentLines = append(contentLines, styles.Muted.Render(fmt.Sprintf("── Message %d/%d ──", msgIdx+1, msgCount)))
+			contentLines = append(contentLines, "")
+		}
+
+		// Thinking blocks
+		for i, tb := range msg.ThinkingBlocks {
+			contentLines = append(contentLines, styles.Code.Render(fmt.Sprintf("Thinking %d (%d tokens)", i+1, tb.TokenCount)))
+			// Wrap thinking content
+			thinkingLines := wrapText(tb.Content, contentWidth-2)
+			for _, line := range thinkingLines {
+				contentLines = append(contentLines, styles.Muted.Render(line))
+			}
+			contentLines = append(contentLines, "")
+		}
+
+		// Main content
+		if msg.Content != "" {
+			// Wrap content
+			msgLines := wrapText(msg.Content, contentWidth-2)
+			for _, line := range msgLines {
+				contentLines = append(contentLines, styles.Body.Render(line))
+			}
+			contentLines = append(contentLines, "")
+		}
+
+		// Tool uses
+		if len(msg.ToolUses) > 0 {
+			contentLines = append(contentLines, styles.Subtitle.Render("Tools:"))
+			for _, tu := range msg.ToolUses {
+				toolLine := tu.Name
+				if filePath := extractFilePath(tu.Input); filePath != "" {
+					toolLine += ": " + filePath
+				}
+				if len(toolLine) > contentWidth-2 {
+					toolLine = toolLine[:contentWidth-5] + "..."
+				}
+				contentLines = append(contentLines, styles.Code.Render("  "+toolLine))
+			}
+			contentLines = append(contentLines, "")
+		}
+	}
+
+	// Apply scroll offset
+	headerLines := 3 // title + stats + separator
+	contentHeight := height - headerLines
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+
+	// Clamp scroll
+	maxScroll := len(contentLines) - contentHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if p.detailScroll > maxScroll {
+		p.detailScroll = maxScroll
+	}
+	if p.detailScroll < 0 {
+		p.detailScroll = 0
+	}
+
+	start := p.detailScroll
+	end := start + contentHeight
+	if end > len(contentLines) {
+		end = len(contentLines)
+	}
+
+	for i := start; i < end; i++ {
+		sb.WriteString(contentLines[i])
+		sb.WriteString("\n")
+	}
+
+	// Scroll indicator
+	if maxScroll > 0 {
+		if p.detailScroll > 0 {
+			sb.WriteString(styles.Muted.Render(fmt.Sprintf("↑ %d more above", p.detailScroll)))
+			sb.WriteString("\n")
+		}
+		remaining := len(contentLines) - end
+		if remaining > 0 {
+			sb.WriteString(styles.Muted.Render(fmt.Sprintf("↓ %d more below", remaining)))
+			sb.WriteString("\n")
 		}
 	}
 

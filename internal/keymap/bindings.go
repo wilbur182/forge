@@ -96,7 +96,7 @@ func DefaultBindings() []Binding {
 		{Key: "g", Command: "cursor-top", Context: "conversation-detail"},
 		{Key: "G", Command: "cursor-bottom", Context: "conversation-detail"},
 
-		// Message detail context (single turn detail view)
+		// Message detail context (single turn detail view - single-pane mode)
 		{Key: "esc", Command: "back", Context: "message-detail"},
 		{Key: "q", Command: "back", Context: "message-detail"},
 		{Key: "j", Command: "scroll", Context: "message-detail"},
@@ -105,6 +105,21 @@ func DefaultBindings() []Binding {
 		{Key: "G", Command: "cursor-bottom", Context: "message-detail"},
 		{Key: "ctrl+d", Command: "page-down", Context: "message-detail"},
 		{Key: "ctrl+u", Command: "page-up", Context: "message-detail"},
+
+		// Turn detail context (two-pane mode, detail in right pane)
+		{Key: "esc", Command: "back", Context: "turn-detail"},
+		{Key: "q", Command: "back", Context: "turn-detail"},
+		{Key: "h", Command: "back", Context: "turn-detail"},
+		{Key: "left", Command: "back", Context: "turn-detail"},
+		{Key: "j", Command: "scroll-down", Context: "turn-detail"},
+		{Key: "k", Command: "scroll-up", Context: "turn-detail"},
+		{Key: "down", Command: "scroll-down", Context: "turn-detail"},
+		{Key: "up", Command: "scroll-up", Context: "turn-detail"},
+		{Key: "g", Command: "scroll-top", Context: "turn-detail"},
+		{Key: "G", Command: "scroll-bottom", Context: "turn-detail"},
+		{Key: "ctrl+d", Command: "page-down", Context: "turn-detail"},
+		{Key: "ctrl+u", Command: "page-up", Context: "turn-detail"},
+		{Key: "y", Command: "yank", Context: "turn-detail"},
 
 		// Conversations sidebar context (two-pane mode, left pane focused)
 		{Key: "enter", Command: "view-session", Context: "conversations-sidebar"},
