@@ -57,6 +57,13 @@ func (c RGB) toLipgloss() lipgloss.Color {
 	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", int(c.R), int(c.G), int(c.B)))
 }
 
+// toANSI returns raw ANSI escape code for the color.
+func (c RGB) toANSI() string {
+	return fmt.Sprintf("\x1b[38;2;%d;%d;%dm", int(c.R), int(c.G), int(c.B))
+}
+
+const ansiReset = "\x1b[0m"
+
 // lerpRGB linearly interpolates between two colors.
 func lerpRGB(c1, c2 RGB, t float64) RGB {
 	return RGB{
@@ -108,49 +115,59 @@ func (m *NotInstalledModel) Update(msg tea.Msg) tea.Cmd {
 }
 
 // gradientColorAt returns the color for a character based on its position and time.
-// Creates a sweeping gradient effect across the image.
+// Creates a smooth rolling wave effect across the image.
 func (m *NotInstalledModel) gradientColorAt(charIndex, totalChars int) RGB {
 	elapsed := time.Since(m.startTime).Seconds()
-	cycleDuration := 6.0 // slower: 6 seconds per full cycle
+	cycleDuration := 8.0 // seconds for one full color cycle
 
-	// Calculate wave position (0 to 1) that sweeps across the image
-	wavePos := math.Mod(elapsed/cycleDuration, 1.0)
-
-	// Character's normalized position in the art (0 to 1)
+	// Character's position in the art (0 to 1)
 	charPos := float64(charIndex) / float64(totalChars)
 
-	// Distance from wave center, wrapped for continuous effect
-	dist := charPos - wavePos
-	if dist < -0.5 {
-		dist += 1.0
-	} else if dist > 0.5 {
-		dist -= 1.0
+	// Create a smooth rolling phase based on position and time
+	// The wave travels through the art over time
+	phase := math.Mod(charPos-elapsed/cycleDuration, 1.0)
+	if phase < 0 {
+		phase += 1.0
 	}
 
-	// Convert distance to color blend factor
-	// Characters near the wave center get the "highlight" color
-	t := math.Abs(dist) * 3.0 // Scale factor for gradient width
-	if t > 1.0 {
-		t = 1.0
+	// Smooth three-color gradient: purple -> blue -> amber -> purple
+	// Using sine-based interpolation for smoother transitions
+	return threewayGradient(phase, colorPurple, colorBlue, colorAmber)
+}
+
+// threewayGradient smoothly interpolates between three colors in a cycle.
+func threewayGradient(t float64, c1, c2, c3 RGB) RGB {
+	// t is 0-1, we divide into three segments with smooth transitions
+	t = math.Mod(t, 1.0)
+	if t < 0 {
+		t += 1.0
 	}
 
-	// Three-color gradient based on wave position
-	phase := math.Mod(wavePos*3.0, 1.0)
-
-	var baseColor, highlightColor RGB
-	if phase < 0.33 {
-		baseColor = colorPurple
-		highlightColor = colorBlue
-	} else if phase < 0.66 {
-		baseColor = colorBlue
-		highlightColor = colorAmber
+	// Use cosine interpolation for smoother transitions
+	if t < 1.0/3.0 {
+		// c1 -> c2
+		blend := smoothstep(t * 3.0)
+		return lerpRGB(c1, c2, blend)
+	} else if t < 2.0/3.0 {
+		// c2 -> c3
+		blend := smoothstep((t - 1.0/3.0) * 3.0)
+		return lerpRGB(c2, c3, blend)
 	} else {
-		baseColor = colorAmber
-		highlightColor = colorPurple
+		// c3 -> c1
+		blend := smoothstep((t - 2.0/3.0) * 3.0)
+		return lerpRGB(c3, c1, blend)
 	}
+}
 
-	// Blend between highlight (at wave center) and base color
-	return lerpRGB(highlightColor, baseColor, t)
+// smoothstep provides smooth easing (ease-in-out).
+func smoothstep(t float64) float64 {
+	if t < 0 {
+		return 0
+	}
+	if t > 1 {
+		return 1
+	}
+	return t * t * (3 - 2*t)
 }
 
 // renderStallion returns the stallion art with animated gradient sweep.
@@ -167,7 +184,8 @@ func (m *NotInstalledModel) renderStallion() string {
 		}
 	}
 
-	// Render each character with its gradient color
+	// Render each character with its gradient color using raw ANSI codes
+	// (lipgloss per-character styling causes width calculation issues)
 	var result strings.Builder
 	charIndex := 0
 
@@ -177,8 +195,9 @@ func (m *NotInstalledModel) renderStallion() string {
 				result.WriteRune(ch)
 			} else {
 				color := m.gradientColorAt(charIndex, totalChars)
-				style := lipgloss.NewStyle().Foreground(color.toLipgloss())
-				result.WriteString(style.Render(string(ch)))
+				result.WriteString(color.toANSI())
+				result.WriteRune(ch)
+				result.WriteString(ansiReset)
 				charIndex++
 			}
 		}
@@ -255,8 +274,13 @@ func (m *NotInstalledModel) View(width, height int) string {
 	stallion := m.renderStallion()
 	pitch := m.renderPitch()
 
-	// Combine vertically with centering
-	content := lipgloss.JoinVertical(lipgloss.Center, stallion, pitch)
+	// Get stallion width to center pitch within it
+	stallionWidth := lipgloss.Width(stallion)
+	centeredPitch := lipgloss.PlaceHorizontal(stallionWidth, lipgloss.Center, pitch)
+
+	// Combine vertically - use Left to preserve stallion's whitespace alignment
+	// (Center causes ANSI width miscalculation issues)
+	content := lipgloss.JoinVertical(lipgloss.Left, stallion, centeredPitch)
 
 	// Center in available space
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
