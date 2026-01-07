@@ -49,6 +49,12 @@ func DefaultBindings() []Binding {
 		{Key: "h", Command: "show-history", Context: "git-status-commits"},
 		{Key: "y", Command: "yank-commit", Context: "git-status-commits"},
 		{Key: "Y", Command: "yank-id", Context: "git-status-commits"},
+		{Key: "/", Command: "search-history", Context: "git-status-commits"},
+		{Key: "f", Command: "filter-author", Context: "git-status-commits"},
+		{Key: "p", Command: "filter-path", Context: "git-status-commits"},
+		{Key: "F", Command: "clear-filter", Context: "git-status-commits"},
+		{Key: "n", Command: "next-match", Context: "git-status-commits"},
+		{Key: "N", Command: "prev-match", Context: "git-status-commits"},
 
 		// Git commit preview context (commit preview in right pane)
 		{Key: "esc", Command: "back", Context: "git-commit-preview"},

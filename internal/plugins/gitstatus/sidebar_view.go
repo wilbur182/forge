@@ -385,9 +385,21 @@ func (p *Plugin) renderSidebarEntry(entry *FileEntry, selected bool, maxWidth in
 func (p *Plugin) renderRecentCommits(currentY *int, maxVisible int) string {
 	var sb strings.Builder
 
-	// Section header with push status (bold)
+	// Section header with push status and filter indicator
 	header := "Recent Commits"
-	if p.pushStatus != nil {
+	if p.historyFilterActive {
+		// Show filter indicator
+		var filterParts []string
+		if p.historyFilterAuthor != "" {
+			filterParts = append(filterParts, "author:"+truncateStr(p.historyFilterAuthor, 10))
+		}
+		if p.historyFilterPath != "" {
+			filterParts = append(filterParts, "path:"+truncateStr(p.historyFilterPath, 10))
+		}
+		if len(filterParts) > 0 {
+			header = fmt.Sprintf("Commits %s", styles.StatusModified.Render("["+strings.Join(filterParts, ", ")+"]"))
+		}
+	} else if p.pushStatus != nil {
 		status := p.pushStatus.FormatAheadBehind()
 		if status != "" {
 			header = fmt.Sprintf("Recent Commits %s", styles.StatusModified.Render(status))
@@ -397,8 +409,18 @@ func (p *Plugin) renderRecentCommits(currentY *int, maxVisible int) string {
 	sb.WriteString("\n")
 	*currentY++
 
-	if len(p.recentCommits) == 0 {
-		sb.WriteString(styles.Muted.Render("No commits"))
+	// Use filtered commits if filter is active, otherwise recent commits
+	commits := p.recentCommits
+	if p.historyFilterActive && p.filteredCommits != nil {
+		commits = p.filteredCommits
+	}
+
+	if len(commits) == 0 {
+		if p.historyFilterActive {
+			sb.WriteString(styles.Muted.Render("No matching commits"))
+		} else {
+			sb.WriteString(styles.Muted.Render("No commits"))
+		}
 		return sb.String()
 	}
 
@@ -409,19 +431,19 @@ func (p *Plugin) renderRecentCommits(currentY *int, maxVisible int) string {
 	// Calculate visible range based on scroll offset
 	startIdx := p.commitScrollOff
 	endIdx := startIdx + maxVisible
-	if endIdx > len(p.recentCommits) {
-		endIdx = len(p.recentCommits)
+	if endIdx > len(commits) {
+		endIdx = len(commits)
 	}
-	if startIdx >= len(p.recentCommits) {
+	if startIdx >= len(commits) {
 		startIdx = 0
 		endIdx = maxVisible
-		if endIdx > len(p.recentCommits) {
-			endIdx = len(p.recentCommits)
+		if endIdx > len(commits) {
+			endIdx = len(commits)
 		}
 	}
 
 	for i := startIdx; i < endIdx; i++ {
-		commit := p.recentCommits[i]
+		commit := commits[i]
 		// Use absolute commit index for cursor comparison
 		selected := p.cursor == fileCount+i
 
@@ -433,9 +455,22 @@ func (p *Plugin) renderRecentCommits(currentY *int, maxVisible int) string {
 			indicator = "  " // Two spaces to align with indicator
 		}
 
-		// Format: "↑ abc1234 commit message..."
+		// Format stats: "+N -M" (only show if stats loaded, i.e., selected at some point)
+		var statsStr string
+		var statsWidth int
+		if commit.Stats.Additions > 0 || commit.Stats.Deletions > 0 {
+			statsStr = fmt.Sprintf("+%d -%d", commit.Stats.Additions, commit.Stats.Deletions)
+			statsWidth = len(statsStr) + 1 // +1 for space
+		}
+
+		// Format: "↑ abc1234 commit message... +N -M"
 		hash := styles.Code.Render(commit.Hash[:7])
-		msgWidth := maxWidth - 12 // indicator + hash + space
+		msgWidth := maxWidth - 12 - statsWidth // indicator + hash + space + stats
+		if msgWidth < 10 {
+			msgWidth = 10
+			statsStr = "" // Not enough room for stats
+			statsWidth = 0
+		}
 		msg := commit.Subject
 		if len(msg) > msgWidth && msgWidth > 3 {
 			msg = msg[:msgWidth-1] + "…"
@@ -450,12 +485,26 @@ func (p *Plugin) renderRecentCommits(currentY *int, maxVisible int) string {
 				plainIndicator = "↑ "
 			}
 			plainLine := fmt.Sprintf("%s%s %s", plainIndicator, commit.Hash[:7], msg)
-			if len(plainLine) < maxWidth {
+			// Pad and add stats at end
+			if statsStr != "" {
+				padding := maxWidth - len(plainLine) - len(statsStr)
+				if padding > 0 {
+					plainLine += strings.Repeat(" ", padding) + statsStr
+				}
+			} else if len(plainLine) < maxWidth {
 				plainLine += strings.Repeat(" ", maxWidth-len(plainLine))
 			}
 			sb.WriteString(styles.ListItemSelected.Render(plainLine))
 		} else {
-			sb.WriteString(styles.ListItemNormal.Render(fmt.Sprintf("%s%s %s", indicator, hash, msg)))
+			line := fmt.Sprintf("%s%s %s", indicator, hash, msg)
+			if statsStr != "" {
+				// Add stats in muted style
+				padding := maxWidth - len(stripAnsi(line)) - len(statsStr)
+				if padding > 0 {
+					line += strings.Repeat(" ", padding) + styles.Muted.Render(statsStr)
+				}
+			}
+			sb.WriteString(styles.ListItemNormal.Render(line))
 		}
 		*currentY++
 		if i < endIdx-1 {
@@ -740,6 +789,39 @@ func (p *Plugin) renderCommitPreviewFile(file CommitFile, selected bool, maxWidt
 	}
 
 	return styles.ListItemNormal.Render(fmt.Sprintf("%s %s", status, path))
+}
+
+// stripAnsi removes ANSI escape codes from a string for length calculation.
+func stripAnsi(s string) string {
+	var result strings.Builder
+	i := 0
+	for i < len(s) {
+		if s[i] == '\x1b' && i+1 < len(s) && s[i+1] == '[' {
+			// Skip until we hit a letter (end of ANSI sequence)
+			j := i + 2
+			for j < len(s) && !((s[j] >= 'A' && s[j] <= 'Z') || (s[j] >= 'a' && s[j] <= 'z')) {
+				j++
+			}
+			if j < len(s) {
+				i = j + 1
+				continue
+			}
+		}
+		result.WriteByte(s[i])
+		i++
+	}
+	return result.String()
+}
+
+// truncateStr truncates a string to maxLen characters with ellipsis.
+func truncateStr(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-1] + "…"
 }
 
 // truncateStyledLine truncates a line that may contain ANSI codes to a visual width.

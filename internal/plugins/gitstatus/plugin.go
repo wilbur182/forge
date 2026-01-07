@@ -15,6 +15,7 @@ import (
 	"github.com/marcus/sidecar/internal/plugin"
 	"github.com/marcus/sidecar/internal/plugins/filebrowser"
 	"github.com/marcus/sidecar/internal/state"
+	"github.com/marcus/sidecar/internal/ui"
 )
 
 const (
@@ -137,6 +138,20 @@ type Plugin struct {
 	pullSuccess     bool
 	fetchError      string
 	pullError       string
+
+	// History search state (/ in commit section)
+	historySearchState *HistorySearchState
+	historySearchMode  bool // True when search modal is open
+
+	// History filter state
+	historyFilterActive bool   // True when any filter is active
+	historyFilterAuthor string // Filter by author name/email
+	historyFilterPath   string // Filter by file path
+	filteredCommits     []*Commit
+
+	// Path filter input state
+	pathFilterMode  bool   // True when path input modal is open
+	pathFilterInput string // Current path input
 }
 
 // New creates a new git status plugin.
@@ -217,6 +232,13 @@ func (p *Plugin) Stop() {
 func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle modal overlays first
+		if p.historySearchMode {
+			return p.updateHistorySearch(msg)
+		}
+		if p.pathFilterMode {
+			return p.updatePathFilter(msg)
+		}
 		switch p.viewMode {
 		case ViewModeStatus:
 			return p.updateStatus(msg)
@@ -328,11 +350,56 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 		return p, nil
 
+	case FilteredCommitsLoadedMsg:
+		if msg.Commits != nil {
+			p.filteredCommits = msg.Commits
+			p.pushStatus = msg.PushStatus
+			// Reset cursor to first commit when filter applied
+			entries := p.tree.AllEntries()
+			if len(p.filteredCommits) > 0 {
+				p.cursor = len(entries)
+				p.commitScrollOff = 0
+			}
+		}
+		return p, nil
+
+	case CommitStatsLoadedMsg:
+		// Find commit and update its stats
+		for _, c := range p.recentCommits {
+			if c.Hash == msg.Hash {
+				c.Stats = msg.Stats
+				break
+			}
+		}
+		// Also check filtered commits
+		for _, c := range p.filteredCommits {
+			if c.Hash == msg.Hash {
+				c.Stats = msg.Stats
+				break
+			}
+		}
+		return p, nil
+
 	case CommitPreviewLoadedMsg:
 		// Commit preview loaded for right pane (in status view)
 		p.previewCommit = msg.Commit
 		p.previewCommitCursor = 0
 		p.previewCommitScroll = 0
+		// Copy stats to the commit in the list for inline display
+		if msg.Commit != nil {
+			for _, c := range p.recentCommits {
+				if c.Hash == msg.Commit.Hash {
+					c.Stats = msg.Commit.Stats
+					break
+				}
+			}
+			for _, c := range p.filteredCommits {
+				if c.Hash == msg.Commit.Hash {
+					c.Stats = msg.Commit.Stats
+					break
+				}
+			}
+		}
 		return p, nil
 
 	case PushSuccessMsg:
@@ -445,7 +512,11 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 // totalSelectableItems returns the count of all selectable items (files + commits).
 func (p *Plugin) totalSelectableItems() int {
 	entries := p.tree.AllEntries()
-	return len(entries) + len(p.recentCommits)
+	commits := p.recentCommits
+	if p.historyFilterActive && p.filteredCommits != nil {
+		commits = p.filteredCommits
+	}
+	return len(entries) + len(commits)
 }
 
 // cursorOnCommit returns true if cursor is on a commit (past all files).
@@ -453,7 +524,15 @@ func (p *Plugin) cursorOnCommit() bool {
 	return p.cursor >= len(p.tree.AllEntries())
 }
 
-// selectedCommitIndex returns the index into recentCommits when cursor is on commit.
+// activeCommits returns filtered commits if filter active, otherwise recent commits.
+func (p *Plugin) activeCommits() []*Commit {
+	if p.historyFilterActive && p.filteredCommits != nil {
+		return p.filteredCommits
+	}
+	return p.recentCommits
+}
+
+// selectedCommitIndex returns the index into active commits when cursor is on commit.
 func (p *Plugin) selectedCommitIndex() int {
 	entries := p.tree.AllEntries()
 	return p.cursor - len(entries)
@@ -697,21 +776,86 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		return p, p.loadBranches()
 
 	case "f":
-		// Fetch from remote
-		if !p.fetchInProgress {
-			p.fetchInProgress = true
-			p.fetchError = ""
-			p.fetchSuccess = false
-			return p, p.doFetch()
+		// On commit: filter by author; on file: fetch
+		if p.cursorOnCommit() {
+			commits := p.activeCommits()
+			commitIdx := p.selectedCommitIndex()
+			if commitIdx >= 0 && commitIdx < len(commits) {
+				commit := commits[commitIdx]
+				p.historyFilterAuthor = commit.Author
+				p.historyFilterActive = true
+				return p, p.loadFilteredCommits()
+			}
+		} else {
+			// Fetch from remote
+			if !p.fetchInProgress {
+				p.fetchInProgress = true
+				p.fetchError = ""
+				p.fetchSuccess = false
+				return p, p.doFetch()
+			}
+		}
+
+	case "F":
+		// Clear all history filters
+		if p.historyFilterActive {
+			p.historyFilterAuthor = ""
+			p.historyFilterPath = ""
+			p.historyFilterActive = false
+			p.filteredCommits = nil
 		}
 
 	case "p":
+		// On commit: filter by path (open modal); on file: pull
+		if p.cursorOnCommit() {
+			p.pathFilterMode = true
+			p.pathFilterInput = ""
+			return p, nil
+		}
 		// Pull from remote (only if no local changes to avoid conflicts)
 		if !p.pullInProgress {
 			p.pullInProgress = true
 			p.pullError = ""
 			p.pullSuccess = false
 			return p, p.doPull()
+		}
+
+	case "/":
+		// Open history search modal (only when on commits)
+		if p.cursorOnCommit() {
+			if p.historySearchState == nil {
+				p.historySearchState = NewHistorySearchState()
+			}
+			p.historySearchState.Reset()
+			p.historySearchMode = true
+			return p, nil
+		}
+
+	case "n":
+		// Next search match (after search committed)
+		if p.historySearchState != nil && p.historySearchState.Committed && len(p.historySearchState.Matches) > 0 {
+			p.historySearchState.Cursor++
+			if p.historySearchState.Cursor >= len(p.historySearchState.Matches) {
+				p.historySearchState.Cursor = 0 // Wrap around
+			}
+			return p, p.jumpToSearchMatch()
+		}
+
+	case "N":
+		// Previous search match
+		if p.historySearchState != nil && p.historySearchState.Committed && len(p.historySearchState.Matches) > 0 {
+			p.historySearchState.Cursor--
+			if p.historySearchState.Cursor < 0 {
+				p.historySearchState.Cursor = len(p.historySearchState.Matches) - 1 // Wrap around
+			}
+			return p, p.jumpToSearchMatch()
+		}
+
+	case "esc":
+		// ESC clears search state (if any active search)
+		if p.historySearchState != nil && p.historySearchState.Committed {
+			p.clearSearchState()
+			return p, nil
 		}
 	}
 
@@ -937,13 +1081,14 @@ func (p *Plugin) autoLoadCommitPreview() tea.Cmd {
 		return nil
 	}
 
+	commits := p.activeCommits()
 	commitIdx := p.selectedCommitIndex()
-	if commitIdx < 0 || commitIdx >= len(p.recentCommits) {
+	if commitIdx < 0 || commitIdx >= len(commits) {
 		p.previewCommit = nil
 		return nil
 	}
 
-	commit := p.recentCommits[commitIdx]
+	commit := commits[commitIdx]
 	// Already loaded this commit?
 	if p.previewCommit != nil && p.previewCommit.Hash == commit.Hash {
 		return nil
@@ -1111,6 +1256,16 @@ func (p *Plugin) View(width, height int) string {
 		content = p.renderThreePaneView()
 	}
 
+	// Overlay modals if active
+	if p.historySearchMode {
+		modal := p.renderHistorySearchModal(width)
+		content = ui.OverlayModal(content, modal, width, height)
+	}
+	if p.pathFilterMode {
+		modal := p.renderPathFilterModal(width)
+		content = ui.OverlayModal(content, modal, width, height)
+	}
+
 	// Constrain output to allocated height to prevent header scrolling off-screen.
 	// MaxHeight truncates content that exceeds the allocated space.
 	return lipgloss.NewStyle().Width(width).Height(height).MaxHeight(height).Render(content)
@@ -1141,6 +1296,12 @@ func (p *Plugin) Commands() []plugin.Command {
 		// git-status-commits context (recent commits in sidebar)
 		{ID: "view-commit", Name: "View", Description: "View commit details", Category: plugin.CategoryView, Context: "git-status-commits", Priority: 1},
 		{ID: "push", Name: "Push", Description: "Push commits to remote", Category: plugin.CategoryGit, Context: "git-status-commits", Priority: 2},
+		{ID: "search-history", Name: "Search", Description: "Search commit messages", Category: plugin.CategorySearch, Context: "git-status-commits", Priority: 2},
+		{ID: "filter-author", Name: "Author", Description: "Filter by author", Category: plugin.CategorySearch, Context: "git-status-commits", Priority: 3},
+		{ID: "filter-path", Name: "Path", Description: "Filter by file path", Category: plugin.CategorySearch, Context: "git-status-commits", Priority: 3},
+		{ID: "clear-filter", Name: "Clear", Description: "Clear history filters", Category: plugin.CategoryActions, Context: "git-status-commits", Priority: 3},
+		{ID: "next-match", Name: "Next", Description: "Next search match", Category: plugin.CategoryNavigation, Context: "git-status-commits", Priority: 4},
+		{ID: "prev-match", Name: "Prev", Description: "Previous search match", Category: plugin.CategoryNavigation, Context: "git-status-commits", Priority: 4},
 		{ID: "yank-commit", Name: "Yank", Description: "Copy commit as markdown", Category: plugin.CategoryActions, Context: "git-status-commits", Priority: 3},
 		{ID: "yank-id", Name: "YankID", Description: "Copy commit ID", Category: plugin.CategoryActions, Context: "git-status-commits", Priority: 3},
 		// git-commit-preview context (commit preview in right pane)
@@ -1385,6 +1546,18 @@ type MoreCommitsLoadedMsg struct {
 	PushStatus *PushStatus
 }
 
+// FilteredCommitsLoadedMsg is sent when filtered commits are fetched.
+type FilteredCommitsLoadedMsg struct {
+	Commits    []*Commit
+	PushStatus *PushStatus
+}
+
+// CommitStatsLoadedMsg is sent when commit stats are loaded.
+type CommitStatsLoadedMsg struct {
+	Hash  string
+	Stats CommitStats
+}
+
 // PushSuccessMsg is sent when a push completes successfully.
 type PushSuccessMsg struct {
 	Output string
@@ -1504,6 +1677,35 @@ func (p *Plugin) loadMoreCommits() tea.Cmd {
 			return MoreCommitsLoadedMsg{Commits: nil, PushStatus: nil}
 		}
 		return MoreCommitsLoadedMsg{Commits: commits, PushStatus: pushStatus}
+	}
+}
+
+// loadCommitStats fetches stats for a specific commit (lazy loading).
+func (p *Plugin) loadCommitStats(hash string) tea.Cmd {
+	workDir := p.ctx.WorkDir
+	return func() tea.Msg {
+		commit, err := GetCommitDetail(workDir, hash)
+		if err != nil || commit == nil {
+			return CommitStatsLoadedMsg{Hash: hash, Stats: CommitStats{}}
+		}
+		return CommitStatsLoadedMsg{Hash: hash, Stats: commit.Stats}
+	}
+}
+
+// loadFilteredCommits fetches commits with current filter options.
+func (p *Plugin) loadFilteredCommits() tea.Cmd {
+	workDir := p.ctx.WorkDir
+	opts := HistoryFilterOpts{
+		Author: p.historyFilterAuthor,
+		Path:   p.historyFilterPath,
+		Limit:  50,
+	}
+	return func() tea.Msg {
+		commits, pushStatus, err := GetCommitHistoryFilteredWithPushStatus(workDir, opts)
+		if err != nil {
+			return FilteredCommitsLoadedMsg{Commits: nil, PushStatus: nil}
+		}
+		return FilteredCommitsLoadedMsg{Commits: commits, PushStatus: pushStatus}
 	}
 }
 

@@ -272,6 +272,79 @@ func GetCommitHistoryWithPushStatusOffset(workDir string, limit, skip int) ([]*C
 	return commits, pushStatus, nil
 }
 
+// HistoryFilterOpts holds options for filtered commit queries.
+type HistoryFilterOpts struct {
+	Author string // Filter by author (--author)
+	Path   string // Filter by file path (-- <path>)
+	Limit  int
+	Skip   int
+}
+
+// GetCommitHistoryFiltered fetches commits with filters applied.
+func GetCommitHistoryFiltered(workDir string, opts HistoryFilterOpts) ([]*Commit, error) {
+	format := "%H%x00%h%x00%an%x00%ae%x00%at%x00%s"
+	args := []string{"log", "--format=" + format}
+
+	if opts.Author != "" {
+		args = append(args, "--author="+opts.Author)
+	}
+
+	if opts.Limit > 0 {
+		args = append(args, "-n", strconv.Itoa(opts.Limit))
+	}
+	if opts.Skip > 0 {
+		args = append(args, "--skip", strconv.Itoa(opts.Skip))
+	}
+
+	if opts.Path != "" {
+		args = append(args, "--", opts.Path)
+	}
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = workDir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var commits []*Commit
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\x00")
+		if len(parts) < 6 {
+			continue
+		}
+
+		timestamp, _ := strconv.ParseInt(parts[4], 10, 64)
+		commits = append(commits, &Commit{
+			Hash:        parts[0],
+			ShortHash:   parts[1],
+			Author:      parts[2],
+			AuthorEmail: parts[3],
+			Date:        time.Unix(timestamp, 0),
+			Subject:     parts[5],
+		})
+	}
+
+	return commits, nil
+}
+
+// GetCommitHistoryFilteredWithPushStatus fetches filtered commits and populates push status.
+func GetCommitHistoryFilteredWithPushStatus(workDir string, opts HistoryFilterOpts) ([]*Commit, *PushStatus, error) {
+	commits, err := GetCommitHistoryFiltered(workDir, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pushStatus := GetPushStatus(workDir)
+	PopulatePushStatus(commits, pushStatus)
+
+	return commits, pushStatus, nil
+}
+
 // RelativeTime returns a human-readable relative time string.
 func RelativeTime(t time.Time) string {
 	now := time.Now()
