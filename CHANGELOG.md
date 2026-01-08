@@ -1,6 +1,13 @@
 # Changelog
 
 All notable changes to sidecar are documented here.
+## [v0.12.1] - 2026-01-08
+
+### Bug Fixes
+- Fixed intermittent crashes while an agent was running by mutex-protecting Claude Code adapter session cache
+
+### Dependencies
+- Updated embedded td to v0.7.0 (from v0.5.0)
 
 ## [v0.12.0] - 2026-01-07
 
