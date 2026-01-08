@@ -171,18 +171,24 @@ func TestWatcher_Stop(t *testing.T) {
 	// Stop should not panic
 	w.Stop()
 
+	// Wait for run() goroutine to exit and close the channel
+	time.Sleep(50 * time.Millisecond)
+
 	// Create a file after stopping - should not generate events
 	testFile := filepath.Join(tmpDir, "test.txt")
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	// Should timeout since watcher is stopped
+	// Channel should be closed after stop, not produce new events
 	select {
-	case <-w.Events():
-		t.Error("received event after watcher stopped")
+	case _, ok := <-w.Events():
+		if ok {
+			t.Error("received event after watcher stopped")
+		}
+		// !ok means channel closed - this is expected and correct
 	case <-time.After(200 * time.Millisecond):
-		// Expected - no event after stop
+		// Also acceptable - no event after stop
 	}
 }
 

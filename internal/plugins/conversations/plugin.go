@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -1273,14 +1274,18 @@ func (p *Plugin) startWatcher() tea.Cmd {
 		}
 
 		merged := make(chan adapter.Event, 32)
+		var wg sync.WaitGroup
 		watchCount := 0
+
 		for _, a := range p.adapters {
 			ch, err := a.Watch(p.ctx.WorkDir)
 			if err != nil || ch == nil {
 				continue
 			}
 			watchCount++
+			wg.Add(1)
 			go func(c <-chan adapter.Event) {
+				defer wg.Done()
 				for evt := range c {
 					select {
 					case merged <- evt:
@@ -1289,9 +1294,17 @@ func (p *Plugin) startWatcher() tea.Cmd {
 				}
 			}(ch)
 		}
+
 		if watchCount == 0 {
 			return WatchStartedMsg{Channel: nil}
 		}
+
+		// Close merged channel when all source channels are done
+		go func() {
+			wg.Wait()
+			close(merged)
+		}()
+
 		return WatchStartedMsg{Channel: merged}
 	}
 }

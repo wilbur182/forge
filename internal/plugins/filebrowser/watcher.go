@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -17,6 +18,8 @@ type Watcher struct {
 	events    chan struct{}
 	stop      chan struct{}
 	debounce  *time.Timer
+	mu        sync.Mutex
+	closed    bool
 }
 
 // NewWatcher creates a file system watcher for the given directory.
@@ -74,6 +77,16 @@ func (w *Watcher) addRecursive(dir string) error {
 
 // run processes file system events.
 func (w *Watcher) run() {
+	defer func() {
+		w.mu.Lock()
+		w.closed = true
+		if w.debounce != nil {
+			w.debounce.Stop()
+		}
+		w.mu.Unlock()
+		close(w.events)
+	}()
+
 	for {
 		select {
 		case <-w.stop:
@@ -82,16 +95,26 @@ func (w *Watcher) run() {
 			if !ok {
 				return
 			}
+
+			w.mu.Lock()
 			// Debounce: wait 100ms for more events before signaling
 			if w.debounce != nil {
 				w.debounce.Stop()
 			}
 			w.debounce = time.AfterFunc(100*time.Millisecond, func() {
+				w.mu.Lock()
+				defer w.mu.Unlock()
+
+				if w.closed {
+					return
+				}
+
 				select {
 				case w.events <- struct{}{}:
 				default: // Channel full, skip
 				}
 			})
+			w.mu.Unlock()
 
 			// Watch newly created directories (recursively in case of mkdir -p)
 			if event.Op&fsnotify.Create != 0 {
