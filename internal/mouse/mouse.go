@@ -65,6 +65,11 @@ func (h *HitMap) Test(x, y int) *Region {
 	return nil
 }
 
+// Regions returns a copy of all registered regions (for testing).
+func (h *HitMap) Regions() []Region {
+	return append([]Region(nil), h.regions...)
+}
+
 // Handler combines a HitMap with mouse state tracking for drag and double-click detection.
 type Handler struct {
 	HitMap *HitMap

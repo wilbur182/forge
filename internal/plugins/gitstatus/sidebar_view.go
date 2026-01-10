@@ -155,6 +155,7 @@ func (p *Plugin) renderSidebar(visibleHeight int) string {
 	entries := p.tree.AllEntries()
 	if len(entries) == 0 {
 		sb.WriteString(styles.Muted.Render("Working tree clean"))
+		sb.WriteString("\n")
 		currentY++
 	} else {
 		// Calculate space for files vs commits
