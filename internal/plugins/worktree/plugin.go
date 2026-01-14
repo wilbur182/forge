@@ -228,6 +228,12 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		p.lastRefresh = time.Now()
 		if msg.Err == nil {
 			p.worktrees = msg.Worktrees
+			// Preserve agent pointers from existing agents map
+			for _, wt := range p.worktrees {
+				if agent, ok := p.agents[wt.Name]; ok {
+					wt.Agent = agent
+				}
+			}
 			// Load stats and task links for each worktree
 			for _, wt := range p.worktrees {
 				cmds = append(cmds, p.loadStats(wt.Path))
@@ -1180,20 +1186,20 @@ func (p *Plugin) Commands() []plugin.Command {
 					plugin.Command{ID: "link-task", Name: "Task", Description: "Link task", Context: "worktree-list", Priority: 8},
 				)
 			}
-			// Agent commands
+			// Agent commands (lower priority = more visible in footer)
 			if wt.Agent == nil {
 				cmds = append(cmds,
-					plugin.Command{ID: "start-agent", Name: "Start", Description: "Start agent", Context: "worktree-list", Priority: 9},
+					plugin.Command{ID: "start-agent", Name: "Start", Description: "Start agent", Context: "worktree-list", Priority: 5},
 				)
 			} else {
 				cmds = append(cmds,
-					plugin.Command{ID: "attach", Name: "Attach", Description: "Attach to session", Context: "worktree-list", Priority: 9},
-					plugin.Command{ID: "stop-agent", Name: "Stop", Description: "Stop agent", Context: "worktree-list", Priority: 10},
+					plugin.Command{ID: "attach", Name: "Attach", Description: "Attach to session", Context: "worktree-list", Priority: 3},
+					plugin.Command{ID: "stop-agent", Name: "Stop", Description: "Stop agent", Context: "worktree-list", Priority: 5},
 				)
 				if wt.Status == StatusWaiting {
 					cmds = append(cmds,
-						plugin.Command{ID: "approve", Name: "Approve", Description: "Approve prompt", Context: "worktree-list", Priority: 11},
-						plugin.Command{ID: "reject", Name: "Reject", Description: "Reject prompt", Context: "worktree-list", Priority: 12},
+						plugin.Command{ID: "approve", Name: "Approve", Description: "Approve prompt", Context: "worktree-list", Priority: 2},
+						plugin.Command{ID: "reject", Name: "Reject", Description: "Reject prompt", Context: "worktree-list", Priority: 3},
 					)
 				}
 			}

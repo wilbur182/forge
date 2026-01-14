@@ -417,9 +417,13 @@ func (p *Plugin) AttachToSession(wt *Worktree) tea.Cmd {
 	// Use tea.ExecProcess to suspend Bubble Tea and run tmux attach
 	c := exec.Command("tmux", "attach-session", "-t", wt.Agent.TmuxSession)
 
-	return tea.ExecProcess(c, func(err error) tea.Msg {
-		return TmuxAttachFinishedMsg{WorktreeName: wt.Name, Err: err}
-	})
+	// Print hint before attaching, then attach
+	return tea.Sequence(
+		tea.Printf("\nAttaching to %s. Press Ctrl-b d to return to sidecar.\n", wt.Name),
+		tea.ExecProcess(c, func(err error) tea.Msg {
+			return TmuxAttachFinishedMsg{WorktreeName: wt.Name, Err: err}
+		}),
+	)
 }
 
 // StopAgent stops an agent running in a worktree.

@@ -316,16 +316,20 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 	}
 
 	if wt.Agent == nil {
-		return dimText("No agent running\nPress 'a' to start an agent")
+		return dimText("No agent running\nPress 's' to start an agent")
 	}
 
+	// Hint for tmux detach
+	hint := dimText("enter to attach • Ctrl-b d to detach")
+	height-- // Reserve line for hint
+
 	if wt.Agent.OutputBuf == nil {
-		return dimText("No output yet")
+		return hint + "\n" + dimText("No output yet")
 	}
 
 	lines := wt.Agent.OutputBuf.Lines()
 	if len(lines) == 0 {
-		return dimText("No output yet")
+		return hint + "\n" + dimText("No output yet")
 	}
 
 	// Apply scroll offset and limit to height
@@ -341,7 +345,7 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		end = len(lines)
 	}
 
-	return strings.Join(lines[start:end], "\n")
+	return hint + "\n" + strings.Join(lines[start:end], "\n")
 }
 
 // renderDiffContent renders git diff.
