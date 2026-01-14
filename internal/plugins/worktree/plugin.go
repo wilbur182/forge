@@ -57,8 +57,9 @@ type Plugin struct {
 	selectedIdx    int
 	scrollOffset   int  // Sidebar list scroll offset
 	visibleCount   int  // Number of visible list items
-	previewOffset  int
-	sidebarWidth   int  // Persisted sidebar width
+	previewOffset    int
+	autoScrollOutput bool // Auto-scroll output to follow agent (paused when user scrolls up)
+	sidebarWidth     int  // Persisted sidebar width
 	sidebarVisible bool // Whether sidebar is visible (toggled with \)
 
 	// Agent state
@@ -124,15 +125,16 @@ type Plugin struct {
 // New creates a new worktree manager plugin.
 func New() *Plugin {
 	return &Plugin{
-		worktrees:       make([]*Worktree, 0),
-		agents:          make(map[string]*Agent),
-		managedSessions: make(map[string]bool),
-		viewMode:        ViewModeList,
-		activePane:      PaneSidebar,
-		previewTab:      PreviewTabOutput,
-		mouseHandler:    mouse.NewHandler(),
-		sidebarWidth:    40,   // Default 40% sidebar
-		sidebarVisible:  true, // Sidebar visible by default
+		worktrees:        make([]*Worktree, 0),
+		agents:           make(map[string]*Agent),
+		managedSessions:  make(map[string]bool),
+		viewMode:         ViewModeList,
+		activePane:       PaneSidebar,
+		previewTab:       PreviewTabOutput,
+		mouseHandler:     mouse.NewHandler(),
+		sidebarWidth:     40,   // Default 40% sidebar
+		sidebarVisible:   true, // Sidebar visible by default
+		autoScrollOutput: true, // Auto-scroll to follow agent output
 	}
 }
 
@@ -365,6 +367,10 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			wt.Status = msg.Status
 		}
 		// Schedule next poll (1 second interval)
+		return p, p.scheduleAgentPoll(msg.WorktreeName, 1*time.Second)
+
+	case AgentPollUnchangedMsg:
+		// Content unchanged - schedule next poll with delay (no state update needed)
 		return p, p.scheduleAgentPoll(msg.WorktreeName, 1*time.Second)
 
 	case AgentStoppedMsg:
@@ -631,28 +637,39 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			p.moveCursor(1)
 			return p.loadSelectedDiff()
 		}
-		p.previewOffset++
+		// Scroll down toward newer content (decrease offset from bottom)
+		if p.previewOffset > 0 {
+			p.previewOffset--
+			if p.previewOffset == 0 {
+				p.autoScrollOutput = true // Resume auto-scroll when at bottom
+			}
+		}
 	case "k", "up":
 		if p.activePane == PaneSidebar {
 			p.moveCursor(-1)
 			return p.loadSelectedDiff()
 		}
-		if p.previewOffset > 0 {
-			p.previewOffset--
-		}
+		// Scroll up toward older content (increase offset from bottom)
+		p.autoScrollOutput = false
+		p.previewOffset++
 	case "g":
 		if p.activePane == PaneSidebar {
 			p.selectedIdx = 0
 			p.scrollOffset = 0
 			return p.loadSelectedDiff()
 		}
-		p.previewOffset = 0
+		// Go to top (oldest content) - pause auto-scroll
+		p.autoScrollOutput = false
+		p.previewOffset = 10000 // Large offset, will be clamped in render
 	case "G":
 		if p.activePane == PaneSidebar {
 			p.selectedIdx = len(p.worktrees) - 1
 			p.ensureVisible()
 			return p.loadSelectedDiff()
 		}
+		// Go to bottom (newest content) - resume auto-scroll
+		p.previewOffset = 0
+		p.autoScrollOutput = true
 	case "n":
 		p.viewMode = ViewModeCreate
 		// Initialize textinputs for create modal
@@ -1081,12 +1098,18 @@ func (p *Plugin) toggleSidebar() {
 
 // moveCursor moves the selection cursor.
 func (p *Plugin) moveCursor(delta int) {
+	oldIdx := p.selectedIdx
 	p.selectedIdx += delta
 	if p.selectedIdx < 0 {
 		p.selectedIdx = 0
 	}
 	if p.selectedIdx >= len(p.worktrees) {
 		p.selectedIdx = len(p.worktrees) - 1
+	}
+	// Reset preview scroll state when changing worktree selection
+	if p.selectedIdx != oldIdx {
+		p.previewOffset = 0
+		p.autoScrollOutput = true
 	}
 	p.ensureVisible()
 }
@@ -1105,6 +1128,7 @@ func (p *Plugin) ensureVisible() {
 func (p *Plugin) cyclePreviewTab(delta int) tea.Cmd {
 	p.previewTab = PreviewTab((int(p.previewTab) + delta + 3) % 3)
 	p.previewOffset = 0
+	p.autoScrollOutput = true // Reset auto-scroll when switching tabs
 
 	// Load task details if switching to Task tab
 	if p.previewTab == PreviewTabTask {
@@ -1189,7 +1213,11 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 	case regionWorktreeItem:
 		// Click on worktree - select it
 		if idx, ok := action.Region.Data.(int); ok && idx >= 0 && idx < len(p.worktrees) {
-			p.selectedIdx = idx
+			if p.selectedIdx != idx {
+				p.selectedIdx = idx
+				p.previewOffset = 0
+				p.autoScrollOutput = true
+			}
 			p.ensureVisible()
 			p.activePane = PaneSidebar
 			return p.loadSelectedDiff()
@@ -1199,6 +1227,7 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 		if idx, ok := action.Region.Data.(int); ok && idx >= 0 && idx <= 2 {
 			p.previewTab = PreviewTab(idx)
 			p.previewOffset = 0
+			p.autoScrollOutput = true
 		}
 	case regionAgentChoiceOption:
 		// Click on agent choice option
@@ -1294,9 +1323,29 @@ func (p *Plugin) scrollSidebar(delta int) tea.Cmd {
 
 // scrollPreview scrolls the preview pane content.
 func (p *Plugin) scrollPreview(delta int) tea.Cmd {
-	p.previewOffset += delta
-	if p.previewOffset < 0 {
-		p.previewOffset = 0
+	// For output tab with auto-scroll, handle scroll direction correctly:
+	// - Scroll UP (delta < 0): show older content (increase offset from bottom)
+	// - Scroll DOWN (delta > 0): show newer content (decrease offset from bottom)
+	if p.previewTab == PreviewTabOutput {
+		if delta < 0 {
+			// Scroll UP: pause auto-scroll, show older content
+			p.autoScrollOutput = false
+			p.previewOffset++
+		} else {
+			// Scroll DOWN: show newer content
+			if p.previewOffset > 0 {
+				p.previewOffset--
+				if p.previewOffset == 0 {
+					p.autoScrollOutput = true // Resume auto-scroll when at bottom
+				}
+			}
+		}
+	} else {
+		// For other tabs (diff, task), use simple offset
+		p.previewOffset += delta
+		if p.previewOffset < 0 {
+			p.previewOffset = 0
+		}
 	}
 	return nil
 }

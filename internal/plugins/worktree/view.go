@@ -385,17 +385,25 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		return hint + "\n" + dimText("No output yet")
 	}
 
-	// Apply scroll offset and limit to height
-	start := p.previewOffset
-	if start >= len(lines) {
-		start = len(lines) - 1
-	}
-	if start < 0 {
-		start = 0
-	}
-	end := start + height
-	if end > len(lines) {
+	var start, end int
+	if p.autoScrollOutput {
+		// Auto-scroll: show newest content (last height lines)
+		start = len(lines) - height
+		if start < 0 {
+			start = 0
+		}
 		end = len(lines)
+	} else {
+		// Manual scroll: previewOffset is lines from bottom
+		// offset=0 means bottom, offset=N means N lines up from bottom
+		start = len(lines) - height - p.previewOffset
+		if start < 0 {
+			start = 0
+		}
+		end = start + height
+		if end > len(lines) {
+			end = len(lines)
+		}
 	}
 
 	return hint + "\n" + strings.Join(lines[start:end], "\n")

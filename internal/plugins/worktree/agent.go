@@ -310,6 +310,11 @@ func (p *Plugin) scheduleAgentPoll(worktreeName string, delay time.Duration) tea
 	})
 }
 
+// AgentPollUnchangedMsg signals content unchanged, schedule next poll.
+type AgentPollUnchangedMsg struct {
+	WorktreeName string
+}
+
 // handlePollAgent captures output from a tmux session.
 func (p *Plugin) handlePollAgent(worktreeName string) tea.Cmd {
 	return func() tea.Msg {
@@ -331,8 +336,8 @@ func (p *Plugin) handlePollAgent(worktreeName string) tea.Cmd {
 
 		// Use hash-based change detection to skip processing if content unchanged
 		if wt.Agent.OutputBuf != nil && !wt.Agent.OutputBuf.Update(output) {
-			// Content unchanged - just schedule next poll without emitting message
-			return pollAgentMsg{WorktreeName: worktreeName}
+			// Content unchanged - signal to schedule next poll with delay
+			return AgentPollUnchangedMsg{WorktreeName: worktreeName}
 		}
 
 		// Content changed - detect status and emit
