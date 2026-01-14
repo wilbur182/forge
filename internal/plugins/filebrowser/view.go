@@ -56,9 +56,8 @@ const dividerWidth = 1
 // calculatePaneWidths sets the tree and preview pane widths.
 // If treeWidth is already set (from drag), only updates previewWidth.
 func (p *Plugin) calculatePaneWidths() {
-	// Original: available = width - 6 (4 for borders + 2 margin)
-	// With divider: subtract 1 more for the divider character
-	available := p.width - 6 - dividerWidth
+	// RenderPanel handles borders internally, so only subtract divider
+	available := p.width - dividerWidth
 
 	// Only set default treeWidth if not yet initialized
 	if p.treeWidth == 0 {

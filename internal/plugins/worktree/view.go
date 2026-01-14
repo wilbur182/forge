@@ -69,21 +69,15 @@ func (p *Plugin) renderListView(width, height int) string {
 
 	// If sidebar is hidden, show only preview pane at full width
 	if !p.sidebarVisible {
-		previewW := width - 4 // Account for borders
-		if previewW < 40 {
-			previewW = 40
-		}
-
 		// Register hit region for full-width preview
 		p.mouseHandler.HitMap.AddRect(regionPreviewPane, 0, 0, width, paneHeight, nil)
 
-		previewContent := p.renderPreviewContent(previewW, innerHeight)
+		previewContent := p.renderPreviewContent(width-4, innerHeight)
 		return styles.RenderPanel(previewContent, width, paneHeight, true)
 	}
 
-	// Calculate pane widths (sidebarWidth is percentage)
-	// Account for borders (4 total: 2 per pane) and divider
-	available := width - 6 - dividerWidth // 6 for borders (2 per pane × 2 + padding)
+	// RenderPanel handles borders internally, so only subtract divider
+	available := width - dividerWidth
 	sidebarW := (available * p.sidebarWidth) / 100
 	if sidebarW < 25 {
 		sidebarW = 25

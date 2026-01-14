@@ -16,14 +16,12 @@ const dividerWidth = 1
 func (p *Plugin) calculatePaneWidths() {
 	if !p.sidebarVisible {
 		p.sidebarWidth = 0
-		// Account for pane border (2) when at full width to avoid terminal edge rendering issues
-		p.diffPaneWidth = p.width - 2
+		p.diffPaneWidth = p.width
 		return
 	}
 
-	// Original: available = width - 5 (4 for borders + 1 margin)
-	// With divider: subtract 1 more for the divider character
-	available := p.width - 5 - dividerWidth
+	// RenderPanel handles borders internally, so only subtract divider
+	available := p.width - dividerWidth
 
 	// Only set default sidebarWidth if not yet initialized
 	if p.sidebarWidth == 0 {

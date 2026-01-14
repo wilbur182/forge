@@ -545,8 +545,8 @@ func (p *Plugin) renderTwoPane() string {
 		return rightPane
 	}
 
-	// Calculate pane widths - account for borders (2 per pane = 4 total) plus gap and divider
-	available := p.width - 5 - dividerWidth
+	// RenderPanel handles borders internally, so only subtract divider
+	available := p.width - dividerWidth
 	sidebarWidth := p.sidebarWidth
 	if sidebarWidth == 0 {
 		sidebarWidth = available * 30 / 100
