@@ -247,6 +247,11 @@ func (p *Plugin) Init(ctx *plugin.Context) error {
 		p.sidebarWidth = savedWidth
 	}
 
+	// Load saved diff view mode
+	if state.GetWorktreeDiffMode() == "side-by-side" {
+		p.diffViewMode = DiffViewSideBySide
+	}
+
 	return nil
 }
 
@@ -915,8 +920,10 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		if p.activePane == PanePreview && p.previewTab == PreviewTabDiff {
 			if p.diffViewMode == DiffViewUnified {
 				p.diffViewMode = DiffViewSideBySide
+				_ = state.SetWorktreeDiffMode("side-by-side")
 			} else {
 				p.diffViewMode = DiffViewUnified
+				_ = state.SetWorktreeDiffMode("unified")
 			}
 		} else if p.activePane == PaneSidebar {
 			if p.viewMode == ViewModeList {

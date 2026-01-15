@@ -9,8 +9,9 @@ import (
 
 // State holds persistent user preferences.
 type State struct {
-	GitDiffMode     string `json:"gitDiffMode"`               // "unified" or "side-by-side"
-	GitGraphEnabled bool   `json:"gitGraphEnabled,omitempty"` // Show commit graph in sidebar
+	GitDiffMode      string `json:"gitDiffMode"`               // "unified" or "side-by-side"
+	WorktreeDiffMode string `json:"worktreeDiffMode,omitempty"` // "unified" or "side-by-side"
+	GitGraphEnabled  bool   `json:"gitGraphEnabled,omitempty"`  // Show commit graph in sidebar
 
 	// Pane width preferences (percentage of total width, 0 = use default)
 	FileBrowserTreeWidth   int `json:"fileBrowserTreeWidth,omitempty"`
@@ -116,6 +117,27 @@ func SetGitDiffMode(mode string) error {
 		current = &State{}
 	}
 	current.GitDiffMode = mode
+	mu.Unlock()
+	return Save()
+}
+
+// GetWorktreeDiffMode returns the saved worktree diff mode.
+func GetWorktreeDiffMode() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	if current == nil || current.WorktreeDiffMode == "" {
+		return "unified"
+	}
+	return current.WorktreeDiffMode
+}
+
+// SetWorktreeDiffMode saves the worktree diff mode preference.
+func SetWorktreeDiffMode(mode string) error {
+	mu.Lock()
+	if current == nil {
+		current = &State{}
+	}
+	current.WorktreeDiffMode = mode
 	mu.Unlock()
 	return Save()
 }
