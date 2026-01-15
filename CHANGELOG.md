@@ -2,6 +2,14 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.14.5] - 2026-01-14
+
+### Features
+- Added confirmation dialog before deleting worktrees
+
+### Bug Fixes
+- Fixes from code review
+
 ## [v0.14.4] - 2026-01-14
 
 ### Bug Fixes
