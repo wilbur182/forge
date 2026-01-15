@@ -1049,27 +1049,39 @@ func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool,
 	// Get badge text for width calculations (plain text length)
 	badgeText := adapterBadgeText(session)
 
-	// Format duration
-	length := "--"
+	// Format duration - only if we have data
+	lengthCol := ""
 	if session.Duration > 0 {
-		length = formatSessionDuration(session.Duration)
+		lengthCol = formatSessionDuration(session.Duration)
 	}
-	lengthCol := fmt.Sprintf("%4s", length)
 
-	// Format token count (compact)
+	// Format token count - only if we have data
 	tokenCol := ""
 	if session.TotalTokens > 0 {
 		tokenCol = formatK(session.TotalTokens)
 	}
 
-	// Calculate prefix length for width calculations
-	// active(1) + badge + space + length(4) + space + tokens(~4)
-	prefixLen := 1 + len(badgeText) + 1 + len(lengthCol) + 1
-	if tokenCol != "" {
-		prefixLen += len(tokenCol) + 1
+	// Calculate right column width (only for columns that have data)
+	rightColWidth := 0
+	if lengthCol != "" {
+		rightColWidth += len(lengthCol)
 	}
+	if tokenCol != "" {
+		if rightColWidth > 0 {
+			rightColWidth += 1 // space between columns
+		}
+		rightColWidth += len(tokenCol)
+	}
+
+	// Calculate prefix length for width calculations
+	// active(1) + badge + space
+	prefixLen := 1 + len(badgeText) + 1
 	if session.IsSubAgent {
 		prefixLen += 2 // extra indent for sub-agents
+	}
+	// Add right column width plus spacing if present
+	if rightColWidth > 0 {
+		prefixLen += rightColWidth + 2 // space before + space after
 	}
 
 	// Session name/ID
@@ -1096,10 +1108,6 @@ func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool,
 	}
 	visibleLen += 1                              // indicator
 	visibleLen += len(badgeText) + 1 + len(name) // badge + space + name
-	rightColWidth := len(lengthCol)
-	if tokenCol != "" {
-		rightColWidth += 1 + len(tokenCol)
-	}
 	padding := maxWidth - visibleLen - rightColWidth - 1
 	if padding < 0 {
 		padding = 0
@@ -1135,17 +1143,21 @@ func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool,
 		sb.WriteString(styles.Body.Render(name))
 	}
 
-	// Padding and right-aligned stats (duration + tokens)
-	if padding > 0 {
+	// Padding and right-aligned stats (only if we have data)
+	if rightColWidth > 0 && padding > 0 {
 		sb.WriteString(strings.Repeat(" ", padding))
 		sb.WriteString(" ")
-		if session.IsSubAgent {
-			sb.WriteString(styles.Muted.Render(lengthCol))
-		} else {
-			sb.WriteString(styles.Subtitle.Render(lengthCol))
+		if lengthCol != "" {
+			if session.IsSubAgent {
+				sb.WriteString(styles.Muted.Render(lengthCol))
+			} else {
+				sb.WriteString(styles.Subtitle.Render(lengthCol))
+			}
 		}
 		if tokenCol != "" {
-			sb.WriteString(" ")
+			if lengthCol != "" {
+				sb.WriteString(" ")
+			}
 			sb.WriteString(styles.Subtle.Render(tokenCol))
 		}
 	}
@@ -1168,12 +1180,16 @@ func (p *Plugin) renderCompactSessionRow(session adapter.Session, selected bool,
 		plain.WriteString(badgeText)
 		plain.WriteString(" ")
 		plain.WriteString(name)
-		if padding > 0 {
+		if rightColWidth > 0 && padding > 0 {
 			plain.WriteString(strings.Repeat(" ", padding))
 			plain.WriteString(" ")
-			plain.WriteString(lengthCol)
+			if lengthCol != "" {
+				plain.WriteString(lengthCol)
+			}
 			if tokenCol != "" {
-				plain.WriteString(" ")
+				if lengthCol != "" {
+					plain.WriteString(" ")
+				}
 				plain.WriteString(tokenCol)
 			}
 		}

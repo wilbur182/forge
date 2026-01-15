@@ -2,6 +2,11 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.16.1] - 2026-01-14
+
+### Bug Fixes
+- Session list now only reserves space for duration/token columns when data exists (more room for titles)
+
 ## [v0.16.0] - 2026-01-14
 
 ### Features
