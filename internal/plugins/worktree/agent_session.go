@@ -35,7 +35,8 @@ func detectAgentSessionStatus(agentType AgentType, worktreePath string) (Worktre
 }
 
 // detectClaudeSessionStatus checks Claude session files.
-// Claude stores sessions in ~/.claude/projects/{path-hash}/*.jsonl
+// Claude stores sessions in ~/.claude/projects/{path-with-dashes}/*.jsonl
+// Path format: /Users/foo/code/project becomes -Users-foo-code-project
 func detectClaudeSessionStatus(worktreePath string) (WorktreeStatus, bool) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -47,10 +48,13 @@ func detectClaudeSessionStatus(worktreePath string) (WorktreeStatus, bool) {
 		return 0, false
 	}
 
-	// Convert /Users/foo/code/project to -Users-foo-code-project
-	pathHash := strings.ReplaceAll(absPath, "/", "-")
-	projectDir := filepath.Join(home, ".claude", "projects", pathHash)
+	// Claude Code uses path with slashes replaced by dashes
+	// e.g., /Users/foo/code/project becomes -Users-foo-code-project
+	pathWithDashes := strings.ReplaceAll(absPath, "/", "-")
+	projectDir := filepath.Join(home, ".claude", "projects", pathWithDashes)
 
+	// Find most recent main session file (UUID-based, not agent-* prefixed)
+	// Agent subprocesses create agent-* files; we want the main session
 	sessionFile, err := findMostRecentJSONL(projectDir, "agent-")
 	if err != nil || sessionFile == "" {
 		return 0, false
@@ -150,8 +154,9 @@ func detectCursorSessionStatus(worktreePath string) (WorktreeStatus, bool) {
 	return 0, false
 }
 
-// findMostRecentJSONL finds most recent .jsonl file, optionally skipping prefix.
-func findMostRecentJSONL(dir string, skipPrefix string) (string, error) {
+// findMostRecentJSONL finds most recent .jsonl file in dir.
+// excludePrefix: if non-empty, files starting with this prefix are skipped.
+func findMostRecentJSONL(dir string, excludePrefix string) (string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", err
@@ -164,7 +169,8 @@ func findMostRecentJSONL(dir string, skipPrefix string) (string, error) {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
 			continue
 		}
-		if skipPrefix != "" && strings.HasPrefix(e.Name(), skipPrefix) {
+		// Skip files matching the exclude prefix (e.g., "agent-" subagent files)
+		if excludePrefix != "" && strings.HasPrefix(e.Name(), excludePrefix) {
 			continue
 		}
 

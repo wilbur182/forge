@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcus/sidecar/internal/adapter"
 	"github.com/marcus/sidecar/internal/styles"
+	"github.com/marcus/sidecar/internal/ui"
 )
 
 // ansiBackgroundRegex matches ANSI background color escape sequences including:
@@ -201,10 +202,11 @@ func adapterAbbrev(session adapter.Session) string {
 		if name == "" {
 			return ""
 		}
-		if len(name) <= 2 {
+		runes := []rune(name)
+		if len(runes) <= 2 {
 			return strings.ToUpper(name)
 		}
-		return strings.ToUpper(name[:2])
+		return strings.ToUpper(string(runes[:2]))
 	}
 }
 
@@ -1673,9 +1675,10 @@ func (p *Plugin) renderCompactMessage(msg adapter.Message, msgIndex int, maxWidt
 	// Calculate if we need to truncate role
 	role := msg.Role
 	// Account for: cursor(2) + [](2) + ts(5) + space(1) + role + tokens
-	usedWidth := 2 + 2 + len(ts) + 1 + len(role) + len(tokens)
-	if usedWidth > maxWidth && len(role) > 4 {
-		role = role[:4]
+	roleRunes := []rune(role)
+	usedWidth := 2 + 2 + len(ts) + 1 + len(roleRunes) + len(tokens)
+	if usedWidth > maxWidth && len(roleRunes) > 4 {
+		role = string(roleRunes[:4])
 	}
 
 	// Build styled header
@@ -2084,7 +2087,7 @@ func (p *Plugin) renderToolUseBlock(block adapter.ContentBlock, maxWidth int) []
 	}
 
 	if len(toolHeader) > maxWidth-2 {
-		toolHeader = toolHeader[:maxWidth-5] + "..."
+		toolHeader = ui.TruncateString(toolHeader, maxWidth-2)
 	}
 
 	expanded := p.expandedToolResults[block.ToolUseID]
@@ -2107,8 +2110,8 @@ func (p *Plugin) renderToolUseBlock(block adapter.ContentBlock, maxWidth int) []
 
 		// Truncate before prettifying to prevent memory issues with large outputs
 		const maxChars = 10000
-		if len(output) > maxChars {
-			output = output[:maxChars]
+		if len([]rune(output)) > maxChars {
+			output = string([]rune(output)[:maxChars])
 		}
 
 		// Try to prettify JSON output
@@ -2122,7 +2125,7 @@ func (p *Plugin) renderToolUseBlock(block adapter.ContentBlock, maxWidth int) []
 		}
 		for _, line := range outputLines {
 			if len(line) > maxWidth-4 {
-				line = line[:maxWidth-7] + "..."
+				line = ui.TruncateString(line, maxWidth-4)
 			}
 			lines = append(lines, styles.Muted.Render("  "+line))
 		}

@@ -87,6 +87,7 @@ func (p *Plugin) createWorktree() tea.Cmd {
 	taskID := p.createTaskID
 	agentType := p.createAgentType
 	skipPerms := p.createSkipPermissions
+	prompt := p.getSelectedPrompt()
 
 	if name == "" {
 		return func() tea.Msg {
@@ -96,7 +97,7 @@ func (p *Plugin) createWorktree() tea.Cmd {
 
 	return func() tea.Msg {
 		wt, err := p.doCreateWorktree(name, baseBranch, taskID, agentType)
-		return CreateDoneMsg{Worktree: wt, AgentType: agentType, SkipPerms: skipPerms, Err: err}
+		return CreateDoneMsg{Worktree: wt, AgentType: agentType, SkipPerms: skipPerms, Prompt: prompt, Err: err}
 	}
 }
 
