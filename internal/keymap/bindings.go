@@ -27,6 +27,8 @@ func DefaultBindings() []Binding {
 		{Key: "esc", Command: "back", Context: "global"},
 
 		// Git Status context (files)
+		{Key: "tab", Command: "switch-pane", Context: "git-status"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "git-status"},
 		{Key: "s", Command: "stage-file", Context: "git-status"},
 		{Key: "u", Command: "unstage-file", Context: "git-status"},
 		{Key: "S", Command: "stage-all", Context: "git-status"},
@@ -46,6 +48,8 @@ func DefaultBindings() []Binding {
 		{Key: "\\", Command: "toggle-sidebar", Context: "git-status"},
 
 		// Git Status commits context (recent commits in sidebar)
+		{Key: "tab", Command: "switch-pane", Context: "git-status-commits"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "git-status-commits"},
 		{Key: "enter", Command: "view-commit", Context: "git-status-commits"},
 		{Key: "d", Command: "view-commit", Context: "git-status-commits"},
 		{Key: "h", Command: "show-history", Context: "git-status-commits"},
@@ -61,6 +65,8 @@ func DefaultBindings() []Binding {
 		{Key: "\\", Command: "toggle-sidebar", Context: "git-status-commits"},
 
 		// Git commit preview context (commit preview in right pane)
+		{Key: "tab", Command: "switch-pane", Context: "git-commit-preview"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "git-commit-preview"},
 		{Key: "esc", Command: "back", Context: "git-commit-preview"},
 		{Key: "h", Command: "back", Context: "git-commit-preview"},
 		{Key: "enter", Command: "view-diff", Context: "git-commit-preview"},
@@ -78,6 +84,8 @@ func DefaultBindings() []Binding {
 		{Key: "O", Command: "open-in-file-browser", Context: "git-diff"},
 
 		// Git Status Diff Pane context (inline diff in three-pane view)
+		{Key: "tab", Command: "switch-pane", Context: "git-status-diff"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "git-status-diff"},
 		{Key: "v", Command: "toggle-diff-view", Context: "git-status-diff"},
 		{Key: "\\", Command: "toggle-sidebar", Context: "git-status-diff"},
 
@@ -133,6 +141,8 @@ func DefaultBindings() []Binding {
 		{Key: "y", Command: "yank", Context: "turn-detail"},
 
 		// Conversations sidebar context (two-pane mode, left pane focused)
+		{Key: "tab", Command: "switch-pane", Context: "conversations-sidebar"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "conversations-sidebar"},
 		{Key: "enter", Command: "view-session", Context: "conversations-sidebar"},
 		{Key: "/", Command: "search", Context: "conversations-sidebar"},
 		{Key: "r", Command: "refresh", Context: "conversations-sidebar"},
@@ -148,6 +158,8 @@ func DefaultBindings() []Binding {
 		{Key: "\\", Command: "toggle-sidebar", Context: "conversations-sidebar"},
 
 		// Conversations main context (two-pane mode, right pane focused)
+		{Key: "tab", Command: "switch-pane", Context: "conversations-main"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "conversations-main"},
 		{Key: "esc", Command: "back", Context: "conversations-main"},
 		{Key: "j", Command: "scroll", Context: "conversations-main"},
 		{Key: "k", Command: "scroll", Context: "conversations-main"},
@@ -161,6 +173,8 @@ func DefaultBindings() []Binding {
 		{Key: "\\", Command: "toggle-sidebar", Context: "conversations-main"},
 
 		// File browser tree context
+		{Key: "tab", Command: "switch-pane", Context: "file-browser-tree"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "file-browser-tree"},
 		{Key: "/", Command: "search", Context: "file-browser-tree"},
 		{Key: "ctrl+p", Command: "quick-open", Context: "file-browser-tree"},
 		{Key: "ctrl+s", Command: "project-search", Context: "file-browser-tree"},
@@ -178,6 +192,8 @@ func DefaultBindings() []Binding {
 		{Key: "\\", Command: "toggle-sidebar", Context: "file-browser-tree"},
 
 		// File browser preview context
+		{Key: "tab", Command: "switch-pane", Context: "file-browser-preview"},
+		{Key: "shift+tab", Command: "switch-pane", Context: "file-browser-preview"},
 		{Key: "/", Command: "search-content", Context: "file-browser-preview"},
 		{Key: "ctrl+p", Command: "quick-open", Context: "file-browser-preview"},
 		{Key: "ctrl+s", Command: "project-search", Context: "file-browser-preview"},

@@ -634,7 +634,7 @@ func (p *Plugin) updateSessions(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			return p, p.schedulePreviewLoad(p.selectedSession)
 		}
 
-	case "tab":
+	case "tab", "shift+tab":
 		// Switch focus to messages pane (if sidebar visible)
 		if p.selectedSession != "" && p.sidebarVisible {
 			p.activePane = PaneMessages
@@ -932,7 +932,7 @@ func (p *Plugin) updateMessages(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 		p.activePane = PaneSidebar
 		return p, nil
 
-	case "tab":
+	case "tab", "shift+tab":
 		// Switch focus to sidebar (if visible)
 		if p.sidebarVisible {
 			p.activePane = PaneSidebar

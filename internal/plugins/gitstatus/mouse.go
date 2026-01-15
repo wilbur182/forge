@@ -68,8 +68,20 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) (*Plugin, tea.Cmd) {
 		return p, nil
 
 	case regionFile:
-		// Click on file - select it
+		// Click on file - select it, or toggle folder expansion
 		if idx, ok := action.Region.Data.(int); ok {
+			entries := p.tree.AllEntries()
+			if idx < len(entries) {
+				entry := entries[idx]
+				// For folders, toggle expansion on click (not just double-click)
+				if entry.IsFolder {
+					p.cursor = idx
+					p.ensureCursorVisible()
+					entry.IsExpanded = !entry.IsExpanded
+					return p, p.autoLoadDiff()
+				}
+			}
+			// Regular files: just select
 			if idx != p.cursor {
 				p.cursor = idx
 				p.ensureCursorVisible()

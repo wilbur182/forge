@@ -95,14 +95,15 @@ type Plugin struct {
 
 
 	// Push status state
-	pushStatus         *PushStatus
-	pushInProgress     bool
-	pushError          string
-	pushSuccess        bool      // Show success indicator after push
-	pushSuccessTime    time.Time // When to auto-clear success
-	pushMenuReturnMode ViewMode // Mode to return to when push menu closes
-	pushMenuFocus      int      // 0=push, 1=force, 2=upstream
-	pushMenuHover      int      // -1=none, 0=push, 1=force, 2=upstream
+	pushStatus             *PushStatus
+	pushInProgress         bool
+	pushError              string
+	pushSuccess            bool      // Show success indicator after push
+	pushSuccessTime        time.Time // When to auto-clear success
+	pushMenuReturnMode     ViewMode  // Mode to return to when push menu closes
+	pushMenuFocus          int       // 0=push, 1=force, 2=upstream
+	pushMenuHover          int       // -1=none, 0=push, 1=force, 2=upstream
+	pushPreservedCommitHash string   // Hash of selected commit when push started
 
 	// View dimensions
 	width  int
@@ -364,14 +365,19 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 
 		p.moreCommitsAvailable = len(msg.Commits) >= commitHistoryPageSize
-		prevCommitHash := ""
-		if !p.historyFilterActive && p.cursorOnCommit() {
+
+		// Determine which commit hash to restore cursor to
+		// Priority: pushPreservedCommitHash (set before push) > computed from current state
+		prevCommitHash := p.pushPreservedCommitHash
+		if prevCommitHash == "" && !p.historyFilterActive && p.cursorOnCommit() {
 			commits := p.activeCommits()
 			commitIdx := p.selectedCommitIndex()
 			if commitIdx >= 0 && commitIdx < len(commits) {
 				prevCommitHash = commits[commitIdx].Hash
 			}
 		}
+		// Clear the preserved hash after use
+		p.pushPreservedCommitHash = ""
 
 		p.recentCommits = mergeRecentCommits(p.recentCommits, msg.Commits)
 		p.pushStatus = msg.PushStatus
@@ -479,6 +485,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		p.pushSuccess = true
 		p.pushSuccessTime = time.Now()
 		// Refresh to show updated push status
+		// Note: pushPreservedCommitHash will be used by RecentCommitsLoadedMsg to restore cursor
 		return p, tea.Batch(p.refresh(), p.loadRecentCommits(), p.clearPushSuccessAfterDelay())
 
 	case PushErrorMsg:
@@ -707,7 +714,7 @@ func (p *Plugin) updateStatus(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			}
 		}
 
-	case "tab":
+	case "tab", "shift+tab":
 		// Switch focus to diff pane (if sidebar visible)
 		if p.sidebarVisible && (p.selectedDiffFile != "" || p.previewCommit != nil) {
 			p.activePane = PaneDiff
@@ -1049,7 +1056,7 @@ func (p *Plugin) updateStatusDiffPane(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.diffPaneViewMode = DiffViewUnified
 		}
 
-	case "tab":
+	case "tab", "shift+tab":
 		// Switch focus to sidebar (if visible)
 		if p.sidebarVisible {
 			p.activePane = PaneSidebar
@@ -1123,7 +1130,7 @@ func (p *Plugin) updateCommitPreviewPane(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd
 			return p, p.loadCommitFileDiff(c.Hash, file.Path)
 		}
 
-	case "tab":
+	case "tab", "shift+tab":
 		// Switch focus to sidebar (if visible)
 		if p.sidebarVisible {
 			p.activePane = PaneSidebar
@@ -2157,6 +2164,16 @@ func (p *Plugin) executePushMenuAction(idx int) (plugin.Plugin, tea.Cmd) {
 	p.pushError = ""
 	p.pushSuccess = false
 	p.pushMenuFocus = 0
+
+	// Preserve selected commit hash before push to restore cursor after refresh
+	p.pushPreservedCommitHash = ""
+	if p.cursorOnCommit() {
+		commits := p.activeCommits()
+		commitIdx := p.selectedCommitIndex()
+		if commitIdx >= 0 && commitIdx < len(commits) {
+			p.pushPreservedCommitHash = commits[commitIdx].Hash
+		}
+	}
 
 	switch idx {
 	case 0:

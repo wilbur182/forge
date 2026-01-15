@@ -233,12 +233,13 @@ All plugins with two-pane layouts (Git, Conversations, Files) share consistent s
 | Key | Action | Description |
 |-----|--------|-------------|
 | `Tab` | Switch focus | Move focus between sidebar and main pane |
+| `Shift+Tab` | Switch focus | Move focus between sidebar and main pane (same as Tab) |
 | `\` | Toggle sidebar | Collapse/expand the sidebar pane |
 | `h`/`left` | Focus left | Move focus to sidebar pane |
 | `l`/`right` | Focus right | Move focus to main pane |
 
 **Behavior notes:**
-- `Tab` only switches focus between panes (doesn't toggle visibility)
+- `Tab` and `Shift+Tab` both switch focus between panes (doesn't toggle visibility)
 - `\` collapses sidebar to give main pane full width, or restores it
 - When sidebar is collapsed, focus automatically moves to main pane
 - When sidebar is restored with `\`, focus moves to sidebar
@@ -337,6 +338,7 @@ All plugins with two-pane layouts (Git, Conversations, Files) share consistent s
 | `y` | approve | Approve agent prompt |
 | `N` | reject | Reject agent prompt |
 | `Tab` | switch-pane | Switch focus between sidebar and preview |
+| `Shift+Tab` | switch-pane | Switch focus between sidebar and preview |
 | `\` | toggle-sidebar | Collapse/expand sidebar |
 | `[` | prev-tab | Previous preview tab (Output/Diff/Task) |
 | `]` | next-tab | Next preview tab (Output/Diff/Task) |

@@ -194,19 +194,36 @@ func (p *Plugin) doFileOp(src, dst string) tea.Cmd {
 			return FileOpErrorMsg{Err: err}
 		}
 
-		// Check if destination exists
-		if _, err := os.Stat(dst); err == nil {
-			return FileOpErrorMsg{Err: fmt.Errorf("destination already exists: %s", filepath.Base(dst))}
-		}
-
 		// Check if source and destination are the same
 		if src == dst {
 			return FileOpErrorMsg{Err: fmt.Errorf("source and destination are the same")}
 		}
 
-		// Perform the move/rename
-		if err := os.Rename(src, dst); err != nil {
-			return FileOpErrorMsg{Err: err}
+		// Check for case-only rename (e.g., "File.txt" -> "file.txt")
+		// On case-insensitive filesystems, we need a two-step rename via temp file
+		isCaseOnlyRename := strings.EqualFold(src, dst) && src != dst
+
+		if isCaseOnlyRename {
+			// Two-step rename: src -> temp -> dst
+			tempPath := src + ".sidecar-rename-tmp"
+			if err := os.Rename(src, tempPath); err != nil {
+				return FileOpErrorMsg{Err: fmt.Errorf("rename failed: %w", err)}
+			}
+			if err := os.Rename(tempPath, dst); err != nil {
+				// Try to rollback
+				_ = os.Rename(tempPath, src)
+				return FileOpErrorMsg{Err: fmt.Errorf("rename failed: %w", err)}
+			}
+		} else {
+			// Check if destination exists (only for non-case-only renames)
+			if _, err := os.Stat(dst); err == nil {
+				return FileOpErrorMsg{Err: fmt.Errorf("destination already exists: %s", filepath.Base(dst))}
+			}
+
+			// Perform the move/rename
+			if err := os.Rename(src, dst); err != nil {
+				return FileOpErrorMsg{Err: err}
+			}
 		}
 
 		return FileOpSuccessMsg{Src: src, Dst: dst}

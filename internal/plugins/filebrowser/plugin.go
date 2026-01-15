@@ -453,11 +453,16 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		return p, p.listenForWatchEvents()
 
 	case WatchEventMsg:
-		// File system changed, refresh tree and continue listening
-		return p, tea.Batch(
+		// File system changed, refresh tree and preview (if viewing a file)
+		cmds := []tea.Cmd{
 			p.refresh(),
 			p.listenForWatchEvents(),
-		)
+		}
+		// Reload preview if we're currently viewing a file
+		if p.previewFile != "" {
+			cmds = append(cmds, LoadPreview(p.ctx.WorkDir, p.previewFile))
+		}
+		return p, tea.Batch(cmds...)
 
 	case NavigateToFileMsg:
 		return p.navigateToFile(msg.Path)
