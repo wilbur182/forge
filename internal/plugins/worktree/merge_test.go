@@ -14,6 +14,7 @@ func TestMergeWorkflowStepString(t *testing.T) {
 		{MergeStepPush, "Push Branch"},
 		{MergeStepCreatePR, "Create PR"},
 		{MergeStepWaitingMerge, "Waiting for Merge"},
+		{MergeStepPostMergeConfirmation, "Confirm Cleanup"},
 		{MergeStepCleanup, "Cleanup"},
 		{MergeStepDone, "Done"},
 		{MergeWorkflowStep(99), "Unknown"},

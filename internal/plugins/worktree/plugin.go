@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -55,7 +56,10 @@ const (
 	regionTaskLinkDropdown = "task-link-dropdown"
 
 	// Merge modal regions
-	regionMergeRadio = "merge-radio"
+	regionMergeRadio            = "merge-radio"
+	regionMergeConfirmCheckbox  = "merge-confirm-checkbox"
+	regionMergeConfirmButton    = "merge-confirm-btn"
+	regionMergeSkipButton       = "merge-skip-btn"
 
 	// Prompt Picker modal regions
 	regionPromptItem = "prompt-item"
@@ -655,6 +659,46 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	case checkPRMergeMsg:
 		if p.mergeState != nil && p.mergeState.Worktree.Name == msg.WorktreeName {
 			cmds = append(cmds, p.checkPRMerged(p.mergeState.Worktree))
+		}
+
+	case CleanupDoneMsg:
+		if p.mergeState != nil && p.mergeState.Worktree.Name == msg.WorktreeName {
+			if p.mergeState.CleanupResults == nil {
+				p.mergeState.CleanupResults = msg.Results
+			} else {
+				// Merge results from local cleanup
+				p.mergeState.CleanupResults.LocalWorktreeDeleted = msg.Results.LocalWorktreeDeleted
+				p.mergeState.CleanupResults.LocalBranchDeleted = msg.Results.LocalBranchDeleted
+				p.mergeState.CleanupResults.Errors = append(
+					p.mergeState.CleanupResults.Errors, msg.Results.Errors...)
+			}
+
+			// Remove worktree from list if deleted
+			if msg.Results.LocalWorktreeDeleted {
+				p.removeWorktreeByName(msg.WorktreeName)
+				if p.selectedIdx >= len(p.worktrees) && p.selectedIdx > 0 {
+					p.selectedIdx--
+				}
+			}
+
+			// Check if all cleanup tasks are done
+			cmds = append(cmds, p.checkCleanupComplete())
+		}
+
+	case RemoteBranchDeleteMsg:
+		if p.mergeState != nil && p.mergeState.Worktree.Name == msg.WorktreeName {
+			if p.mergeState.CleanupResults == nil {
+				p.mergeState.CleanupResults = &CleanupResults{}
+			}
+			if msg.Err != nil {
+				p.mergeState.CleanupResults.Errors = append(
+					p.mergeState.CleanupResults.Errors,
+					fmt.Sprintf("Remote branch: %v", msg.Err))
+			} else {
+				p.mergeState.CleanupResults.RemoteBranchDeleted = true
+			}
+			// Check if all cleanup tasks are done
+			cmds = append(cmds, p.checkCleanupComplete())
 		}
 
 	case reconnectedAgentsMsg:
@@ -1440,21 +1484,65 @@ func (p *Plugin) handleMergeKeys(msg tea.KeyMsg) tea.Cmd {
 		case MergeStepWaitingMerge:
 			// Manual check for merge status
 			return p.checkPRMerged(p.mergeState.Worktree)
+		case MergeStepPostMergeConfirmation:
+			// User confirmed cleanup options
+			if p.mergeState.ConfirmationFocus == 4 {
+				// Skip All button - uncheck everything
+				p.mergeState.DeleteLocalWorktree = false
+				p.mergeState.DeleteLocalBranch = false
+				p.mergeState.DeleteRemoteBranch = false
+			}
+			return p.advanceMergeStep()
 		case MergeStepDone:
 			// Close modal
 			p.cancelMergeWorkflow()
 		}
 
 	case "up", "k":
-		// Select "Delete worktree after merge"
 		if p.mergeState.Step == MergeStepWaitingMerge {
+			// Select "Delete worktree after merge"
 			p.mergeState.DeleteAfterMerge = true
+		} else if p.mergeState.Step == MergeStepPostMergeConfirmation {
+			// Navigate checkboxes/buttons
+			if p.mergeState.ConfirmationFocus > 0 {
+				p.mergeState.ConfirmationFocus--
+			}
 		}
 
 	case "down", "j":
-		// Select "Keep worktree"
 		if p.mergeState.Step == MergeStepWaitingMerge {
+			// Select "Keep worktree"
 			p.mergeState.DeleteAfterMerge = false
+		} else if p.mergeState.Step == MergeStepPostMergeConfirmation {
+			// Navigate checkboxes/buttons
+			if p.mergeState.ConfirmationFocus < 4 {
+				p.mergeState.ConfirmationFocus++
+			}
+		}
+
+	case " ":
+		// Space toggles checkboxes in confirmation step
+		if p.mergeState.Step == MergeStepPostMergeConfirmation {
+			switch p.mergeState.ConfirmationFocus {
+			case 0:
+				p.mergeState.DeleteLocalWorktree = !p.mergeState.DeleteLocalWorktree
+			case 1:
+				p.mergeState.DeleteLocalBranch = !p.mergeState.DeleteLocalBranch
+			case 2:
+				p.mergeState.DeleteRemoteBranch = !p.mergeState.DeleteRemoteBranch
+			}
+		}
+
+	case "tab":
+		// Tab cycles focus in confirmation step
+		if p.mergeState.Step == MergeStepPostMergeConfirmation {
+			p.mergeState.ConfirmationFocus = (p.mergeState.ConfirmationFocus + 1) % 5
+		}
+
+	case "shift+tab":
+		// Shift+Tab reverse cycles focus
+		if p.mergeState.Step == MergeStepPostMergeConfirmation {
+			p.mergeState.ConfirmationFocus = (p.mergeState.ConfirmationFocus + 4) % 5
 		}
 
 	case "s":
@@ -1811,6 +1899,35 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 		// Click on merge radio option (0=delete, 1=keep)
 		if idx, ok := action.Region.Data.(int); ok && p.mergeState != nil {
 			p.mergeState.DeleteAfterMerge = (idx == 0)
+		}
+	case regionMergeConfirmCheckbox:
+		// Click on confirmation checkbox
+		if idx, ok := action.Region.Data.(int); ok && p.mergeState != nil &&
+			p.mergeState.Step == MergeStepPostMergeConfirmation {
+			switch idx {
+			case 0:
+				p.mergeState.DeleteLocalWorktree = !p.mergeState.DeleteLocalWorktree
+			case 1:
+				p.mergeState.DeleteLocalBranch = !p.mergeState.DeleteLocalBranch
+			case 2:
+				p.mergeState.DeleteRemoteBranch = !p.mergeState.DeleteRemoteBranch
+			}
+			p.mergeState.ConfirmationFocus = idx
+		}
+	case regionMergeConfirmButton:
+		// Click on Clean Up button
+		if p.mergeState != nil && p.mergeState.Step == MergeStepPostMergeConfirmation {
+			p.mergeState.ConfirmationFocus = 3
+			return p.advanceMergeStep()
+		}
+	case regionMergeSkipButton:
+		// Click on Skip All button
+		if p.mergeState != nil && p.mergeState.Step == MergeStepPostMergeConfirmation {
+			p.mergeState.DeleteLocalWorktree = false
+			p.mergeState.DeleteLocalBranch = false
+			p.mergeState.DeleteRemoteBranch = false
+			p.mergeState.ConfirmationFocus = 4
+			return p.advanceMergeStep()
 		}
 	case regionPromptItem:
 		// Click on prompt item in picker - select it

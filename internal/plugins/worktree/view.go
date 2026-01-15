@@ -1592,6 +1592,7 @@ func (p *Plugin) renderMergeModal(width, height int) string {
 		MergeStepPush,
 		MergeStepCreatePR,
 		MergeStepWaitingMerge,
+		MergeStepPostMergeConfirmation,
 		MergeStepCleanup,
 	}
 
@@ -1703,17 +1704,129 @@ func (p *Plugin) renderMergeModal(width, height int) string {
 		sb.WriteString("\n\n")
 		sb.WriteString(dimText("Enter: check now   Esc: exit   ↑/↓: change option"))
 
+	case MergeStepPostMergeConfirmation:
+		// Success header
+		sb.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("42")).Render("PR Merged Successfully!"))
+		sb.WriteString("\n\n")
+
+		// Pull reminder (highlighted)
+		reminderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
+		sb.WriteString(reminderStyle.Render("Remember to pull changes to your main branch:"))
+		sb.WriteString("\n")
+		baseBranch := p.mergeState.Worktree.BaseBranch
+		if baseBranch == "" {
+			baseBranch = "main"
+		}
+		sb.WriteString(dimText(fmt.Sprintf("   git checkout %s && git pull", baseBranch)))
+		sb.WriteString("\n\n")
+
+		sb.WriteString(strings.Repeat("─", min(modalW-4, 60)))
+		sb.WriteString("\n\n")
+
+		// Cleanup options header
+		sb.WriteString(lipgloss.NewStyle().Bold(true).Render("Cleanup Options"))
+		sb.WriteString("\n")
+		sb.WriteString(dimText("Select what to clean up:"))
+		sb.WriteString("\n\n")
+
+		// Checkbox options
+		type checkboxOpt struct {
+			label   string
+			checked bool
+			hint    string
+		}
+		opts := []checkboxOpt{
+			{"Delete local worktree", p.mergeState.DeleteLocalWorktree,
+				"Removes " + p.mergeState.Worktree.Path},
+			{"Delete local branch", p.mergeState.DeleteLocalBranch,
+				"Removes '" + p.mergeState.Worktree.Branch + "' locally"},
+			{"Delete remote branch", p.mergeState.DeleteRemoteBranch,
+				"Removes from GitHub (often auto-deleted)"},
+		}
+
+		for i, opt := range opts {
+			checkbox := "[ ]"
+			if opt.checked {
+				checkbox = "[x]"
+			}
+
+			line := fmt.Sprintf("  %s %s", checkbox, opt.label)
+
+			if p.mergeState.ConfirmationFocus == i {
+				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("62")).Bold(true).Render("> " + line[2:]))
+			} else {
+				sb.WriteString(line)
+			}
+			sb.WriteString("\n")
+			sb.WriteString(dimText("      " + opt.hint))
+			sb.WriteString("\n")
+		}
+
+		sb.WriteString("\n")
+
+		// Buttons
+		confirmLabel := " Clean Up "
+		skipLabel := " Skip All "
+
+		confirmStyle := lipgloss.NewStyle().Background(lipgloss.Color("62")).Foreground(lipgloss.Color("0"))
+		skipStyle := lipgloss.NewStyle().Background(lipgloss.Color("240")).Foreground(lipgloss.Color("255"))
+
+		if p.mergeState.ConfirmationFocus == 3 {
+			confirmStyle = confirmStyle.Bold(true).Background(lipgloss.Color("42"))
+		}
+		if p.mergeState.ConfirmationFocus == 4 {
+			skipStyle = skipStyle.Bold(true).Background(lipgloss.Color("214"))
+		}
+
+		sb.WriteString("  ")
+		sb.WriteString(confirmStyle.Render(confirmLabel))
+		sb.WriteString("  ")
+		sb.WriteString(skipStyle.Render(skipLabel))
+		sb.WriteString("\n\n")
+
+		sb.WriteString(dimText("↑/↓: navigate  space: toggle  enter: confirm  esc: cancel"))
+
 	case MergeStepCleanup:
 		sb.WriteString("Cleaning up worktree and branch...")
 
 	case MergeStepDone:
-		sb.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("42")).Render("✓ Merge workflow complete!"))
+		sb.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("42")).Render("Merge workflow complete!"))
 		sb.WriteString("\n\n")
-		if p.mergeState.DeleteAfterMerge {
-			sb.WriteString("Worktree and branch have been cleaned up.")
+
+		// Show cleanup summary
+		if p.mergeState.CleanupResults != nil {
+			results := p.mergeState.CleanupResults
+			sb.WriteString("Summary:\n")
+
+			successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+			if results.LocalWorktreeDeleted {
+				sb.WriteString(successStyle.Render("  ✓ Local worktree deleted"))
+				sb.WriteString("\n")
+			}
+			if results.LocalBranchDeleted {
+				sb.WriteString(successStyle.Render("  ✓ Local branch deleted"))
+				sb.WriteString("\n")
+			}
+			if results.RemoteBranchDeleted {
+				sb.WriteString(successStyle.Render("  ✓ Remote branch deleted"))
+				sb.WriteString("\n")
+			}
+
+			// Show any errors/warnings
+			if len(results.Errors) > 0 {
+				sb.WriteString("\n")
+				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("Warnings:"))
+				sb.WriteString("\n")
+				for _, err := range results.Errors {
+					sb.WriteString(dimText("  • " + err))
+					sb.WriteString("\n")
+				}
+			}
 		} else {
-			sb.WriteString("PR merged. Worktree kept for further work.")
+			// No cleanup was performed
+			sb.WriteString("No cleanup performed. Worktree and branches remain.")
 		}
+
 		sb.WriteString("\n\n")
 		sb.WriteString(dimText("Press Enter to close"))
 	}
@@ -1746,6 +1859,36 @@ func (p *Plugin) renderMergeModal(width, height int) string {
 		radio2Y := radio1Y + 1
 		p.mouseHandler.HitMap.AddRect(regionMergeRadio, modalX+2, radio1Y, modalW-6, 1, 0) // Delete
 		p.mouseHandler.HitMap.AddRect(regionMergeRadio, modalX+2, radio2Y, modalW-6, 1, 1) // Keep
+	}
+
+	// Register hit regions for post-merge confirmation step
+	if p.mergeState.Step == MergeStepPostMergeConfirmation {
+		modalH := lipgloss.Height(modal)
+		modalX := (width - modalW) / 2
+		modalY := (height - modalH) / 2
+
+		// Calculate positions based on content structure
+		// Title(1) + blank(1) + success(1) + blank(1) + reminder(1) + command(1) + blank(1) +
+		// separator(1) + blank(1) + header(1) + subtext(1) + blank(1) = ~12 lines before checkboxes
+		// Then: checkbox1(1) + hint1(1) + checkbox2(1) + hint2(1) + checkbox3(1) + hint3(1) + blank(1) + buttons(1)
+		checkboxBaseY := modalY + 2 + 12 // approximate
+
+		// Three checkbox options (2 lines each: checkbox + hint)
+		for i := 0; i < 3; i++ {
+			p.mouseHandler.HitMap.AddRect(
+				regionMergeConfirmCheckbox,
+				modalX+2,
+				checkboxBaseY+(i*2),
+				modalW-6,
+				1,
+				i,
+			)
+		}
+
+		// Button hit regions (after checkboxes + blank line)
+		buttonY := checkboxBaseY + 7
+		p.mouseHandler.HitMap.AddRect(regionMergeConfirmButton, modalX+4, buttonY, 12, 1, nil)
+		p.mouseHandler.HitMap.AddRect(regionMergeSkipButton, modalX+18, buttonY, 12, 1, nil)
 	}
 
 	// Use OverlayModal for dimmed background effect
