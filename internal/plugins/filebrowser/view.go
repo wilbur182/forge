@@ -125,14 +125,14 @@ func (p *Plugin) renderNormalPanes() string {
 		}
 	}
 
-	// Calculate pane height for content (excluding borders)
+	// Pane height for panels (outer dimensions including borders)
 	// Note: footer is rendered by the app, not by the plugin
-	paneHeight := p.height - inputBarHeight - 2
+	paneHeight := p.height - inputBarHeight
 	if paneHeight < 4 {
 		paneHeight = 4
 	}
 
-	// Inner content height = pane height - header lines (2)
+	// Inner content height (excluding borders and header lines)
 	innerHeight := paneHeight - 2
 	if innerHeight < 1 {
 		innerHeight = 1

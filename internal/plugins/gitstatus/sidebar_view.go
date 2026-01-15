@@ -51,14 +51,14 @@ func (p *Plugin) calculatePaneWidths() {
 func (p *Plugin) renderThreePaneView() string {
 	p.calculatePaneWidths()
 
-	// Calculate pane height: total - pane border (2 lines)
+	// Pane height for panels (outer dimensions including borders)
 	// Note: App footer is rendered by the app, not the plugin
-	paneHeight := p.height - 2
+	paneHeight := p.height
 	if paneHeight < 4 {
 		paneHeight = 4
 	}
 
-	// Inner content height = pane height - header lines (2)
+	// Inner content height (excluding borders and header lines)
 	innerHeight := paneHeight - 2
 	if innerHeight < 1 {
 		innerHeight = 1

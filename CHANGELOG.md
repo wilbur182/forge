@@ -2,6 +2,11 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.14.6] - 2026-01-14
+
+### Bug Fixes
+- Fixed panels not extending to footer row in Files, Conversations, and Git plugins (drag handle appeared longer than panels)
+
 ## [v0.14.5] - 2026-01-14
 
 ### Features

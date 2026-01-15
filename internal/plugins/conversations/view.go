@@ -512,13 +512,13 @@ func (p *Plugin) renderTwoPane() string {
 		p.prevTurnScroll = p.turnScrollOff
 	}
 
-	// Pane height: total height - 2 for pane borders
-	paneHeight := p.height - 2
+	// Pane height for panels (outer dimensions including borders)
+	paneHeight := p.height
 	if paneHeight < 4 {
 		paneHeight = 4
 	}
 
-	// Inner content height = pane height - header lines (2)
+	// Inner content height (excluding borders and header lines)
 	innerHeight := paneHeight - 2
 	if innerHeight < 1 {
 		innerHeight = 1
