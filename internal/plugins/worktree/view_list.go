@@ -267,33 +267,6 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 	name := wt.Name
 	timeStr := formatRelativeTime(wt.UpdatedAt)
 
-	// Calculate max name width to prevent wrapping
-	// Line structure: " [icon] [name][prIcon][conflictIcon]  [time]"
-	// Reserve: 4 (leading space + icon + space) + icons + time + 2 (min padding)
-	iconWidth := 4 // " X " where X is status icon
-	prWidth := 0
-	if hasPR {
-		prWidth = 3 // " PR"
-	}
-	conflictWidth := 0
-	if hasConflict {
-		conflictWidth = 2 // " ⚠"
-	}
-	timeWidth := lipgloss.Width(timeStr)
-	minPadding := 2
-	maxNameWidth := width - iconWidth - prWidth - conflictWidth - timeWidth - minPadding
-	if maxNameWidth < 8 {
-		maxNameWidth = 8 // Minimum name width
-	}
-	// Truncate name if too long
-	if len(name) > maxNameWidth {
-		if maxNameWidth > 1 {
-			name = name[:maxNameWidth-1] + "…"
-		} else {
-			name = "…"
-		}
-	}
-
 	// Stats if available
 	statsStr := ""
 	if wt.Stats != nil && (wt.Stats.Additions > 0 || wt.Stats.Deletions > 0) {
@@ -327,6 +300,7 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 		// Build plain text lines
 		line1 := fmt.Sprintf(" %s %s%s%s", statusIcon, name, prIcon, conflictIcon)
 		line1Width := lipgloss.Width(line1)
+		timeWidth := lipgloss.Width(timeStr)
 		if line1Width < width-timeWidth-2 {
 			line1 = line1 + strings.Repeat(" ", width-line1Width-timeWidth-1) + timeStr
 		}
@@ -403,6 +377,7 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 	// Build lines with styled elements
 	line1 := fmt.Sprintf(" %s %s%s%s", icon, name, styledPRIcon, styledConflictIcon)
 	line1Width := ansi.StringWidth(line1)
+	timeWidth := ansi.StringWidth(timeStr)
 	if line1Width < width-timeWidth-2 {
 		line1 = line1 + strings.Repeat(" ", width-line1Width-timeWidth-1) + timeStr
 	}

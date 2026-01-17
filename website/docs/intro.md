@@ -63,8 +63,6 @@ Stage files, view diffs, browse commit history. A lightweight alternative to `gi
 | `c` | Commit staged changes |
 | `h/l` | Switch sidebar/diff focus |
 
-![Side-by-side Diff](../../docs/screenshots/sidecar-git-diff-side-by-side.png)
-
 ### Conversations
 
 Browse AI agent session history with message content, token usage, and search.

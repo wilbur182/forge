@@ -91,8 +91,6 @@ View staged, modified, and untracked files with a split-pane interface. The side
 - Browse commit history and view commit diffs
 - Auto-refresh on file system changes
 
-![Side-by-side Diff](docs/screenshots/sidecar-git-diff-side-by-side.png)
-
 ### Conversations
 
 Browse Claude Code session history with message content, token usage, and search.
