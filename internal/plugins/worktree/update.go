@@ -30,7 +30,28 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		p.refreshing = false
 		p.lastRefresh = time.Now()
 		if msg.Err == nil {
+			// Preserve selection by name (not index) across refresh
+			var selectedName string
+			if p.selectedIdx >= 0 && p.selectedIdx < len(p.worktrees) {
+				selectedName = p.worktrees[p.selectedIdx].Name
+			}
+
 			p.worktrees = msg.Worktrees
+
+			// Restore selection by finding the worktree with the same name
+			if selectedName != "" {
+				for i, wt := range p.worktrees {
+					if wt.Name == selectedName {
+						p.selectedIdx = i
+						break
+					}
+				}
+			}
+			// Bounds check in case the selected worktree was deleted
+			if p.selectedIdx >= len(p.worktrees) && len(p.worktrees) > 0 {
+				p.selectedIdx = len(p.worktrees) - 1
+			}
+
 			// Preserve agent pointers from existing agents map
 			for _, wt := range p.worktrees {
 				if agent, ok := p.agents[wt.Name]; ok {
