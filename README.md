@@ -4,6 +4,8 @@ Terminal UI for monitoring AI coding agent sessions.
 
 **Status: Beta** - Generally working for most use cases.
 
+[Documentation](https://marcus.github.io/sidecar/) · [Getting Started](https://marcus.github.io/sidecar/docs/intro)
+
 ![Git Status](docs/screenshots/sidecar-git.png)
 
 ## Overview
@@ -16,7 +18,7 @@ Sidecar provides a unified terminal interface for viewing Claude Code conversati
 curl -fsSL https://raw.githubusercontent.com/marcus/sidecar/main/scripts/setup.sh | bash
 ```
 
-Or see [Getting Started](docs/GETTING_STARTED.md) for manual installation.
+Or see [Getting Started](docs/getting-started.md) for manual installation.
 
 ## Requirements
 
@@ -79,7 +81,7 @@ Sidecar checks for updates on startup. When a new version is available, a toast 
 
 ### Git Status
 
-View staged, modified, and untracked files with a split-pane interface. The sidebar shows files and recent commits; the main pane shows syntax-highlighted diffs.
+View staged, modified, and untracked files with a split-pane interface. The sidebar shows files and recent commits; the main pane shows syntax-highlighted diffs. [Full documentation →](https://marcus.github.io/sidecar/docs/git-plugin)
 
 ![Git Status with Diff](docs/screenshots/sidecar-git.png)
 
@@ -93,7 +95,7 @@ View staged, modified, and untracked files with a split-pane interface. The side
 
 ### Conversations
 
-Browse Claude Code session history with message content, token usage, and search.
+Browse Claude Code session history with message content, token usage, and search. [Full documentation →](https://marcus.github.io/sidecar/docs/conversations-plugin)
 
 ![Conversations](docs/screenshots/sidecar-conversations.png)
 
@@ -106,7 +108,7 @@ Browse Claude Code session history with message content, token usage, and search
 
 ### TD Monitor
 
-Integration with [TD](https://github.com/marcus/td), a task management system designed for AI agents working across context windows. TD helps agents track work, log progress, and maintain context across sessions—essential for AI-assisted development where context windows reset between conversations.
+Integration with [TD](https://github.com/marcus/td), a task management system designed for AI agents working across context windows. TD helps agents track work, log progress, and maintain context across sessions—essential for AI-assisted development where context windows reset between conversations. [Full documentation →](https://marcus.github.io/sidecar/docs/td)
 
 ![TD Monitor](docs/screenshots/sidecar-td.png)
 
@@ -121,7 +123,7 @@ See the [TD repository](https://github.com/marcus/td) for installation and CLI u
 
 ### File Browser
 
-Navigate project files with a tree view and syntax-highlighted preview.
+Navigate project files with a tree view and syntax-highlighted preview. [Full documentation →](https://marcus.github.io/sidecar/docs/files-plugin)
 
 ![File Browser](docs/screenshots/sidecar-files.png)
 
@@ -133,7 +135,7 @@ Navigate project files with a tree view and syntax-highlighted preview.
 
 ### Worktrees
 
-Manage git worktrees for parallel development with integrated agent support. Create isolated branches as sibling directories, link tasks from TD, and launch coding agents directly from sidecar.
+Manage git worktrees for parallel development with integrated agent support. Create isolated branches as sibling directories, link tasks from TD, and launch coding agents directly from sidecar. [Full documentation →](https://marcus.github.io/sidecar/docs/worktrees-plugin)
 
 ![Worktrees](docs/screenshots/sidecar-worktrees.png)
 
