@@ -24,7 +24,7 @@ The Worktrees plugin turns git worktrees into managed development environments. 
 
 This workflow eliminates context-switching between branches and enables true parallel development.
 
-## Why Use This?
+## The Problem
 
 **Without worktrees:**
 - Switch branches to start new work, losing current context

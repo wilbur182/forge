@@ -9,7 +9,7 @@ A full-featured terminal file browser with syntax-highlighted previews, project-
 
 ![Files Plugin](../../docs/screenshots/sidecar-files.png)
 
-## What Makes This Special
+## Key Capabilities
 
 - **Instant search across millions of files**: Fuzzy file finder caches 50,000 files with sub-second response
 - **Ripgrep-powered project search**: Find any text across your codebase in milliseconds with regex support

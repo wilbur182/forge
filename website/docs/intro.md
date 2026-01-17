@@ -11,7 +11,7 @@ Watch your agents work in real-time: see git changes, browse session history, tr
 
 ![Sidecar Git Status](../../docs/screenshots/sidecar-git.png)
 
-## Why Sidecar?
+## The Problem
 
 AI coding agents are powerful but opaque. When Claude Code or Cursor makes changes, you're often waiting for a summary or switching contexts to check git status. Sidecar gives you **continuous visibility** into agent activity without interrupting your flow.
 

@@ -9,7 +9,7 @@ A terminal-native git UI with real-time diff preview, syntax highlighting, and i
 
 ![Git Status](../../docs/screenshots/sidecar-git.png)
 
-## Why This Matters
+## The Context-Switching Problem
 
 Traditional git workflows force you to context-switch: `git status` → `git diff` → `git add` → repeat. When working with AI agents, you lose visibility into what's changing in real time.
 
@@ -60,7 +60,7 @@ The plugin watches `.git` directory and debounces updates (500ms) to prevent exc
 
 You always see current state without manual refresh.
 
-## What Makes This Different
+## Built for AI-Assisted Development
 
 Most developers use one of these git workflows:
 
@@ -106,7 +106,7 @@ Stage entire folders by selecting the folder and pressing `s`. After staging, th
 
 ## Diff Viewing
 
-### What Makes Our Diffs Special
+### Beyond Standard Git Diff
 
 Unlike `git diff` in a terminal or basic GUIs, this plugin provides:
 

@@ -205,7 +205,7 @@ td handoff td-a1b2 \
   --uncertain "Should we support multiple active sessions per user?"
 ```
 
-### Why Handoffs Matter
+### What Handoffs Solve
 
 Without structured handoffs, agents hallucinate progress and forget decisions. With handoffs:
 
