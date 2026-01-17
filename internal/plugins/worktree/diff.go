@@ -64,7 +64,7 @@ func getDiff(workdir string) (content, raw string, err error) {
 // getDiffFromBase returns diff compared to base branch.
 func getDiffFromBase(workdir, baseBranch string) (string, error) {
 	if baseBranch == "" {
-		baseBranch = "main"
+		baseBranch = detectDefaultBranch(workdir)
 	}
 
 	// Try to find merge-base first
@@ -156,9 +156,7 @@ func (p *Plugin) loadCommitStatus(wt *Worktree) tea.Cmd {
 	name := wt.Name
 	path := wt.Path
 	baseBranch := wt.BaseBranch
-	if baseBranch == "" {
-		baseBranch = "main"
-	}
+	// Let getWorktreeCommits handle detection via detectDefaultBranch()
 
 	return func() tea.Msg {
 		commits, err := getWorktreeCommits(path, baseBranch)
@@ -171,20 +169,31 @@ func (p *Plugin) loadCommitStatus(wt *Worktree) tea.Cmd {
 
 // getWorktreeCommits returns commits unique to this branch vs base branch with status.
 func getWorktreeCommits(workdir, baseBranch string) ([]CommitStatusInfo, error) {
-	// Get commits in HEAD that aren't in base branch
-	// Format: short hash + subject
-	cmd := exec.Command("git", "log", baseBranch+"..HEAD", "--oneline", "--format=%h|%s")
-	cmd.Dir = workdir
-	output, err := cmd.Output()
+	// If baseBranch is empty, detect the default branch
+	if baseBranch == "" {
+		baseBranch = detectDefaultBranch(workdir)
+	}
+
+	// Try to get commits comparing against base branch
+	output, err := tryGitLog(workdir, baseBranch)
 	if err != nil {
-		// Might fail if base branch doesn't exist, try origin/base
-		cmd = exec.Command("git", "log", "origin/"+baseBranch+"..HEAD", "--oneline", "--format=%h|%s")
-		cmd.Dir = workdir
-		output, err = cmd.Output()
-		if err != nil {
-			// No commits or error - return empty list
-			return []CommitStatusInfo{}, nil
+		// Try origin/baseBranch
+		output, err = tryGitLog(workdir, "origin/"+baseBranch)
+	}
+	if err != nil {
+		// Last resort: detect default branch fresh (in case baseBranch was stale/wrong)
+		detected := detectDefaultBranch(workdir)
+		if detected != baseBranch {
+			output, err = tryGitLog(workdir, detected)
+			if err != nil {
+				output, err = tryGitLog(workdir, "origin/"+detected)
+			}
+			baseBranch = detected // Update for merged check below
 		}
+	}
+	if err != nil {
+		// No commits or error - return empty list
+		return []CommitStatusInfo{}, nil
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -226,6 +235,50 @@ func getWorktreeCommits(workdir, baseBranch string) ([]CommitStatusInfo, error) 
 	}
 
 	return commits, nil
+}
+
+// tryGitLog attempts to get commit log comparing HEAD to a base ref.
+func tryGitLog(workdir, baseRef string) ([]byte, error) {
+	cmd := exec.Command("git", "log", baseRef+"..HEAD", "--oneline", "--format=%h|%s")
+	cmd.Dir = workdir
+	return cmd.Output()
+}
+
+// detectDefaultBranch detects the default branch for a repository.
+// Checks remote HEAD first, then falls back to common names.
+func detectDefaultBranch(workdir string) string {
+	// Try to get the remote HEAD (most reliable)
+	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD")
+	cmd.Dir = workdir
+	output, err := cmd.Output()
+	if err == nil {
+		// Output is like "refs/remotes/origin/main"
+		ref := strings.TrimSpace(string(output))
+		if branch, found := strings.CutPrefix(ref, "refs/remotes/origin/"); found {
+			return branch
+		}
+	}
+
+	// Fallback: check which common branch exists
+	for _, branch := range []string{"main", "master"} {
+		cmd := exec.Command("git", "rev-parse", "--verify", branch)
+		cmd.Dir = workdir
+		if err := cmd.Run(); err == nil {
+			return branch
+		}
+	}
+
+	// Last resort default
+	return "main"
+}
+
+// resolveBaseBranch returns the worktree's BaseBranch if set,
+// otherwise detects the default branch from the worktree's repo.
+func resolveBaseBranch(wt *Worktree) string {
+	if wt.BaseBranch != "" {
+		return wt.BaseBranch
+	}
+	return detectDefaultBranch(wt.Path)
 }
 
 // getRemoteTrackingBranch returns the remote tracking branch for HEAD.

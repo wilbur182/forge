@@ -265,10 +265,7 @@ func (p *Plugin) proceedToMergeWorkflow(wt *Worktree) tea.Cmd {
 func (p *Plugin) loadMergeDiff(wt *Worktree) tea.Cmd {
 	return func() tea.Msg {
 		// Get diff against base branch
-		baseBranch := wt.BaseBranch
-		if baseBranch == "" {
-			baseBranch = "main"
-		}
+		baseBranch := resolveBaseBranch(wt)
 
 		diff, err := getDiffFromBase(wt.Path, baseBranch)
 		if err != nil {
@@ -351,10 +348,7 @@ func parseExistingPRURL(output string) (string, bool) {
 // createPR creates a pull request using gh CLI.
 func (p *Plugin) createPR(wt *Worktree, title, body string) tea.Cmd {
 	return func() tea.Msg {
-		baseBranch := wt.BaseBranch
-		if baseBranch == "" {
-			baseBranch = "main"
-		}
+		baseBranch := resolveBaseBranch(wt)
 
 		// Build gh pr create command
 		args := []string{"pr", "create",
@@ -433,10 +427,7 @@ func (p *Plugin) checkPRMerged(wt *Worktree) tea.Cmd {
 // performDirectMerge merges the branch directly to base without creating a PR.
 func (p *Plugin) performDirectMerge(wt *Worktree) tea.Cmd {
 	return func() tea.Msg {
-		baseBranch := wt.BaseBranch
-		if baseBranch == "" {
-			baseBranch = "main"
-		}
+		baseBranch := resolveBaseBranch(wt)
 		workDir := p.ctx.WorkDir
 		branch := wt.Branch
 
@@ -743,11 +734,7 @@ func (p *Plugin) advanceMergeStep() tea.Cmd {
 		p.mergeState.DeleteLocalBranch = true
 		p.mergeState.DeleteRemoteBranch = false // Don't delete remote - wasn't pushed for direct merge
 		// Pull option: default checked if current branch matches base branch
-		baseBranch := p.mergeState.Worktree.BaseBranch
-		if baseBranch == "" {
-			baseBranch = "main"
-		}
-		p.mergeState.PullAfterMerge = p.mergeState.CurrentBranch == baseBranch
+		p.mergeState.PullAfterMerge = p.mergeState.CurrentBranch == resolveBaseBranch(p.mergeState.Worktree)
 		p.mergeState.ConfirmationFocus = 0
 		return nil
 
@@ -785,11 +772,7 @@ func (p *Plugin) advanceMergeStep() tea.Cmd {
 		p.mergeState.DeleteLocalBranch = true    // Default: checked
 		p.mergeState.DeleteRemoteBranch = false  // Default: unchecked (safer)
 		// Pull option: default checked if current branch matches base branch
-		baseBranch := p.mergeState.Worktree.BaseBranch
-		if baseBranch == "" {
-			baseBranch = "main"
-		}
-		p.mergeState.PullAfterMerge = p.mergeState.CurrentBranch == baseBranch
+		p.mergeState.PullAfterMerge = p.mergeState.CurrentBranch == resolveBaseBranch(p.mergeState.Worktree)
 		p.mergeState.ConfirmationFocus = 0
 		return nil // Wait for user interaction
 
@@ -834,10 +817,7 @@ func (p *Plugin) advanceMergeStep() tea.Cmd {
 
 		// Pull changes to current branch (in parallel)
 		if p.mergeState.PullAfterMerge {
-			baseBranch := p.mergeState.Worktree.BaseBranch
-			if baseBranch == "" {
-				baseBranch = "main"
-			}
+			baseBranch := resolveBaseBranch(p.mergeState.Worktree)
 			cmds = append(cmds, p.pullAfterMerge(p.mergeState.Worktree, baseBranch, p.mergeState.CurrentBranch))
 			pendingOps++
 		}
