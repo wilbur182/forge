@@ -1094,7 +1094,7 @@ func (p *Plugin) renderMergeModal(width, height int) string {
 
 		baseBranch := p.mergeState.Worktree.BaseBranch
 		if baseBranch == "" {
-			baseBranch = "main"
+			baseBranch = detectDefaultBranch(p.mergeState.Worktree.Path)
 		}
 
 		// Style helpers for selection and hover states
@@ -1142,7 +1142,7 @@ func (p *Plugin) renderMergeModal(width, height int) string {
 		sb.WriteString("\n\n")
 		baseBranch := p.mergeState.Worktree.BaseBranch
 		if baseBranch == "" {
-			baseBranch = "main"
+			baseBranch = detectDefaultBranch(p.mergeState.Worktree.Path)
 		}
 		sb.WriteString(dimText(fmt.Sprintf("Merging '%s' into '%s'...", p.mergeState.Worktree.Branch, baseBranch)))
 
@@ -1213,7 +1213,7 @@ func (p *Plugin) renderMergeModal(width, height int) string {
 
 		baseBranch := p.mergeState.Worktree.BaseBranch
 		if baseBranch == "" {
-			baseBranch = "main"
+			baseBranch = detectDefaultBranch(p.mergeState.Worktree.Path)
 		}
 
 		// Checkbox options
