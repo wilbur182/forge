@@ -13,6 +13,8 @@
 #   -c, --capture         Capture and print final pane state
 #   -o, --output-dir DIR  Output directory for file captures (default: ./captures)
 #   -f, --keys-file FILE  Read keys from file (one per line, # for comments)
+#   --cols COLS           Terminal width (default: current terminal)
+#   --rows ROWS           Terminal height (default: current terminal)
 #
 # Key syntax (tmux send-keys format):
 #   Letters/numbers:  a, b, 1, 2, etc.
@@ -83,6 +85,8 @@ KEEP=false
 CAPTURE=false
 OUTPUT_DIR="./captures"
 KEYS_FILE=""
+TERM_COLS_OVERRIDE=""
+TERM_ROWS_OVERRIDE=""
 COMMAND=""
 KEYS=()
 
@@ -121,13 +125,21 @@ while [[ $# -gt 0 ]]; do
       KEYS_FILE="$2"
       shift 2
       ;;
+    --cols)
+      TERM_COLS_OVERRIDE="$2"
+      shift 2
+      ;;
+    --rows)
+      TERM_ROWS_OVERRIDE="$2"
+      shift 2
+      ;;
     --)
       shift
       KEYS=("$@")
       break
       ;;
     -h|--help)
-      head -73 "$0" | tail -72
+      head -75 "$0" | tail -74
       exit 0
       ;;
     *)
@@ -223,9 +235,9 @@ capture_to_file() {
   esac
 }
 
-# Get current terminal dimensions for proper screenshot sizing
-TERM_COLS=$(tput cols 2>/dev/null || echo 80)
-TERM_LINES=$(tput lines 2>/dev/null || echo 24)
+# Get terminal dimensions (use overrides if provided)
+TERM_COLS="${TERM_COLS_OVERRIDE:-$(tput cols 2>/dev/null || echo 80)}"
+TERM_LINES="${TERM_ROWS_OVERRIDE:-$(tput lines 2>/dev/null || echo 24)}"
 
 # Kill any existing session with same name
 tmux kill-session -t "$SESSION" 2>/dev/null || true

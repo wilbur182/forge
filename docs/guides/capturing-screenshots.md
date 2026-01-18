@@ -120,9 +120,68 @@ Before you can interact with sidecar via tmux, you must configure tmux to allow 
 
 **Important for agents:** Tmux must be configured with `set -g prefix C-a` (see "Tmux Setup for Agent Interaction" above). Always use **Ctrl+A D** to detach from the tmux session.
 
-## Why Interactive?
+## Fully Automated Screenshots with tui-send-keys.sh
 
-`tmux send-keys` doesn't reliably trigger sidecar's keybindings. Attaching and pressing keys directly in interact mode always works. This allows you to:
+For CI/CD or fully automated screenshot generation, use `scripts/tui-send-keys.sh` with keys files:
+
+### Quick Start
+
+```bash
+# Capture td plugin screenshot
+./scripts/tui-send-keys.sh "sidecar" -w Sidecar -o ./screenshots \
+  --cols 200 --rows 50 \
+  -f scripts/sequences/capture-sidecar-td-screenshot.keys
+```
+
+### Keys File Format
+
+Keys files contain one key per line with optional comments:
+
+```bash
+# scripts/sequences/capture-sidecar-td-screenshot.keys
+@sleep:500                # Wait for sidecar to be ready
+Escape                    # Clear any focus/input mode
+Escape                    # Ensure we're at top level
+@sleep:100                # Brief pause
+1                         # Switch to td pane (plugin index 0)
+@sleep:300                # Wait for pane to render
+@capture:sidecar-td.png   # Take screenshot
+q                         # Quit
+y                         # Confirm quit
+```
+
+### Available Actions
+
+| Action | Description |
+|--------|-------------|
+| `@sleep:MS` | Wait MS milliseconds |
+| `@wait:PATTERN` | Wait for text pattern to appear |
+| `@capture` | Capture to stdout |
+| `@capture:NAME.png` | Save as PNG (requires termshot) |
+| `@capture:NAME.html` | Save as HTML (requires aha) |
+| `@capture:NAME.txt` | Save as text with ANSI codes |
+| `@capture:NAME` | Save all available formats |
+| `@pause` | Wait for Enter (interactive debugging) |
+
+### Key Learnings
+
+**Plugin switching:** Number keys (1-5) switch plugins, but only work when not in a text input context. Always send `Escape` twice before plugin switching to clear any input focus.
+
+**Terminal size:** Use `--cols` and `--rows` to control screenshot dimensions. Without these, the current terminal size is used.
+
+**Timing:** Add `@sleep` commands between actions. The file browser and other plugins need time to render after navigation.
+
+### Creating New Sequences
+
+1. Create a new `.keys` file in `scripts/sequences/`
+2. Start with `@sleep:500` to let the app initialize
+3. Use `Escape Escape` to clear input state before plugin switching
+4. Add `@sleep` between navigation and capture
+5. End with `q` and `y` to quit cleanly
+
+## Why Interactive? (Legacy Approach)
+
+The interactive `tmux-screenshot.sh` approach is still useful when you need to:
 - Navigate to specific screens
 - Select commits, files, or other items to display interesting content
 - Capture the full interactive state of sidecar
