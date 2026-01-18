@@ -742,6 +742,12 @@ a:hover {
   top: 80px;
 }
 
+@media (max-width: 996px) {
+  .sc-componentInfo {
+    position: static;
+  }
+}
+
 .sc-componentTitle {
   font-size: 18px;
   margin: 0 0 16px;
@@ -1218,4 +1224,36 @@ a:hover {
   color: rgba(232, 232, 227, 0.4);
   margin-top: 24px;
   font-family: var(--ifm-font-family-monospace);
+}
+
+/* Mobile Sidebar Fixes */
+.navbar-sidebar {
+  background-color: var(--ifm-background-color);
+  border-right: 1px solid var(--sc-border);
+  z-index: 100; /* Ensure it's above other elements */
+}
+
+.navbar-sidebar__items {
+  padding: 1rem;
+}
+
+.navbar-sidebar__item {
+  padding: 0.5rem 0;
+}
+
+.navbar-sidebar .menu__link {
+  color: var(--ifm-font-color-base);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1rem;
+}
+
+.navbar-sidebar .menu__link:hover,
+.navbar-sidebar .menu__link--active {
+  color: var(--ifm-color-primary);
+  background: rgba(166, 226, 46, 0.1);
+}
+
+/* Fix for dark theme navbar sidebar links */
+html[data-theme='dark'] .navbar-sidebar__item a {
+    color: var(--ifm-font-color-base);
 }
