@@ -21,38 +21,51 @@ import (
 // Sessions from deleted worktrees are marked with "(deleted)" in their worktree name.
 // Caches worktree paths and names to avoid git commands on every refresh (td-e74a4aaa).
 func (p *Plugin) loadSessions() tea.Cmd {
+	// Capture current cache state for goroutine (td-0e43c080: avoid race)
+	cachedPaths := p.cachedWorktreePaths
+	cachedNames := p.cachedWorktreeNames
+	cacheTime := p.worktreeCacheTime
+	adapters := p.adapters
+
+	// Handle nil context (e.g., in tests)
+	var workDir string
+	if p.ctx != nil {
+		workDir = p.ctx.WorkDir
+	}
+
 	return func() tea.Msg {
-		if len(p.adapters) == 0 {
+		if len(adapters) == 0 {
 			return SessionsLoadedMsg{}
 		}
 
 		// Check worktree cache (td-e74a4aaa)
 		var worktreePaths []string
 		var worktreeNames map[string]string
-		cacheValid := p.cachedWorktreePaths != nil && time.Since(p.worktreeCacheTime) < worktreeCacheTTL
+		var cacheUpdated bool
+		cacheValid := cachedPaths != nil && time.Since(cacheTime) < worktreeCacheTTL
 
 		if cacheValid {
 			// Use cached data
-			worktreePaths = p.cachedWorktreePaths
-			worktreeNames = p.cachedWorktreeNames
+			worktreePaths = cachedPaths
+			worktreeNames = cachedNames
 		} else {
 			// Refresh cache - get all related worktree paths (main repo + all worktrees)
-			worktreePaths = app.GetAllRelatedPaths(p.ctx.WorkDir)
+			worktreePaths = app.GetAllRelatedPaths(workDir)
 			if len(worktreePaths) == 0 {
 				// Not a git repo or no worktrees - just use current workdir
-				worktreePaths = []string{p.ctx.WorkDir}
+				worktreePaths = []string{workDir}
 			}
 
 			// Discover additional paths from adapters (finds deleted worktree conversations)
-			mainPath := app.GetMainWorktreePath(p.ctx.WorkDir)
+			mainPath := app.GetMainWorktreePath(workDir)
 			if mainPath == "" {
-				mainPath = p.ctx.WorkDir
+				mainPath = workDir
 			}
 			pathSet := make(map[string]bool, len(worktreePaths))
 			for _, path := range worktreePaths {
 				pathSet[path] = true
 			}
-			for _, a := range p.adapters {
+			for _, a := range adapters {
 				if discoverer, ok := a.(adapter.ProjectDiscoverer); ok {
 					discovered, _ := discoverer.DiscoverRelatedProjectDirs(mainPath)
 					for _, path := range discovered {
@@ -64,24 +77,22 @@ func (p *Plugin) loadSessions() tea.Cmd {
 				}
 			}
 
-			// Cache worktree names
+			// Compute worktree names
 			worktreeNames = make(map[string]string)
-			currentPath := p.ctx.WorkDir
+			currentPath := workDir
 			if absPath, err := filepath.Abs(currentPath); err == nil {
 				currentPath = absPath
 			}
 			for _, wtPath := range worktreePaths {
-				wtName := app.WorktreeNameForPath(p.ctx.WorkDir, wtPath)
+				wtName := app.WorktreeNameForPath(workDir, wtPath)
 				if wtName == "" && wtPath != currentPath {
 					wtName = deriveWorktreeNameFromPath(wtPath, mainPath)
 				}
 				worktreeNames[wtPath] = wtName
 			}
 
-			// Update cache
-			p.cachedWorktreePaths = worktreePaths
-			p.cachedWorktreeNames = worktreeNames
-			p.worktreeCacheTime = time.Now()
+			// Mark cache as updated (td-0e43c080: Update() will store)
+			cacheUpdated = true
 		}
 
 		// Track seen sessions to avoid duplicates (same session loaded from multiple paths)
@@ -89,12 +100,12 @@ func (p *Plugin) loadSessions() tea.Cmd {
 		var sessions []adapter.Session
 
 		// Get current working directory for worktree name comparison
-		currentPath := p.ctx.WorkDir
+		currentPath := workDir
 		if absPath, err := filepath.Abs(currentPath); err == nil {
 			currentPath = absPath
 		}
 
-		for id, a := range p.adapters {
+		for id, a := range adapters {
 			for _, wtPath := range worktreePaths {
 				adapterSessions, err := a.Sessions(wtPath)
 				if err != nil {
@@ -149,7 +160,13 @@ func (p *Plugin) loadSessions() tea.Cmd {
 			return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
 		})
 
-		return SessionsLoadedMsg{Sessions: sessions}
+		// Return cache data only when updated (td-0e43c080: Update() stores safely)
+		msg := SessionsLoadedMsg{Sessions: sessions}
+		if cacheUpdated {
+			msg.WorktreePaths = worktreePaths
+			msg.WorktreeNames = worktreeNames
+		}
+		return msg
 	}
 }
 

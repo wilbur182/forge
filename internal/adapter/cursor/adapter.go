@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -30,6 +31,8 @@ var xmlTagRegex = regexp.MustCompile(`<[^>]+>`)
 type sessionCacheEntry struct {
 	size         int64  // file size when cached
 	mtime        int64  // modification time when cached (unix nano)
+	walSize      int64  // WAL file size when cached (td-8cf39632)
+	walMtime     int64  // WAL modification time when cached (td-8cf39632)
 	messageCount int    // cached message count
 	firstUserMsg string // cached first user message
 }
@@ -39,7 +42,8 @@ type Adapter struct {
 	chatsDir string
 
 	// Session metadata cache keyed by dbPath (td-107eea24)
-	sessionCache map[string]sessionCacheEntry
+	sessionCache   map[string]sessionCacheEntry
+	sessionCacheMu sync.RWMutex // protects sessionCache (td-90a73d68)
 }
 
 // New creates a new Cursor CLI adapter.
@@ -135,10 +139,23 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
 		}
 
 		// Check cache before parsing messages (td-107eea24)
+		// Include WAL file stats in cache key (td-8cf39632)
+		var walSize, walMtime int64
+		walPath := dbPath + "-wal"
+		if walInfo, err := os.Stat(walPath); err == nil {
+			walSize = walInfo.Size()
+			walMtime = walInfo.ModTime().UnixNano()
+		}
+
 		var msgCount int
 		var firstUserMsg string
-		if cached, ok := a.sessionCache[dbPath]; ok && info != nil &&
-			cached.size == info.Size() && cached.mtime == info.ModTime().UnixNano() {
+		a.sessionCacheMu.RLock()
+		cached, cacheHit := a.sessionCache[dbPath]
+		a.sessionCacheMu.RUnlock()
+
+		if cacheHit && info != nil &&
+			cached.size == info.Size() && cached.mtime == info.ModTime().UnixNano() &&
+			cached.walSize == walSize && cached.walMtime == walMtime {
 			// Cache hit - reuse cached data
 			msgCount = cached.messageCount
 			firstUserMsg = cached.firstUserMsg
@@ -152,14 +169,18 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
 					break
 				}
 			}
-			// Update cache
+			// Update cache (td-90a73d68: mutex protected)
 			if info != nil {
+				a.sessionCacheMu.Lock()
 				a.sessionCache[dbPath] = sessionCacheEntry{
 					size:         info.Size(),
 					mtime:        info.ModTime().UnixNano(),
+					walSize:      walSize,
+					walMtime:     walMtime,
 					messageCount: msgCount,
 					firstUserMsg: firstUserMsg,
 				}
+				a.sessionCacheMu.Unlock()
 			}
 		}
 

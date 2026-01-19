@@ -319,6 +319,12 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 
 	case SessionsLoadedMsg:
 		p.sessions = msg.Sessions
+		// Update worktree cache from message (td-0e43c080: safe update in Update())
+		if msg.WorktreePaths != nil {
+			p.cachedWorktreePaths = msg.WorktreePaths
+			p.cachedWorktreeNames = msg.WorktreeNames
+			p.worktreeCacheTime = time.Now()
+		}
 		// Keep selection valid when sessions refresh.
 		if p.selectedSession != "" {
 			found := false
@@ -712,6 +718,9 @@ func (p *Plugin) exportSessionToFile() tea.Cmd {
 // Message types
 type SessionsLoadedMsg struct {
 	Sessions []adapter.Session
+	// Worktree cache data (td-0e43c080: computed in cmd, stored in Update)
+	WorktreePaths []string
+	WorktreeNames map[string]string
 }
 
 type MessagesLoadedMsg struct {
