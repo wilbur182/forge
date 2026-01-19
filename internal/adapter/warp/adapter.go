@@ -430,6 +430,11 @@ func (a *Adapter) Watch(projectRoot string) (<-chan adapter.Event, error) {
 	return NewWatcher(a.dbPath)
 }
 
+// WatchScope returns Global because warp watches a global database file (td-7a72b6f7).
+func (a *Adapter) WatchScope() adapter.WatchScope {
+	return adapter.WatchScopeGlobal
+}
+
 // getDB returns a persistent database connection, creating one if needed.
 func (a *Adapter) getDB() (*sql.DB, error) {
 	a.dbMu.Lock()

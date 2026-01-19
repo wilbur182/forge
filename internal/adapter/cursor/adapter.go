@@ -26,16 +26,28 @@ const (
 // xmlTagRegex is pre-compiled for performance in hot path
 var xmlTagRegex = regexp.MustCompile(`<[^>]+>`)
 
+// sessionCacheEntry stores cached session metadata to avoid re-parsing (td-107eea24)
+type sessionCacheEntry struct {
+	size         int64  // file size when cached
+	mtime        int64  // modification time when cached (unix nano)
+	messageCount int    // cached message count
+	firstUserMsg string // cached first user message
+}
+
 // Adapter implements the adapter.Adapter interface for Cursor CLI sessions.
 type Adapter struct {
 	chatsDir string
+
+	// Session metadata cache keyed by dbPath (td-107eea24)
+	sessionCache map[string]sessionCacheEntry
 }
 
 // New creates a new Cursor CLI adapter.
 func New() *Adapter {
 	home, _ := os.UserHomeDir()
 	return &Adapter{
-		chatsDir: filepath.Join(home, ".cursor", "chats"),
+		chatsDir:     filepath.Join(home, ".cursor", "chats"),
+		sessionCache: make(map[string]sessionCacheEntry),
 	}
 }
 
@@ -122,14 +134,32 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
 			updatedAt = info.ModTime()
 		}
 
-		// Parse messages once and extract count + first user message
-		messages, _ := a.parseMessages(dbPath)
-		msgCount := len(messages)
-		firstUserMsg := ""
-		for _, msg := range messages {
-			if msg.Role == "user" && msg.Content != "" {
-				firstUserMsg = msg.Content
-				break
+		// Check cache before parsing messages (td-107eea24)
+		var msgCount int
+		var firstUserMsg string
+		if cached, ok := a.sessionCache[dbPath]; ok && info != nil &&
+			cached.size == info.Size() && cached.mtime == info.ModTime().UnixNano() {
+			// Cache hit - reuse cached data
+			msgCount = cached.messageCount
+			firstUserMsg = cached.firstUserMsg
+		} else {
+			// Cache miss - parse messages and update cache
+			messages, _ := a.parseMessages(dbPath)
+			msgCount = len(messages)
+			for _, msg := range messages {
+				if msg.Role == "user" && msg.Content != "" {
+					firstUserMsg = msg.Content
+					break
+				}
+			}
+			// Update cache
+			if info != nil {
+				a.sessionCache[dbPath] = sessionCacheEntry{
+					size:         info.Size(),
+					mtime:        info.ModTime().UnixNano(),
+					messageCount: msgCount,
+					firstUserMsg: firstUserMsg,
+				}
 			}
 		}
 

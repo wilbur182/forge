@@ -388,6 +388,11 @@ func (a *Adapter) Watch(projectRoot string) (<-chan adapter.Event, error) {
 	return NewWatcher(a.sessionsDir)
 }
 
+// WatchScope returns Global because codex watches a global sessions directory (td-7a72b6f7).
+func (a *Adapter) WatchScope() adapter.WatchScope {
+	return adapter.WatchScopeGlobal
+}
+
 func (a *Adapter) sessionFiles() ([]string, error) {
 	if _, err := os.Stat(a.sessionsDir); err != nil {
 		if os.IsNotExist(err) {

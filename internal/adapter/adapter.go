@@ -24,6 +24,25 @@ type ProjectDiscoverer interface {
 	DiscoverRelatedProjectDirs(mainWorktreePath string) ([]string, error)
 }
 
+// WatchScope indicates whether an adapter watches global or per-project paths.
+type WatchScope int
+
+const (
+	// WatchScopeProject indicates the adapter watches a unique path per project.
+	WatchScopeProject WatchScope = iota
+	// WatchScopeGlobal indicates the adapter watches a global path regardless of project.
+	WatchScopeGlobal
+)
+
+// WatchScopeProvider is an optional interface for adapters to indicate their watch scope (td-7a72b6f7).
+// Adapters that watch global paths (like codex, warp) should implement this to avoid duplicate watchers
+// when the plugin iterates over multiple worktree paths.
+type WatchScopeProvider interface {
+	// WatchScope returns the scope of this adapter's Watch method.
+	// Global-scoped adapters only need one watcher regardless of worktree paths.
+	WatchScope() WatchScope
+}
+
 // Capability represents a feature supported by an adapter.
 type Capability string
 

@@ -279,3 +279,11 @@ func TestShortID(t *testing.T) {
 		}
 	}
 }
+
+// TestSessionCacheInitialized verifies the session cache is initialized (td-107eea24)
+func TestSessionCacheInitialized(t *testing.T) {
+	a := New()
+	if a.sessionCache == nil {
+		t.Error("expected sessionCache to be initialized")
+	}
+}

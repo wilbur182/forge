@@ -34,6 +34,9 @@ const (
 	ShortMessageCharLimit = 500 // Messages shorter than this display inline
 	ShortMessageLineLimit = 13  // Messages with fewer lines display inline
 	CollapsedPreviewChars = 300 // Preview length for collapsed messages
+
+	// Worktree cache TTL to avoid repeated git commands (td-e74a4aaa)
+	worktreeCacheTTL = 5 * time.Second
 )
 
 // Mouse hit region identifiers
@@ -176,6 +179,14 @@ type Plugin struct {
 	prevScrollOff   int
 	prevMsgScroll   int
 	prevTurnScroll  int
+
+	// Unfocused refresh throttling (td-05149f66)
+	pendingRefresh bool // true when refresh was skipped due to unfocused state
+
+	// Worktree cache to avoid git commands on every refresh (td-e74a4aaa)
+	cachedWorktreePaths []string            // cached GetAllRelatedPaths result
+	cachedWorktreeNames map[string]string   // cached wtPath -> name mapping
+	worktreeCacheTime   time.Time           // when the cache was last updated
 }
 
 // msgLineRange tracks which screen lines a message occupies (after scroll).
@@ -283,6 +294,14 @@ func (p *Plugin) Stop() {
 // Update handles messages.
 func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case app.PluginFocusedMsg:
+		// Catch up on pending refresh when plugin regains focus (td-05149f66)
+		if p.pendingRefresh {
+			p.pendingRefresh = false
+			return p, p.loadSessions()
+		}
+		return p, nil
+
 	case tea.MouseMsg:
 		return p.handleMouse(msg)
 
@@ -467,6 +486,13 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		// Coalesced watch events - batch refresh
 		cmds := []tea.Cmd{
 			p.listenForCoalescedRefresh(), // Continue listening for more batches
+		}
+
+		// Skip full session refresh when unfocused to reduce CPU (td-05149f66).
+		// Set pendingRefresh so we catch up on focus.
+		if !p.focused {
+			p.pendingRefresh = true
+			return p, tea.Batch(cmds...)
 		}
 
 		if msg.RefreshAll || len(msg.SessionIDs) == 0 {

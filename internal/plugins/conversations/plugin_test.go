@@ -3105,3 +3105,77 @@ func TestOpenSessionInCLI_SessionSelection(t *testing.T) {
 		}
 	})
 }
+
+// TestUnfocusedRefreshThrottle tests that session refresh is skipped when unfocused (td-05149f66)
+func TestUnfocusedRefreshThrottle(t *testing.T) {
+	t.Run("skips refresh when unfocused", func(t *testing.T) {
+		p := New()
+		p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
+		p.focused = false
+
+		// Simulate a coalesced refresh message
+		msg := CoalescedRefreshMsg{RefreshAll: true}
+		_, cmd := p.Update(msg)
+
+		// Should set pendingRefresh and return only the listener cmd
+		if !p.pendingRefresh {
+			t.Error("expected pendingRefresh to be true when unfocused")
+		}
+		// cmd should be non-nil (for listenForCoalescedRefresh)
+		if cmd == nil {
+			t.Error("expected non-nil command for listener")
+		}
+	})
+
+	t.Run("refreshes when focused", func(t *testing.T) {
+		p := New()
+		p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
+		p.focused = true
+
+		// Simulate a coalesced refresh message
+		msg := CoalescedRefreshMsg{RefreshAll: true}
+		_, cmd := p.Update(msg)
+
+		// Should not set pendingRefresh
+		if p.pendingRefresh {
+			t.Error("expected pendingRefresh to be false when focused")
+		}
+		// cmd should be non-nil (batch of listener + loadSessions)
+		if cmd == nil {
+			t.Error("expected non-nil command")
+		}
+	})
+
+	t.Run("catches up on focus gain", func(t *testing.T) {
+		p := New()
+		p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
+		p.pendingRefresh = true
+
+		// Simulate gaining focus
+		msg := app.PluginFocusedMsg{}
+		_, cmd := p.Update(msg)
+
+		// Should clear pendingRefresh and trigger refresh
+		if p.pendingRefresh {
+			t.Error("expected pendingRefresh to be cleared on focus gain")
+		}
+		if cmd == nil {
+			t.Error("expected non-nil command for catch-up refresh")
+		}
+	})
+
+	t.Run("no refresh on focus gain without pending", func(t *testing.T) {
+		p := New()
+		p.adapters = map[string]adapter.Adapter{"mock": &mockAdapter{}}
+		p.pendingRefresh = false
+
+		// Simulate gaining focus
+		msg := app.PluginFocusedMsg{}
+		_, cmd := p.Update(msg)
+
+		// Should not trigger refresh
+		if cmd != nil {
+			t.Error("expected nil command when no pending refresh")
+		}
+	})
+}

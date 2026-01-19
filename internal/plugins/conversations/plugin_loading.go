@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcus/sidecar/internal/adapter"
@@ -18,38 +19,69 @@ import (
 // loadSessions loads sessions from the adapter.
 // Queries sessions from all related worktree paths to show cross-worktree conversations.
 // Sessions from deleted worktrees are marked with "(deleted)" in their worktree name.
+// Caches worktree paths and names to avoid git commands on every refresh (td-e74a4aaa).
 func (p *Plugin) loadSessions() tea.Cmd {
 	return func() tea.Msg {
 		if len(p.adapters) == 0 {
 			return SessionsLoadedMsg{}
 		}
 
-		// Get all related worktree paths (main repo + all worktrees)
-		worktreePaths := app.GetAllRelatedPaths(p.ctx.WorkDir)
-		if len(worktreePaths) == 0 {
-			// Not a git repo or no worktrees - just use current workdir
-			worktreePaths = []string{p.ctx.WorkDir}
-		}
+		// Check worktree cache (td-e74a4aaa)
+		var worktreePaths []string
+		var worktreeNames map[string]string
+		cacheValid := p.cachedWorktreePaths != nil && time.Since(p.worktreeCacheTime) < worktreeCacheTTL
 
-		// Discover additional paths from adapters (finds deleted worktree conversations)
-		mainPath := app.GetMainWorktreePath(p.ctx.WorkDir)
-		if mainPath == "" {
-			mainPath = p.ctx.WorkDir
-		}
-		pathSet := make(map[string]bool, len(worktreePaths))
-		for _, path := range worktreePaths {
-			pathSet[path] = true
-		}
-		for _, a := range p.adapters {
-			if discoverer, ok := a.(adapter.ProjectDiscoverer); ok {
-				discovered, _ := discoverer.DiscoverRelatedProjectDirs(mainPath)
-				for _, path := range discovered {
-					if !pathSet[path] {
-						worktreePaths = append(worktreePaths, path)
-						pathSet[path] = true
+		if cacheValid {
+			// Use cached data
+			worktreePaths = p.cachedWorktreePaths
+			worktreeNames = p.cachedWorktreeNames
+		} else {
+			// Refresh cache - get all related worktree paths (main repo + all worktrees)
+			worktreePaths = app.GetAllRelatedPaths(p.ctx.WorkDir)
+			if len(worktreePaths) == 0 {
+				// Not a git repo or no worktrees - just use current workdir
+				worktreePaths = []string{p.ctx.WorkDir}
+			}
+
+			// Discover additional paths from adapters (finds deleted worktree conversations)
+			mainPath := app.GetMainWorktreePath(p.ctx.WorkDir)
+			if mainPath == "" {
+				mainPath = p.ctx.WorkDir
+			}
+			pathSet := make(map[string]bool, len(worktreePaths))
+			for _, path := range worktreePaths {
+				pathSet[path] = true
+			}
+			for _, a := range p.adapters {
+				if discoverer, ok := a.(adapter.ProjectDiscoverer); ok {
+					discovered, _ := discoverer.DiscoverRelatedProjectDirs(mainPath)
+					for _, path := range discovered {
+						if !pathSet[path] {
+							worktreePaths = append(worktreePaths, path)
+							pathSet[path] = true
+						}
 					}
 				}
 			}
+
+			// Cache worktree names
+			worktreeNames = make(map[string]string)
+			currentPath := p.ctx.WorkDir
+			if absPath, err := filepath.Abs(currentPath); err == nil {
+				currentPath = absPath
+			}
+			for _, wtPath := range worktreePaths {
+				wtName := app.WorktreeNameForPath(p.ctx.WorkDir, wtPath)
+				if wtName == "" && wtPath != currentPath {
+					wtName = deriveWorktreeNameFromPath(wtPath, mainPath)
+				}
+				worktreeNames[wtPath] = wtName
+			}
+
+			// Update cache
+			p.cachedWorktreePaths = worktreePaths
+			p.cachedWorktreeNames = worktreeNames
+			p.worktreeCacheTime = time.Now()
 		}
 
 		// Track seen sessions to avoid duplicates (same session loaded from multiple paths)
@@ -69,13 +101,8 @@ func (p *Plugin) loadSessions() tea.Cmd {
 					continue
 				}
 
-				// Get worktree name: prefer git branch name, fall back to directory name
-				wtName := app.WorktreeNameForPath(p.ctx.WorkDir, wtPath)
-				if wtName == "" && wtPath != currentPath {
-					// For deleted worktrees, derive name from directory
-					// Directory format: {repo}-{name} (e.g., myrepo-feature-auth)
-					wtName = deriveWorktreeNameFromPath(wtPath, mainPath)
-				}
+				// Get worktree name from cache
+				wtName := worktreeNames[wtPath]
 
 				for i := range adapterSessions {
 					// Skip duplicates
@@ -173,6 +200,7 @@ func (p *Plugin) loadMessages(sessionID string) tea.Cmd {
 
 // startWatcher starts watching for session changes.
 // Monitors all related worktree paths for live updates across worktrees.
+// Global-scoped adapters (codex, warp) only create one watcher to avoid duplicates (td-7a72b6f7).
 func (p *Plugin) startWatcher() tea.Cmd {
 	return func() tea.Msg {
 		if len(p.adapters) == 0 {
@@ -191,8 +219,21 @@ func (p *Plugin) startWatcher() tea.Cmd {
 		watchCount := 0
 
 		// Watch all worktree paths with each adapter
+		// Global-scoped adapters only watch once to avoid duplicate events (td-7a72b6f7)
 		for _, a := range p.adapters {
-			for _, wtPath := range worktreePaths {
+			// Check if adapter has global watch scope
+			isGlobal := false
+			if scopeProvider, ok := a.(adapter.WatchScopeProvider); ok {
+				isGlobal = scopeProvider.WatchScope() == adapter.WatchScopeGlobal
+			}
+
+			pathsToWatch := worktreePaths
+			if isGlobal {
+				// Global adapters only need one watch call (uses first path)
+				pathsToWatch = worktreePaths[:1]
+			}
+
+			for _, wtPath := range pathsToWatch {
 				ch, err := a.Watch(wtPath)
 				if err != nil || ch == nil {
 					continue
