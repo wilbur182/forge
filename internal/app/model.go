@@ -3,8 +3,10 @@ package app
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcus/sidecar/internal/config"
 	"github.com/marcus/sidecar/internal/keymap"
@@ -43,10 +45,12 @@ type Model struct {
 	palette         palette.Model
 
 	// Project switcher modal
-	showProjectSwitcher    bool
-	projectSwitcherCursor  int
-	projectSwitcherScroll  int
-	projectSwitcherHover   int // -1 = no hover, 0+ = hovered project index
+	showProjectSwitcher      bool
+	projectSwitcherCursor    int
+	projectSwitcherScroll    int
+	projectSwitcherHover     int // -1 = no hover, 0+ = hovered project index
+	projectSwitcherInput     textinput.Model
+	projectSwitcherFiltered  []config.ProjectConfig
 
 	// Header/footer
 	ui *UIState
@@ -346,6 +350,57 @@ func (m *Model) resetProjectSwitcher() {
 	m.projectSwitcherCursor = 0
 	m.projectSwitcherScroll = 0
 	m.projectSwitcherHover = -1
+	m.projectSwitcherFiltered = nil
+}
+
+// initProjectSwitcher initializes the project switcher modal.
+func (m *Model) initProjectSwitcher() {
+	ti := textinput.New()
+	ti.Placeholder = "Filter projects..."
+	ti.Focus()
+	ti.CharLimit = 50
+	ti.Width = 40
+	m.projectSwitcherInput = ti
+	m.projectSwitcherFiltered = m.cfg.Projects.List
+	m.projectSwitcherCursor = 0
+	m.projectSwitcherScroll = 0
+	m.projectSwitcherHover = -1
+
+	// Set cursor to current project if found
+	for i, proj := range m.projectSwitcherFiltered {
+		if proj.Path == m.ui.WorkDir {
+			m.projectSwitcherCursor = i
+			break
+		}
+	}
+}
+
+// filterProjects filters projects by name or path using a case-insensitive substring match.
+func filterProjects(all []config.ProjectConfig, query string) []config.ProjectConfig {
+	if query == "" {
+		return all
+	}
+	q := strings.ToLower(query)
+	var matches []config.ProjectConfig
+	for _, p := range all {
+		if strings.Contains(strings.ToLower(p.Name), q) ||
+			strings.Contains(strings.ToLower(p.Path), q) {
+			matches = append(matches, p)
+		}
+	}
+	return matches
+}
+
+// projectSwitcherEnsureCursorVisible adjusts scroll to keep cursor in view.
+// Returns the new scroll offset.
+func projectSwitcherEnsureCursorVisible(cursor, scroll, maxVisible int) int {
+	if cursor < scroll {
+		return cursor
+	}
+	if cursor >= scroll+maxVisible {
+		return cursor - maxVisible + 1
+	}
+	return scroll
 }
 
 // switchProject switches all plugins to a new project directory.

@@ -115,10 +115,10 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 	b.WriteString(styles.Muted.Render("@"))
 	b.WriteString("\n\n")
 
-	projects := m.cfg.Projects.List
+	allProjects := m.cfg.Projects.List
 
-	// Empty state
-	if len(projects) == 0 {
+	// Empty state (no projects configured at all)
+	if len(allProjects) == 0 {
 		b.WriteString(styles.Muted.Render("No projects configured.\n\n"))
 		b.WriteString(styles.Muted.Render("Add projects to "))
 		b.WriteString(styles.KeyHint.Render("~/.config/sidecar/config.json"))
@@ -138,6 +138,31 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 		return ui.OverlayModal(content, modal, m.width, m.height)
 	}
 
+	// Render search input
+	b.WriteString(m.projectSwitcherInput.View())
+	b.WriteString("\n")
+
+	// Show count if filtering
+	projects := m.projectSwitcherFiltered
+	if m.projectSwitcherInput.Value() != "" {
+		b.WriteString(styles.Muted.Render(fmt.Sprintf("%d of %d projects", len(projects), len(allProjects))))
+	}
+	b.WriteString("\n")
+
+	// Empty filtered state
+	if len(projects) == 0 {
+		b.WriteString("\n")
+		b.WriteString(styles.Muted.Render("No matches"))
+		b.WriteString("\n\n")
+		b.WriteString(styles.KeyHint.Render("esc"))
+		b.WriteString(styles.Muted.Render(" clear filter  "))
+		b.WriteString(styles.KeyHint.Render("@"))
+		b.WriteString(styles.Muted.Render(" close"))
+
+		modal := styles.ModalBox.Render(b.String())
+		return ui.OverlayModal(content, modal, m.width, m.height)
+	}
+
 	// Calculate visible window for scrolling
 	maxVisible := 8
 	visibleCount := len(projects)
@@ -145,14 +170,8 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 		visibleCount = maxVisible
 	}
 
-	// Ensure cursor is visible within scroll window
+	// Use stored scroll offset
 	scrollOffset := m.projectSwitcherScroll
-	if m.projectSwitcherCursor < scrollOffset {
-		scrollOffset = m.projectSwitcherCursor
-	}
-	if m.projectSwitcherCursor >= scrollOffset+visibleCount {
-		scrollOffset = m.projectSwitcherCursor - visibleCount + 1
-	}
 
 	// Render scroll indicator if needed (top)
 	if scrollOffset > 0 {
@@ -161,9 +180,17 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 
 	// Styles for project items
 	cursorStyle := lipgloss.NewStyle().Foreground(styles.Primary)
+	// Normal name: themed color (secondary/blue) for visibility
+	nameNormalStyle := lipgloss.NewStyle().Foreground(styles.Secondary)
+	// Selected name: brighter primary color + bold
 	nameSelectedStyle := lipgloss.NewStyle().Foreground(styles.Primary).Bold(true)
+	// Current project: green + bold
 	nameCurrentStyle := lipgloss.NewStyle().Foreground(styles.Success).Bold(true)
-	pathSelectedStyle := styles.Muted.Bold(true)
+	// Current + selected: bright green + bold
+	nameCurrentSelectedStyle := lipgloss.NewStyle().Foreground(styles.Success).Bold(true)
+	// Paths: always muted, never bold (slightly brighter when selected)
+	pathNormalStyle := styles.Subtle
+	pathSelectedStyle := styles.Muted
 
 	// Render project list
 	for i := scrollOffset; i < scrollOffset+visibleCount && i < len(projects); i++ {
@@ -179,12 +206,18 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 			b.WriteString("  ")
 		}
 
-		// Project name
-		nameStyle := styles.BarText
+		// Project name - always has themed color, bold when selected
+		var nameStyle lipgloss.Style
 		if isCurrent {
-			nameStyle = nameCurrentStyle
+			if isCursor || isHover {
+				nameStyle = nameCurrentSelectedStyle
+			} else {
+				nameStyle = nameCurrentStyle
+			}
 		} else if isCursor || isHover {
 			nameStyle = nameSelectedStyle
+		} else {
+			nameStyle = nameNormalStyle
 		}
 		b.WriteString(nameStyle.Render(proj.Name))
 
@@ -194,8 +227,8 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 		}
 		b.WriteString("\n")
 
-		// Project path (muted, indented)
-		pathStyle := styles.Muted
+		// Project path (always non-bold, slightly brighter when selected)
+		pathStyle := pathNormalStyle
 		if isCursor || isHover {
 			pathStyle = pathSelectedStyle
 		}
@@ -215,7 +248,7 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 	// Help text
 	b.WriteString(styles.KeyHint.Render("enter"))
 	b.WriteString(styles.Muted.Render(" select  "))
-	b.WriteString(styles.KeyHint.Render("j/k"))
+	b.WriteString(styles.KeyHint.Render("↑/↓"))
 	b.WriteString(styles.Muted.Render(" navigate  "))
 	b.WriteString(styles.KeyHint.Render("esc"))
 	b.WriteString(styles.Muted.Render(" cancel"))
