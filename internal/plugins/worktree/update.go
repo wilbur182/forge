@@ -51,6 +51,17 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					}
 				}
 			}
+
+			// On first refresh after startup/project-switch, restore saved selection
+			if !p.stateRestored {
+				p.stateRestored = true
+				// Only restore if we don't already have a valid selection from above
+				// and if there are items to select
+				if selectedName == "" && (len(p.worktrees) > 0 || len(p.shells) > 0) {
+					p.restoreSelectionState()
+				}
+			}
+
 			// Bounds check in case the selected worktree was deleted
 			if p.selectedIdx >= len(p.worktrees) && len(p.worktrees) > 0 {
 				p.selectedIdx = len(p.worktrees) - 1
@@ -129,6 +140,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			p.previewOffset = 0
 			p.previewHorizOffset = 0
 			p.autoScrollOutput = true
+			p.saveSelectionState()
 			p.ensureVisible()
 
 			p.clearCreateModal()
@@ -304,6 +316,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		// Auto-select and focus the new shell
 		p.shellSelected = true
 		p.selectedShellIdx = len(p.shells) - 1
+		p.saveSelectionState()
 		p.activePane = PaneSidebar
 		p.autoScrollOutput = true
 
@@ -353,6 +366,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					p.selectedIdx = 0
 				}
 			}
+			p.saveSelectionState()
 			// Reload content for the newly selected item
 			cmds = append(cmds, p.loadSelectedContent())
 		}
@@ -390,6 +404,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					p.selectedIdx = 0
 				}
 			}
+			p.saveSelectionState()
 			// Reload content for the newly selected item
 			return p, p.loadSelectedContent()
 		}

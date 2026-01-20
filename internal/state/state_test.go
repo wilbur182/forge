@@ -395,3 +395,117 @@ func TestRoundTrip(t *testing.T) {
 	path = originalPath
 	current = originalCurrent
 }
+
+func TestGetWorktreeState_Default(t *testing.T) {
+	originalCurrent := current
+	defer func() { current = originalCurrent }()
+
+	current = nil
+	state := GetWorktreeState("/path/to/project")
+	if state.WorktreeName != "" || state.ShellTmuxName != "" {
+		t.Errorf("GetWorktreeState() with nil current should return empty state")
+	}
+}
+
+func TestGetWorktreeState_EmptyMap(t *testing.T) {
+	originalCurrent := current
+	defer func() { current = originalCurrent }()
+
+	current = &State{Worktree: nil}
+	state := GetWorktreeState("/path/to/project")
+	if state.WorktreeName != "" || state.ShellTmuxName != "" {
+		t.Errorf("GetWorktreeState() with nil map should return empty state")
+	}
+}
+
+func TestGetWorktreeState_Found(t *testing.T) {
+	originalCurrent := current
+	defer func() { current = originalCurrent }()
+
+	current = &State{
+		Worktree: map[string]WorktreeState{
+			"/path/to/project": {
+				WorktreeName:  "feature-branch",
+				ShellTmuxName: "sidecar-sh-project-1",
+			},
+		},
+	}
+	state := GetWorktreeState("/path/to/project")
+	if state.WorktreeName != "feature-branch" {
+		t.Errorf("WorktreeName = %q, want feature-branch", state.WorktreeName)
+	}
+	if state.ShellTmuxName != "sidecar-sh-project-1" {
+		t.Errorf("ShellTmuxName = %q, want sidecar-sh-project-1", state.ShellTmuxName)
+	}
+}
+
+func TestSetWorktreeState(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalPath := path
+	originalCurrent := current
+	defer func() {
+		path = originalPath
+		current = originalCurrent
+	}()
+
+	stateFile := filepath.Join(tmpDir, "state.json")
+	path = stateFile
+	current = &State{}
+
+	wtState := WorktreeState{
+		WorktreeName:  "my-worktree",
+		ShellTmuxName: "",
+	}
+
+	err := SetWorktreeState("/projects/sidecar", wtState)
+	if err != nil {
+		t.Fatalf("SetWorktreeState() failed: %v", err)
+	}
+
+	// Verify in memory
+	stored := current.Worktree["/projects/sidecar"]
+	if stored.WorktreeName != "my-worktree" {
+		t.Errorf("stored WorktreeName = %q, want my-worktree", stored.WorktreeName)
+	}
+
+	// Verify saved to disk
+	data, _ := os.ReadFile(stateFile)
+	var loaded State
+	_ = json.Unmarshal(data, &loaded)
+	if loaded.Worktree["/projects/sidecar"].WorktreeName != "my-worktree" {
+		t.Errorf("persisted WorktreeName = %q, want my-worktree", loaded.Worktree["/projects/sidecar"].WorktreeName)
+	}
+}
+
+func TestSetWorktreeState_ShellSelection(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalPath := path
+	originalCurrent := current
+	defer func() {
+		path = originalPath
+		current = originalCurrent
+	}()
+
+	path = filepath.Join(tmpDir, "state.json")
+	current = &State{}
+
+	// Save shell selection
+	wtState := WorktreeState{
+		WorktreeName:  "",
+		ShellTmuxName: "sidecar-sh-project-2",
+	}
+
+	err := SetWorktreeState("/projects/myapp", wtState)
+	if err != nil {
+		t.Fatalf("SetWorktreeState() failed: %v", err)
+	}
+
+	// Verify
+	stored := current.Worktree["/projects/myapp"]
+	if stored.ShellTmuxName != "sidecar-sh-project-2" {
+		t.Errorf("stored ShellTmuxName = %q, want sidecar-sh-project-2", stored.ShellTmuxName)
+	}
+	if stored.WorktreeName != "" {
+		t.Errorf("stored WorktreeName = %q, want empty", stored.WorktreeName)
+	}
+}

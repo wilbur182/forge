@@ -214,6 +214,7 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 						p.previewOffset = 0
 						p.previewHorizOffset = 0
 						p.autoScrollOutput = true
+						p.saveSelectionState()
 					}
 					p.activePane = PaneSidebar
 					return p.loadSelectedContent()
@@ -226,6 +227,7 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 					p.previewOffset = 0
 					p.previewHorizOffset = 0
 					p.autoScrollOutput = true
+					p.saveSelectionState()
 				}
 				p.ensureVisible()
 				p.activePane = PaneSidebar
@@ -477,11 +479,13 @@ func (p *Plugin) handleMouseDoubleClick(action mouse.MouseAction) tea.Cmd {
 				if shellIdx >= 0 && shellIdx < len(p.shells) {
 					p.shellSelected = true
 					p.selectedShellIdx = shellIdx
+					p.saveSelectionState()
 					return p.ensureShellAndAttachByIndex(shellIdx)
 				}
 			} else if idx >= 0 && idx < len(p.worktrees) {
 				p.shellSelected = false
 				p.selectedIdx = idx
+				p.saveSelectionState()
 				wt := p.worktrees[idx]
 				if wt.Agent != nil {
 					p.attachedSession = wt.Name

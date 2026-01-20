@@ -371,9 +371,11 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			if len(p.shells) > 0 {
 				p.shellSelected = true
 				p.selectedShellIdx = 0
+				p.saveSelectionState()
 			} else if len(p.worktrees) > 0 {
 				p.shellSelected = false
 				p.selectedIdx = 0
+				p.saveSelectionState()
 			}
 			p.scrollOffset = 0
 			return p.loadSelectedContent()
@@ -387,6 +389,7 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			if len(p.worktrees) > 0 {
 				p.shellSelected = false
 				p.selectedIdx = len(p.worktrees) - 1
+				p.saveSelectionState()
 				p.ensureVisible()
 				return p.loadSelectedContent()
 			}

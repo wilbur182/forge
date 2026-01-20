@@ -221,6 +221,9 @@ type Plugin struct {
 	// Initial reconnection tracking
 	initialReconnectDone bool
 
+	// State restoration tracking (only restore once on startup)
+	stateRestored bool
+
 	// Sidebar header hover state
 	hoverNewButton            bool
 	hoverShellsPlusButton     bool
@@ -296,6 +299,9 @@ func (p *Plugin) Init(ctx *plugin.Context) error {
 	p.shells = make([]*ShellSession, 0)
 	p.selectedShellIdx = 0
 	p.shellSelected = false
+
+	// Reset state restoration flag for project switching
+	p.stateRestored = false
 
 	// Discover existing shell sessions for this project
 	p.initShellSessions()
@@ -408,6 +414,73 @@ func (p *Plugin) Start() tea.Cmd {
 // Stop cleans up plugin resources.
 func (p *Plugin) Stop() {
 	// Cleanup managed tmux sessions if needed
+}
+
+// saveSelectionState persists the current selection to disk.
+func (p *Plugin) saveSelectionState() {
+	if p.ctx == nil {
+		return
+	}
+
+	wtState := state.WorktreeState{}
+
+	if p.shellSelected {
+		// Shell is selected - save shell TmuxName
+		if p.selectedShellIdx >= 0 && p.selectedShellIdx < len(p.shells) {
+			wtState.ShellTmuxName = p.shells[p.selectedShellIdx].TmuxName
+		}
+	} else {
+		// Worktree is selected - save worktree name
+		if p.selectedIdx >= 0 && p.selectedIdx < len(p.worktrees) {
+			wtState.WorktreeName = p.worktrees[p.selectedIdx].Name
+		}
+	}
+
+	// Only save if we have something selected
+	if wtState.WorktreeName != "" || wtState.ShellTmuxName != "" {
+		_ = state.SetWorktreeState(p.ctx.WorkDir, wtState)
+	}
+}
+
+// restoreSelectionState restores selection from saved state.
+// Returns true if selection was restored, false if default should be used.
+func (p *Plugin) restoreSelectionState() bool {
+	if p.ctx == nil {
+		return false
+	}
+
+	wtState := state.GetWorktreeState(p.ctx.WorkDir)
+
+	// No saved state
+	if wtState.WorktreeName == "" && wtState.ShellTmuxName == "" {
+		return false
+	}
+
+	// Try to restore shell selection first (if saved)
+	if wtState.ShellTmuxName != "" {
+		for i, shell := range p.shells {
+			if shell.TmuxName == wtState.ShellTmuxName {
+				p.shellSelected = true
+				p.selectedShellIdx = i
+				return true
+			}
+		}
+		// Shell no longer exists, fall through to try worktree
+	}
+
+	// Try to restore worktree selection
+	if wtState.WorktreeName != "" {
+		for i, wt := range p.worktrees {
+			if wt.Name == wtState.WorktreeName {
+				p.shellSelected = false
+				p.selectedIdx = i
+				return true
+			}
+		}
+	}
+
+	// Saved items no longer exist
+	return false
 }
 
 // selectedWorktree returns the currently selected worktree.
@@ -655,6 +728,8 @@ func (p *Plugin) moveCursor(delta int) {
 		p.previewOffset = 0
 		p.previewHorizOffset = 0
 		p.autoScrollOutput = true
+		// Persist selection to disk
+		p.saveSelectionState()
 	}
 	p.ensureVisible()
 }

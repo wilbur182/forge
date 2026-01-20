@@ -21,6 +21,7 @@ type State struct {
 
 	// Plugin-specific state (keyed by working directory path)
 	FileBrowser  map[string]FileBrowserState `json:"fileBrowser,omitempty"`
+	Worktree     map[string]WorktreeState    `json:"worktree,omitempty"`
 	ActivePlugin map[string]string           `json:"activePlugin,omitempty"`
 }
 
@@ -34,6 +35,12 @@ type FileBrowserState struct {
 	PreviewFile    string   `json:"previewFile,omitempty"`    // File being previewed (relative)
 	TreeCursor     int      `json:"treeCursor,omitempty"`     // Tree cursor position
 	ShowIgnored    *bool    `json:"showIgnored,omitempty"`    // Whether to show git-ignored files (nil = default true)
+}
+
+// WorktreeState holds persistent worktree plugin state.
+type WorktreeState struct {
+	WorktreeName  string `json:"worktreeName,omitempty"`  // Name of selected worktree
+	ShellTmuxName string `json:"shellTmuxName,omitempty"` // TmuxName of selected shell (empty = worktree selected)
 }
 
 var (
@@ -272,6 +279,30 @@ func SetFileBrowserState(workdir string, fbState FileBrowserState) error {
 		current.FileBrowser = make(map[string]FileBrowserState)
 	}
 	current.FileBrowser[workdir] = fbState
+	mu.Unlock()
+	return Save()
+}
+
+// GetWorktreeState returns the saved worktree state for a given working directory.
+func GetWorktreeState(workdir string) WorktreeState {
+	mu.RLock()
+	defer mu.RUnlock()
+	if current == nil || current.Worktree == nil {
+		return WorktreeState{}
+	}
+	return current.Worktree[workdir]
+}
+
+// SetWorktreeState saves the worktree state for a given working directory.
+func SetWorktreeState(workdir string, wtState WorktreeState) error {
+	mu.Lock()
+	if current == nil {
+		current = &State{}
+	}
+	if current.Worktree == nil {
+		current.Worktree = make(map[string]WorktreeState)
+	}
+	current.Worktree[workdir] = wtState
 	mu.Unlock()
 	return Save()
 }
