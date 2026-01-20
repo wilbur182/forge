@@ -114,6 +114,14 @@ func (p *Plugin) handleMouse(msg tea.MouseMsg) (*Plugin, tea.Cmd) {
 
 ## Common Patterns
 
+## Table Checklist (Save Future Pain)
+
+- Disable all table borders when embedding (`BorderTop/Bottom/Left/Right(false)`).
+- Do not use `Height` + `Offset` for scrolling; slice rows to the visible window.
+- Use a shared layout helper for render + hit testing + visible height.
+- Clamp scroll offset to `len(rows)-dataRowsVisible`.
+- Ignore the scroll-indicator line in hit tests.
+
 ### Click to Select
 
 ```go
@@ -133,7 +141,36 @@ case mouse.ActionScrollUp, mouse.ActionScrollDown:
     // Scroll content by delta (typically 3 lines)
     p.scrollOffset += action.Delta
     p.clampScroll()
+    // Keep cursor visible (see below)
+    p.keepCursorVisible()
 ```
+
+### Keep Cursor Visible During Scroll
+
+When scrolling with the mouse wheel, keep the cursor within the visible area to prevent UX issues:
+
+```go
+func (p *Plugin) keepCursorVisible() {
+    visibleHeight := p.calculateVisibleHeight()
+
+    // If cursor went above viewport, move it to first visible row
+    if p.cursor < p.scrollOffset {
+        p.cursor = p.scrollOffset
+    }
+    // If cursor went below viewport, move it to last visible row
+    if p.cursor >= p.scrollOffset+visibleHeight {
+        p.cursor = p.scrollOffset + visibleHeight - 1
+        if p.cursor >= len(p.items) {
+            p.cursor = len(p.items) - 1
+        }
+    }
+}
+```
+
+**Why this matters**: If cursor goes off-screen:
+1. No row appears highlighted (confusing)
+2. Click selection may not work due to cursor/offset mismatch in rendering
+3. User loses track of their position
 
 ### Double-Click Actions
 
@@ -345,6 +382,17 @@ linePos++
 **Prevention:** When using styled components, check if they have margin/padding that adds vertical space. Test by clicking on the first few items after a styled header - if clicks select the wrong row, count the actual rendered lines vs what the hit test expects.
 
 **See also:** TD Monitor's `hitTestCurrentWorkRow()` in `pkg/monitor/input.go` for an example of accounting for `sectionHeader`'s `MarginTop(1)`.
+
+### Clicks select the wrong row after scrolling a table
+**Cause:** `lipgloss/table` renders hidden border lines (even with `HiddenBorder`) and an overflow ellipsis row when `Height(...)` + `Offset(...)` are used. That ellipsis row is not real data, so cursor math and hit testing drift after scrolling.
+
+**Fix:**
+1. Disable all table borders (`BorderTop/Bottom/Left/Right(false)`) so header/data row counts are stable.
+2. Avoid `Height(...)` + `Offset(...)` for scrolling. Slice your data to the visible window and pass only those rows to the table.
+3. Centralize layout math (header rows, data rows visible, scroll indicator rows) and reuse it for render + hit testing.
+4. Clamp scroll offset to `len(data) - dataRowsVisible` and ignore the scroll-indicator line below the table in hit tests.
+
+If keyboard navigation keeps the cursor visible but mouse clicks drift, it usually means your render math and input math disagree.
 
 ### Modal hit regions are off by many rows (e.g., 5+ rows)
 **Cause:** Multiple errors compounding:
