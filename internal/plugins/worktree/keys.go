@@ -33,6 +33,8 @@ func (p *Plugin) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 		return p.handlePromptPickerKeys(msg)
 	case ViewModeTypeSelector:
 		return p.handleTypeSelectorKeys(msg)
+	case ViewModeRenameShell:
+		return p.handleRenameShellKeys(msg)
 	}
 	return nil
 }
@@ -591,6 +593,21 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				return p.killShellSessionByName(shell.TmuxName)
 			}
 		}
+	case "R":
+		// Rename selected shell session
+		if p.shellSelected && p.selectedShellIdx >= 0 && p.selectedShellIdx < len(p.shells) {
+			shell := p.shells[p.selectedShellIdx]
+			p.viewMode = ViewModeRenameShell
+			p.renameShellSession = shell
+			p.renameShellInput = textinput.New()
+			p.renameShellInput.SetValue(shell.Name)
+			p.renameShellInput.Focus()
+			p.renameShellInput.CharLimit = 50
+			p.renameShellInput.Width = 30
+			p.renameShellFocus = 0
+			p.renameShellButtonHover = 0
+			p.renameShellError = ""
+		}
 	case "y":
 		// Approve pending prompt on selected worktree
 		wt := p.selectedWorktree()
@@ -1058,4 +1075,98 @@ func (p *Plugin) handleCommitForMergeKeys(msg tea.KeyMsg) tea.Cmd {
 	var cmd tea.Cmd
 	p.mergeCommitMessageInput, cmd = p.mergeCommitMessageInput.Update(msg)
 	return cmd
+}
+
+// handleRenameShellKeys handles keys in the rename shell modal.
+func (p *Plugin) handleRenameShellKeys(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case "esc":
+		p.viewMode = ViewModeList
+		p.clearRenameShellModal()
+		return nil
+	case "tab":
+		p.renameShellInput.Blur()
+		p.renameShellFocus = (p.renameShellFocus + 1) % 3
+		if p.renameShellFocus == 0 {
+			p.renameShellInput.Focus()
+		}
+		return nil
+	case "shift+tab":
+		p.renameShellInput.Blur()
+		p.renameShellFocus = (p.renameShellFocus + 2) % 3
+		if p.renameShellFocus == 0 {
+			p.renameShellInput.Focus()
+		}
+		return nil
+	case "enter":
+		if p.renameShellFocus == 2 {
+			// Cancel button
+			p.viewMode = ViewModeList
+			p.clearRenameShellModal()
+			return nil
+		}
+		if p.renameShellFocus == 1 || p.renameShellFocus == 0 {
+			// Confirm button or input field
+			return p.executeRenameShell()
+		}
+		return nil
+	}
+
+	// Delegate to textinput when focused
+	if p.renameShellFocus == 0 {
+		p.renameShellError = "" // Clear error on typing
+		var cmd tea.Cmd
+		p.renameShellInput, cmd = p.renameShellInput.Update(msg)
+		return cmd
+	}
+	return nil
+}
+
+// executeRenameShell performs the rename operation.
+func (p *Plugin) executeRenameShell() tea.Cmd {
+	newName := strings.TrimSpace(p.renameShellInput.Value())
+
+	// Validation
+	if newName == "" {
+		p.renameShellError = "Name cannot be empty"
+		return nil
+	}
+
+	if len(newName) > 50 {
+		p.renameShellError = "Name too long (max 50 characters)"
+		return nil
+	}
+
+	// Check for duplicates
+	for _, shell := range p.shells {
+		if shell.Name == newName && shell.TmuxName != p.renameShellSession.TmuxName {
+			p.renameShellError = "Name already in use"
+			return nil
+		}
+	}
+
+	shell := p.renameShellSession
+	tmuxName := shell.TmuxName
+
+	// Clear modal state
+	p.viewMode = ViewModeList
+	p.clearRenameShellModal()
+
+	return func() tea.Msg {
+		// Rename is just a local state change - no tmux operation needed
+		return RenameShellDoneMsg{
+			TmuxName: tmuxName,
+			NewName:  newName,
+			Err:      nil,
+		}
+	}
+}
+
+// clearRenameShellModal clears rename modal state.
+func (p *Plugin) clearRenameShellModal() {
+	p.renameShellSession = nil
+	p.renameShellInput = textinput.Model{}
+	p.renameShellFocus = 0
+	p.renameShellButtonHover = 0
+	p.renameShellError = ""
 }

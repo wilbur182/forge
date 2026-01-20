@@ -22,6 +22,7 @@ const (
 	ViewModeCommitForMerge                 // Commit modal before merge workflow
 	ViewModePromptPicker                   // Prompt template picker modal
 	ViewModeTypeSelector                   // Type selector modal (shell vs worktree)
+	ViewModeRenameShell                    // Rename shell modal
 )
 
 // FocusPane represents which pane is active in the split view.

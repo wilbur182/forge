@@ -89,6 +89,21 @@ func (p *Plugin) handleMouseHover(action mouse.MouseAction) tea.Cmd {
 		default:
 			p.deleteShellConfirmButtonHover = 0
 		}
+	case ViewModeRenameShell:
+		if action.Region == nil {
+			p.renameShellButtonHover = 0
+			return nil
+		}
+		switch action.Region.ID {
+		case regionRenameShellInput:
+			p.renameShellButtonHover = 0 // Clear button hover when hovering input
+		case regionRenameShellConfirm:
+			p.renameShellButtonHover = 1
+		case regionRenameShellCancel:
+			p.renameShellButtonHover = 2
+		default:
+			p.renameShellButtonHover = 0
+		}
 	case ViewModePromptPicker:
 		if p.promptPicker == nil {
 			return nil
@@ -286,6 +301,17 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 	case regionDeleteShellConfirmCancel:
 		// Click cancel button in shell delete modal
 		return p.cancelShellDelete()
+	case regionRenameShellInput:
+		// Click on rename input field
+		p.renameShellFocus = 0
+		p.renameShellInput.Focus()
+	case regionRenameShellConfirm:
+		// Click confirm button in rename shell modal
+		return p.executeRenameShell()
+	case regionRenameShellCancel:
+		// Click cancel button in rename shell modal
+		p.viewMode = ViewModeList
+		p.clearRenameShellModal()
 	case regionKanbanCard:
 		// Click on kanban card - select it
 		if data, ok := action.Region.Data.(kanbanCardData); ok {

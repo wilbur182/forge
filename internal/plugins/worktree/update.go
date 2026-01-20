@@ -432,6 +432,17 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 		return p, p.scheduleShellPollByName(msg.TmuxName, interval)
 
+	case RenameShellDoneMsg:
+		// Find shell and update its display name
+		for _, shell := range p.shells {
+			if shell.TmuxName == msg.TmuxName {
+				shell.Name = msg.NewName
+				break
+			}
+		}
+		// Persist the selection state
+		p.saveSelectionState()
+
 	case pollShellByNameMsg:
 		// Poll specific shell session for output by name
 		if p.findShellByName(msg.TmuxName) != nil {

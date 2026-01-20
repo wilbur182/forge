@@ -80,6 +80,13 @@ type (
 		Changed  bool
 	}
 
+	// RenameShellDoneMsg signals shell rename operation completed
+	RenameShellDoneMsg struct {
+		TmuxName string // Session name (stable identifier)
+		NewName  string // New display name
+		Err      error  // Non-nil if rename failed
+	}
+
 	// pollShellByNameMsg triggers a poll for a specific shell's output by name
 	pollShellByNameMsg struct {
 		TmuxName string

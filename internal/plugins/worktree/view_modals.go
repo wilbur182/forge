@@ -908,6 +908,116 @@ func (p *Plugin) renderConfirmDeleteShellModal(width, height int) string {
 	return ui.OverlayModal(background, modal, width, height)
 }
 
+// renderRenameShellModal renders the rename shell modal.
+func (p *Plugin) renderRenameShellModal(width, height int) string {
+	// Render the background (list view)
+	background := p.renderListView(width, height)
+
+	if p.renameShellSession == nil {
+		return background
+	}
+
+	// Modal dimensions
+	modalW := 50
+	if modalW > width-4 {
+		modalW = width - 4
+	}
+
+	// Calculate input field width
+	inputW := modalW - 10
+	if inputW < 20 {
+		inputW = 20
+	}
+
+	// Set textinput width and remove default prompt
+	p.renameShellInput.Width = inputW
+	p.renameShellInput.Prompt = ""
+
+	shell := p.renameShellSession
+
+	var sb strings.Builder
+	title := "Rename Shell"
+	sb.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
+	sb.WriteString("\n\n")
+
+	// Shell info
+	sb.WriteString(fmt.Sprintf("Session: %s\n", dimText(shell.TmuxName)))
+	sb.WriteString(fmt.Sprintf("Current: %s\n", lipgloss.NewStyle().Bold(true).Render(shell.Name)))
+	sb.WriteString("\n")
+
+	// New name field
+	nameLabel := "New Name:"
+	nameStyle := inputFocusedStyle
+	if p.renameShellFocus != 0 {
+		nameStyle = inputStyle
+	}
+	sb.WriteString(nameLabel)
+	sb.WriteString("\n")
+	sb.WriteString(nameStyle.Render(p.renameShellInput.View()))
+	sb.WriteString("\n")
+
+	// Display error if present
+	if p.renameShellError != "" {
+		sb.WriteString("\n")
+		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+		sb.WriteString(errStyle.Render("Error: " + p.renameShellError))
+	}
+
+	sb.WriteString("\n\n")
+
+	// Render buttons with focus/hover states
+	confirmStyle := styles.Button
+	cancelStyle := styles.Button
+	if p.renameShellFocus == 1 {
+		confirmStyle = styles.ButtonFocused
+	} else if p.renameShellButtonHover == 1 {
+		confirmStyle = styles.ButtonHover
+	}
+	if p.renameShellFocus == 2 {
+		cancelStyle = styles.ButtonFocused
+	} else if p.renameShellButtonHover == 2 {
+		cancelStyle = styles.ButtonHover
+	}
+	sb.WriteString(confirmStyle.Render(" Rename "))
+	sb.WriteString("  ")
+	sb.WriteString(cancelStyle.Render(" Cancel "))
+
+	content := sb.String()
+	modal := modalStyle.Width(modalW).Render(content)
+
+	// Calculate modal position for hit regions
+	modalHeight := lipgloss.Height(modal)
+	modalStartX := (width - modalW) / 2
+	modalStartY := (height - modalHeight) / 2
+
+	// Hit regions for input field and buttons
+	// Content structure:
+	// - Title (1) + blank (1) = 2
+	// - Session line (1)
+	// - Current line (1)
+	// - blank (1)
+	// - "New Name:" label (1)
+	// - bordered input (3 lines)
+	// Total lines before buttons: 2 + 1 + 1 + 1 + 1 + 3 = 9
+	hitX := modalStartX + 3 // border(1) + padding(2)
+	inputY := modalStartY + 2 + 6 // border(1) + padding(1) + header lines
+	p.mouseHandler.HitMap.AddRect(regionRenameShellInput, hitX, inputY, modalW-6, 3, nil)
+
+	// Error line adds 2 lines if present
+	buttonYOffset := 9
+	if p.renameShellError != "" {
+		buttonYOffset += 2
+	}
+
+	// Hit regions for buttons
+	buttonY := modalStartY + 2 + buttonYOffset
+	p.mouseHandler.HitMap.AddRect(regionRenameShellConfirm, hitX, buttonY, 12, 1, nil)
+	cancelX := hitX + 12 + 2
+	p.mouseHandler.HitMap.AddRect(regionRenameShellCancel, cancelX, buttonY, 12, 1, nil)
+
+	return ui.OverlayModal(background, modal, width, height)
+}
+
 // renderPromptPickerModal renders the prompt picker modal.
 func (p *Plugin) renderPromptPickerModal(width, height int) string {
 	// Render the background (create modal behind it)

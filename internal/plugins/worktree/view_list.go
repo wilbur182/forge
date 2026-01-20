@@ -63,6 +63,8 @@ func (p *Plugin) View(width, height int) string {
 		return p.renderPromptPickerModal(width, height)
 	case ViewModeTypeSelector:
 		return p.renderTypeSelectorModal(width, height)
+	case ViewModeRenameShell:
+		return p.renderRenameShellModal(width, height)
 	default:
 		return p.renderListView(width, height)
 	}
@@ -213,7 +215,7 @@ func (p *Plugin) renderSidebarContent(width, height int) string {
 
 	// === Render shells section ===
 	if len(p.shells) > 0 {
-		// Shells subheader with [+] button
+		// Shells subheader with [+] button (right-aligned)
 		shellsTitle := styles.Muted.Render("Shells")
 		shellsTitleWidth := lipgloss.Width(shellsTitle)
 		shellsPlusStyle := styles.Button
@@ -222,10 +224,15 @@ func (p *Plugin) renderSidebarContent(width, height int) string {
 		}
 		shellsPlusBtn := shellsPlusStyle.Render("+")
 		shellsPlusBtnWidth := lipgloss.Width(shellsPlusBtn)
-		shellsHeader := shellsTitle + " " + shellsPlusBtn
+		// Right-align button with fill spacing
+		spacing := width - shellsTitleWidth - shellsPlusBtnWidth
+		if spacing < 1 {
+			spacing = 1
+		}
+		shellsHeader := shellsTitle + strings.Repeat(" ", spacing) + shellsPlusBtn
 		lines = append(lines, shellsHeader)
-		// Register hit region for shells [+] button (after title + space)
-		shellsPlusBtnX := 2 + shellsTitleWidth + 1 // 2 for left border+padding, +1 for space
+		// Register hit region for shells [+] button (right-aligned)
+		shellsPlusBtnX := 2 + shellsTitleWidth + spacing // 2 for left border+padding
 		p.mouseHandler.HitMap.AddRect(regionShellsPlusButton, shellsPlusBtnX, currentY, shellsPlusBtnWidth, 1, nil)
 		currentY++
 
@@ -286,7 +293,7 @@ func (p *Plugin) renderSidebarContent(width, height int) string {
 		}
 		// When shell is selected and no worktrees, just show the shell entries (already rendered above)
 	} else {
-		// Worktrees subheader with [+] button (only if we have shells above)
+		// Worktrees subheader with [+] button (right-aligned, only if we have shells above)
 		if len(p.shells) > 0 {
 			worktreesTitle := styles.Muted.Render("Worktrees")
 			worktreesTitleWidth := lipgloss.Width(worktreesTitle)
@@ -296,10 +303,15 @@ func (p *Plugin) renderSidebarContent(width, height int) string {
 			}
 			worktreesPlusBtn := worktreesPlusStyle.Render("+")
 			worktreesPlusBtnWidth := lipgloss.Width(worktreesPlusBtn)
-			worktreesHeader := worktreesTitle + " " + worktreesPlusBtn
+			// Right-align button with fill spacing
+			spacing := width - worktreesTitleWidth - worktreesPlusBtnWidth
+			if spacing < 1 {
+				spacing = 1
+			}
+			worktreesHeader := worktreesTitle + strings.Repeat(" ", spacing) + worktreesPlusBtn
 			lines = append(lines, worktreesHeader)
-			// Register hit region for worktrees [+] button (after title + space)
-			worktreesPlusBtnX := 2 + worktreesTitleWidth + 1 // 2 for left border+padding, +1 for space
+			// Register hit region for worktrees [+] button (right-aligned)
+			worktreesPlusBtnX := 2 + worktreesTitleWidth + spacing // 2 for left border+padding
 			p.mouseHandler.HitMap.AddRect(regionWorktreesPlusButton, worktreesPlusBtnX, currentY, worktreesPlusBtnWidth, 1, nil)
 			currentY++
 		}

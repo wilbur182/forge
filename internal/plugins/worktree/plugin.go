@@ -81,6 +81,11 @@ const (
 	// Shell delete confirmation modal regions
 	regionDeleteShellConfirmDelete = "delete-shell-confirm-delete"
 	regionDeleteShellConfirmCancel = "delete-shell-confirm-cancel"
+
+	// Rename shell modal regions
+	regionRenameShellInput   = "rename-shell-input"
+	regionRenameShellConfirm = "rename-shell-confirm"
+	regionRenameShellCancel  = "rename-shell-cancel"
 )
 
 // Plugin implements the worktree manager plugin.
@@ -217,6 +222,13 @@ type Plugin struct {
 	deleteConfirmShell            *ShellSession // Shell pending deletion
 	deleteShellConfirmFocus       int           // 0=delete button, 1=cancel button
 	deleteShellConfirmButtonHover int           // 0=none, 1=delete, 2=cancel (for mouse hover)
+
+	// Rename shell modal state
+	renameShellSession     *ShellSession    // Shell being renamed
+	renameShellInput       textinput.Model  // Text input for new name
+	renameShellFocus       int              // 0=input, 1=confirm, 2=cancel
+	renameShellButtonHover int              // 0=none, 1=confirm, 2=cancel (for mouse hover)
+	renameShellError       string           // Validation error message
 
 	// Initial reconnection tracking
 	initialReconnectDone bool

@@ -323,6 +323,45 @@ When creating a worktree, enable "Skip perms" to auto-approve agent actions. Eac
 
 **Warning:** Skip permissions mode grants agents unrestricted file access. Only use for trusted prompts in sandboxed environments.
 
+## Shell Management
+
+Shells are standalone tmux sessions created for direct terminal access without an AI agent. They appear in the sidebar alongside worktrees for easy switching.
+
+### Creating Shells
+
+Press `n` and select "Shell" from the type selector modal, or press `A` in the sidebar to quickly create a new shell. Each shell is created with an auto-numbered display name (e.g., "Shell 1", "Shell 2") and a stable tmux session name for state persistence.
+
+### Renaming Shells
+
+Press `R` to rename a shell with a custom display name:
+
+1. **Modal appears**: Shows current name and tmux session ID
+2. **Type new name**: Input field accepts up to 50 characters
+3. **Validation**: Name must be unique and non-empty
+4. **Confirm**: Press Enter to save, Esc to cancel
+
+Custom names persist across sidecar restarts. The underlying tmux session name (e.g., `sidecar-sh-project-1`) remains stable for reliable state restoration.
+
+**Example:**
+- Default name: "Shell 1"
+- Rename to: "Backend"
+- Rename to: "Testing"
+- Custom names appear in the sidebar for easy identification
+
+### Deleting Shells
+
+Press `D` to delete a shell session. This terminates the underlying tmux session and removes it from the sidebar.
+
+### Shell Capabilities
+
+| Operation | Key | Description |
+|-----------|-----|-------------|
+| Create shell | `n` + select Shell | Create new terminal session |
+| Rename shell | `R` | Change display name (50 char limit) |
+| Delete shell | `D` | Terminate tmux session |
+| Attach to shell | `enter` | Interactive access to terminal |
+| Kill shell | `K` | Force-terminate session |
+
 ## Worktree Operations
 
 ### Creating Worktrees
@@ -624,11 +663,12 @@ All keyboard shortcuts by context:
 | `l`, `→` | Next column / focus preview |
 | `v` | Toggle view mode |
 | `n` | Create worktree |
-| `D` | Delete worktree |
+| `D` | Delete worktree / Delete shell |
 | `p` | Push branch |
 | `d` | Show diff |
 | `m` | Merge workflow |
 | `t` | Link task |
+| `R` | Rename shell (display name only) |
 | `s` | Start agent |
 | `S` | Stop agent |
 | `y` | Approve action |
