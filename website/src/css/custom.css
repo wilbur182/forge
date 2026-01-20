@@ -139,6 +139,26 @@ a:hover {
   text-decoration-thickness: 2px;
 }
 
+/* Inline link for product names like td */
+.sc-inlineLink {
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(166, 226, 46, 0.12);
+  border: 1px solid rgba(166, 226, 46, 0.25);
+  text-decoration: none;
+  transition: all 150ms ease;
+}
+
+.sc-inlineLink:hover {
+  background: rgba(166, 226, 46, 0.2);
+  border-color: rgba(166, 226, 46, 0.4);
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+
 /* ---------- Homepage layout ---------- */
 
 .sc-hero {

@@ -11,7 +11,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Sidecar',
-  tagline: 'Terminal UI for monitoring AI coding agent sessions',
+  tagline: 'You might never open your editor again.',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -106,7 +106,7 @@ const config = {
       image: 'img/sidecar-social-card.jpg',
       metadata: [
         {name: 'twitter:card', content: 'summary_large_image'},
-        {name: 'twitter:image:alt', content: 'Sidecar - Run your AI coding team from one terminal'},
+        {name: 'twitter:image:alt', content: 'Sidecar - You might never open your editor again'},
       ],
       colorMode: {
         defaultMode: 'dark',

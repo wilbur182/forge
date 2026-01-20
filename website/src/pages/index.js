@@ -657,7 +657,7 @@ function WorkflowSection() {
             <div>
               <h3 className="sc-workflowTitle">1. Plan</h3>
               <p className="sc-workflowDesc">
-                Create tasks in Sidecar to give agents clear objectives and context.
+                Create tasks in <a href="https://github.com/marcus/td" className="sc-inlineLink">td</a> to give agents clear objectives and context.
               </p>
             </div>
           </div>
@@ -718,8 +718,8 @@ export default function Home() {
 
   return (
     <Layout
-      title="Run your AI coding team from one terminal"
-      description="Sidecar lets you orchestrate AI coding agents from a single terminal: assign tasks, monitor progress, review work, and ship code in parallel."
+      title="You might never open your editor again"
+      description="AI agents write your code. Sidecar gives you the rest: plan tasks, review diffs, stage commits, and manage worktrees—all from the terminal."
     >
       <header className="sc-hero">
         <div className="container">
@@ -727,12 +727,13 @@ export default function Home() {
             <div>
               <h1 className="sc-title">
                 <span className="sc-titleBrand">Sidecar</span>
-                <span className="sc-titleTagline">Run your AI coding team from one terminal</span>
+                <span className="sc-titleTagline">You might never open your editor again.</span>
               </h1>
 
               <p className="sc-subtitle">
-                Plan features, manage a backlog of work for agents, view diffs, search conversation history,
-                and easily manage git worktrees from a single terminal. You've never coded with AI like this before.
+                AI agents write your code. <a href="https://github.com/marcus/td" className="sc-inlineLink">td</a> lets you plan tasks, review diffs, stage commits,
+                and manage git worktrees without leaving your terminal. The entire development loop
+                happens here while agents write the code.
               </p>
 
               <div style={{ height: 32 }} />
@@ -782,7 +783,7 @@ export default function Home() {
               {/* TD Hero Card - double wide */}
               <FeatureCard
                 id="td"
-                title="Agent-first task management"
+                title={<>Plan with <a href="https://github.com/marcus/td" className="sc-inlineLink">td</a></>}
                 chip="td"
                 isHero={true}
                 isHighlighted={activeTab === 'td'}
@@ -851,7 +852,7 @@ export default function Home() {
           <div className="sc-showcaseFullWidth">
             <ComponentSection
               id="showcase-td"
-              title="Agent-First Task System (td)"
+              title={<>Plan with <a href="https://github.com/marcus/td" className="sc-inlineLink">td</a></>}
               gradient="sc-gradientGreen"
               MockupComponent={TdMockup}
               features={[

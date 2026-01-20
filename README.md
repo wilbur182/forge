@@ -1,6 +1,6 @@
 # Sidecar
 
-Terminal UI for monitoring AI coding agent sessions.
+You might never open your editor again.
 
 **Status: Beta** - Generally working for most use cases.
 
@@ -10,7 +10,7 @@ Terminal UI for monitoring AI coding agent sessions.
 
 ## Overview
 
-Sidecar provides a unified terminal interface for viewing Claude Code conversations, git status, and task progress. Built for developers who want visibility into their AI coding sessions without leaving the terminal.
+AI agents write your code. Sidecar gives you the rest of the development workflow: plan tasks with [td](https://github.com/marcus/td), review diffs, stage commits, and manage git worktrees—all without opening an editor.
 
 ## Quick Install
 
@@ -55,7 +55,7 @@ As the agent works, you can:
 - Browse and edit code yourself in the File Browser
 - View and resume conversations across all supported agent adapters
 
-This setup gives you visibility into what the agent is doing without interrupting your workflow. The goal is to allow working with agents without the need for an editor or IDE.
+This setup gives you visibility into what the agent is doing without interrupting your workflow. The entire dev loop—planning, monitoring, reviewing, committing—happens in the terminal while agents write the code.
 
 ## Usage
 
