@@ -205,7 +205,7 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		interactiveStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.GetCurrentTheme().Colors.Warning)).
 			Bold(true)
-		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText("Ctrl+\\ to exit • typing goes to tmux")
+		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText("Ctrl+\\ exit • Ctrl+] attach • typing goes to tmux")
 	} else {
 		// Only show "i for interactive" hint if feature flag is enabled
 		if features.IsEnabled(features.TmuxInteractiveInput.Name) {
@@ -331,7 +331,7 @@ func (p *Plugin) renderShellOutput(width, height int) string {
 		interactiveStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.GetCurrentTheme().Colors.Warning)).
 			Bold(true)
-		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText("Ctrl+\\ to exit • typing goes to tmux")
+		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText("Ctrl+\\ exit • Ctrl+] attach • typing goes to tmux")
 	} else {
 		// Only show "i for interactive" hint if feature flag is enabled
 		if features.IsEnabled(features.TmuxInteractiveInput.Name) {

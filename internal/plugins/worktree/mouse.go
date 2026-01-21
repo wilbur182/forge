@@ -219,6 +219,22 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 		p.activePane = PaneSidebar
 	case regionPreviewPane:
 		p.activePane = PanePreview
+		// Single click in preview pane: enter interactive mode if Output tab active (td-7c2016)
+		// This provides seamless terminal integration - click to interact
+		if p.previewTab == PreviewTabOutput {
+			// Check for active session (worktree or shell)
+			if p.shellSelected {
+				shell := p.getSelectedShell()
+				if shell != nil && shell.Agent != nil {
+					return p.enterInteractiveMode()
+				}
+			} else {
+				wt := p.selectedWorktree()
+				if wt != nil && wt.Agent != nil && wt.Agent.TmuxSession != "" {
+					return p.enterInteractiveMode()
+				}
+			}
+		}
 	case regionPaneDivider:
 		// Start drag for pane resizing
 		p.mouseHandler.StartDrag(action.X, action.Y, regionPaneDivider, p.sidebarWidth)

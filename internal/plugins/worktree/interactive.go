@@ -35,6 +35,9 @@ const (
 
 	// defaultExitKey is the default keybinding to exit interactive mode.
 	defaultExitKey = "ctrl+\\"
+
+	// defaultAttachKey is the default keybinding to attach from interactive mode (td-fd68d1).
+	defaultAttachKey = "ctrl+]"
 )
 
 // escapeTimerMsg is sent when the escape delay timer fires.
@@ -54,6 +57,17 @@ func (p *Plugin) getInteractiveExitKey() string {
 		}
 	}
 	return defaultExitKey
+}
+
+// getInteractiveAttachKey returns the configured attach keybinding for interactive mode (td-fd68d1).
+// Falls back to defaultAttachKey ("ctrl+]") if not configured.
+func (p *Plugin) getInteractiveAttachKey() string {
+	if p.ctx != nil && p.ctx.Config != nil {
+		if key := p.ctx.Config.Plugins.Worktree.InteractiveAttachKey; key != "" {
+			return key
+		}
+	}
+	return defaultAttachKey
 }
 
 // isSessionDeadError checks if an error indicates the tmux session/pane is gone.
@@ -316,6 +330,13 @@ func (p *Plugin) enterInteractiveMode() tea.Cmd {
 		paneID = wt.Agent.TmuxPane
 	}
 
+	// Resize tmux pane to match preview width (td-c7dd1e)
+	// This ensures terminal content fits the visible area without being cut off
+	if paneID != "" {
+		previewWidth, previewHeight := p.calculatePreviewDimensions()
+		p.resizeTmuxPane(paneID, previewWidth, previewHeight)
+	}
+
 	// Initialize interactive state
 	p.interactiveState = &InteractiveState{
 		Active:        true,
@@ -328,6 +349,72 @@ func (p *Plugin) enterInteractiveMode() tea.Cmd {
 
 	// Trigger immediate poll for fresh content
 	return p.pollInteractivePane()
+}
+
+// calculatePreviewDimensions returns the content width and height for the preview pane.
+// Used to resize tmux panes to match the visible area.
+func (p *Plugin) calculatePreviewDimensions() (width, height int) {
+	if p.width <= 0 || p.height <= 0 {
+		return 80, 24 // Safe defaults
+	}
+
+	// Calculate preview pane width based on sidebar visibility
+	if !p.sidebarVisible {
+		// Full width minus borders and padding (4 chars)
+		width = p.width - 4
+	} else {
+		// Account for sidebar and divider
+		available := p.width - dividerWidth
+		sidebarW := (available * p.sidebarWidth) / 100
+		if sidebarW < 25 {
+			sidebarW = 25
+		}
+		if sidebarW > available-40 {
+			sidebarW = available - 40
+		}
+		previewW := available - sidebarW
+		if previewW < 40 {
+			previewW = 40
+		}
+		// Subtract 4 for borders and padding
+		width = previewW - 4
+	}
+
+	// Calculate height: total height minus borders (2) and UI elements
+	// - 2 for panel borders
+	// - 1 for hint line
+	// - 2 for tabs header (worktrees only)
+	paneHeight := p.height - 2
+	if p.shellSelected {
+		// Shell: no tabs, just hint
+		height = paneHeight - 1
+	} else {
+		// Worktree: tabs header + hint
+		height = paneHeight - 3
+	}
+
+	if width < 20 {
+		width = 20
+	}
+	if height < 5 {
+		height = 5
+	}
+
+	return width, height
+}
+
+// resizeTmuxPane resizes a tmux pane to the specified dimensions.
+func (p *Plugin) resizeTmuxPane(paneID string, width, height int) {
+	// Resize width
+	if width > 0 {
+		cmd := exec.Command("tmux", "resize-pane", "-t", paneID, "-x", strconv.Itoa(width))
+		_ = cmd.Run() // Ignore errors - pane may not support resize
+	}
+	// Resize height
+	if height > 0 {
+		cmd := exec.Command("tmux", "resize-pane", "-t", paneID, "-y", strconv.Itoa(height))
+		_ = cmd.Run() // Ignore errors - pane may not support resize
+	}
 }
 
 // exitInteractiveMode exits interactive mode and returns to list view.
@@ -352,6 +439,23 @@ func (p *Plugin) handleInteractiveKeys(msg tea.KeyMsg) tea.Cmd {
 	// Primary exit: Configurable key (default: Ctrl+\)
 	if msg.String() == p.getInteractiveExitKey() {
 		p.exitInteractiveMode()
+		return nil
+	}
+
+	// Attach shortcut: exit interactive and attach to full session (td-fd68d1)
+	if msg.String() == p.getInteractiveAttachKey() {
+		p.exitInteractiveMode()
+		// Attach to the appropriate session
+		if p.shellSelected {
+			if idx := p.selectedShellIdx; idx >= 0 && idx < len(p.shells) {
+				return p.ensureShellAndAttachByIndex(idx)
+			}
+		} else {
+			if wt := p.selectedWorktree(); wt != nil && wt.Agent != nil {
+				p.attachedSession = wt.Name
+				return p.AttachToSession(wt)
+			}
+		}
 		return nil
 	}
 
@@ -462,9 +566,9 @@ func (p *Plugin) handleEscapeTimer() tea.Cmd {
 		return nil
 	}
 
-	// Update last key time and poll
+	// Update last key time and poll immediately for better responsiveness (td-babfd9)
 	p.interactiveState.LastKeyTime = time.Now()
-	return p.pollInteractivePane()
+	return p.pollInteractivePaneImmediate()
 }
 
 // forwardScrollToTmux sends scroll wheel events to the tmux pane.
@@ -512,10 +616,10 @@ func (p *Plugin) forwardScrollToTmux(delta int) tea.Cmd {
 		}
 	}
 
-	// Update last key time for polling decay
+	// Update last key time and poll immediately for better responsiveness (td-babfd9)
 	p.interactiveState.LastKeyTime = time.Now()
 
-	return p.pollInteractivePane()
+	return p.pollInteractivePaneImmediate()
 }
 
 // forwardClickToTmux sends a mouse click to the tmux pane.
@@ -556,8 +660,34 @@ func (p *Plugin) pollInteractivePane() tea.Cmd {
 	return nil
 }
 
-// cursorStyle defines the appearance of the cursor overlay (reverse video).
-var cursorStyle = lipgloss.NewStyle().Reverse(true)
+// pollInteractivePaneImmediate schedules an immediate poll for interactive mode (td-babfd9).
+// Used after keystrokes to minimize latency - captures output immediately rather than
+// waiting for the next poll cycle.
+func (p *Plugin) pollInteractivePaneImmediate() tea.Cmd {
+	if p.interactiveState == nil || !p.interactiveState.Active {
+		return nil
+	}
+
+	// Schedule with 0ms delay for immediate capture
+	// This reduces perceived latency when typing
+	if p.shellSelected && p.selectedShellIdx >= 0 && p.selectedShellIdx < len(p.shells) {
+		return p.scheduleShellPollByName(p.shells[p.selectedShellIdx].TmuxName, 0)
+	}
+	if wt := p.selectedWorktree(); wt != nil {
+		return p.scheduleAgentPoll(wt.Name, 0)
+	}
+	return nil
+}
+
+// cursorStyle defines the appearance of the cursor overlay.
+// Uses bold reverse video with a bright background for maximum visibility (td-43d37b).
+// The bright cyan/white combination stands out against most terminal backgrounds
+// including Claude Code's diff highlighting and colored output.
+var cursorStyle = lipgloss.NewStyle().
+	Reverse(true).
+	Bold(true).
+	Background(lipgloss.Color("14")). // Bright cyan when reversed becomes the text color
+	Foreground(lipgloss.Color("0"))   // Black text on bright background
 
 // getCursorPosition queries tmux for the current cursor position in the target pane.
 // Returns the cursor row, column (0-indexed), and whether the cursor is visible.
@@ -618,18 +748,19 @@ func renderWithCursor(content string, cursorRow, cursorCol int, visible bool) st
 	lineWidth := ansi.StringWidth(line)
 
 	if cursorCol >= lineWidth {
-		// Cursor past end of line: append cursor block
-		lines[cursorRow] = line + cursorStyle.Render(" ")
+		// Cursor past end of line: append visible cursor block (td-43d37b)
+		lines[cursorRow] = line + cursorStyle.Render("█")
 	} else {
 		// Use ANSI-aware slicing to preserve escape codes in before/after
 		before := ansi.Cut(line, 0, cursorCol)
 		char := ansi.Cut(line, cursorCol, cursorCol+1)
 		after := ansi.Cut(line, cursorCol+1, lineWidth)
 
-		// Strip the cursor char to get clean reverse video styling
+		// Strip the cursor char to get clean styling
 		charStripped := ansi.Strip(char)
-		if charStripped == "" {
-			charStripped = " "
+		// Use a block character for empty/whitespace to make cursor more visible (td-43d37b)
+		if charStripped == "" || charStripped == " " {
+			charStripped = "█"
 		}
 		lines[cursorRow] = before + cursorStyle.Render(charStripped) + after
 	}

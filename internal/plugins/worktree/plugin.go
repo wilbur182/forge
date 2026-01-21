@@ -307,7 +307,13 @@ func (p *Plugin) Icon() string { return pluginIcon }
 func (p *Plugin) IsFocused() bool { return p.focused }
 
 // SetFocused sets the focus state.
-func (p *Plugin) SetFocused(f bool) { p.focused = f }
+func (p *Plugin) SetFocused(f bool) {
+	// Exit interactive mode when plugin loses focus (user switched tabs) (td-efd736)
+	if !f && p.viewMode == ViewModeInteractive {
+		p.exitInteractiveMode()
+	}
+	p.focused = f
+}
 
 // Init initializes the plugin with context.
 func (p *Plugin) Init(ctx *plugin.Context) error {

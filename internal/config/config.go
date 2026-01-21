@@ -66,6 +66,9 @@ type WorktreePluginConfig struct {
 	// InteractiveExitKey is the keybinding to exit interactive mode. Default: "ctrl+\".
 	// Examples: "ctrl+]", "ctrl+\\", "ctrl+x"
 	InteractiveExitKey string `json:"interactiveExitKey,omitempty"`
+	// InteractiveAttachKey is the keybinding to attach from interactive mode. Default: "ctrl+]".
+	// When pressed in interactive mode, exits interactive and attaches to the tmux session.
+	InteractiveAttachKey string `json:"interactiveAttachKey,omitempty"`
 }
 
 // KeymapConfig holds key binding overrides.
