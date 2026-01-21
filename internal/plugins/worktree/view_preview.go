@@ -56,7 +56,7 @@ func (p *Plugin) renderPreviewContent(width, height int) string {
 
 // prependFlashHint adds an attach hint at the top of content when flash is active.
 func (p *Plugin) prependFlashHint(content string) string {
-	if time.Since(p.flashPreviewTime) < flashDuration {
+	if !p.flashPreviewTime.IsZero() && time.Since(p.flashPreviewTime) < flashDuration {
 		hintStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.GetCurrentTheme().Colors.Warning)).
 			Bold(true)
