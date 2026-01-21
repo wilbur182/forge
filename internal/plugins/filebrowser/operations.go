@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/atotto/clipboard"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcus/sidecar/internal/msg"
 	"github.com/marcus/sidecar/internal/plugin"
 )
@@ -622,16 +622,8 @@ func (p *Plugin) selectQuickOpenMatch() (plugin.Plugin, tea.Cmd) {
 	}
 
 	// Load preview
-	p.previewFile = match.Path
-	p.updateWatchedFile()
-	p.previewScroll = 0
-	p.previewLines = nil
-	p.previewError = nil
-	p.isBinary = false
-	p.isTruncated = false
 	p.activePane = PanePreview
-
-	return p, LoadPreview(p.ctx.WorkDir, match.Path)
+	return p, p.openTab(match.Path, TabOpenReplace)
 }
 
 // openProjectSearch enters project-wide search mode.
@@ -681,20 +673,20 @@ func (p *Plugin) openProjectSearchResult() (plugin.Plugin, tea.Cmd) {
 	}
 
 	// Load preview
-	p.previewFile = path
-	p.updateWatchedFile()
-	p.previewScroll = 0
-	p.previewLines = nil
-	p.previewError = nil
-	p.isBinary = false
-	p.isTruncated = false
 	p.activePane = PanePreview
+	cmd := p.openTab(path, TabOpenReplace)
 
 	// If we have a line number, scroll to it after preview loads
 	if lineNo > 0 {
 		p.previewScroll = lineNo - 1 // Convert to 0-indexed
 		if p.previewScroll < 0 {
 			p.previewScroll = 0
+		}
+		if len(p.tabs) > 0 && p.activeTab >= 0 && p.activeTab < len(p.tabs) {
+			p.tabs[p.activeTab].Scroll = p.previewScroll
+		}
+		if cmd == nil {
+			p.clampPreviewScroll()
 		}
 	}
 
@@ -705,9 +697,15 @@ func (p *Plugin) openProjectSearchResult() (plugin.Plugin, tea.Cmd) {
 		p.contentSearchQuery = searchQuery
 		p.contentSearchMatches = nil // Will be populated after preview loads
 		p.contentSearchCursor = 0
+		if cmd == nil {
+			p.updateContentMatches()
+			if lineNo > 0 && len(p.contentSearchMatches) > 0 {
+				p.scrollToNearestMatch(p.previewScroll)
+			}
+		}
 	}
 
-	return p, LoadPreview(p.ctx.WorkDir, path)
+	return p, cmd
 }
 
 // buildFileCache walks the filesystem to build the quick open file list.
@@ -1054,16 +1052,8 @@ func (p *Plugin) navigateToFile(path string) (plugin.Plugin, tea.Cmd) {
 	}
 
 	// Load preview
-	p.previewFile = path
-	p.updateWatchedFile()
-	p.previewScroll = 0
-	p.previewLines = nil
-	p.previewError = nil
-	p.isBinary = false
-	p.isTruncated = false
 	p.activePane = PanePreview
-
-	return p, LoadPreview(p.ctx.WorkDir, path)
+	return p, p.openTab(path, TabOpenNew)
 }
 
 // clearTextSelection resets all text selection state.

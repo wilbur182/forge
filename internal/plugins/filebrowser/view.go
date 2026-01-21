@@ -178,6 +178,13 @@ func (p *Plugin) renderNormalPanes() string {
 		// Update hit regions for collapsed state
 		p.mouseHandler.Clear()
 		p.mouseHandler.HitMap.AddRect(regionPreviewPane, 0, inputBarHeight, previewWidth, paneHeight, nil)
+		if len(p.tabHits) > 0 {
+			tabY := inputBarHeight + 1
+			tabX := 2 // left border + padding
+			for _, hit := range p.tabHits {
+				p.mouseHandler.HitMap.AddRect(regionPreviewTab, tabX+hit.X, tabY, hit.Width, 1, hit.Index)
+			}
+		}
 
 		return lipgloss.JoinVertical(lipgloss.Left, parts...)
 	}
@@ -261,7 +268,7 @@ func (p *Plugin) renderNormalPanes() string {
 
 	// Register individual preview lines for text selection (LAST for highest priority)
 	if p.previewFile != "" && !p.isBinary && len(p.previewLines) > 0 {
-		previewContentStartY := paneY + 3 // border(1) + header(2 lines: title + metadata)
+		previewContentStartY := paneY + 3 // border(1) + header(2 lines)
 		contentStart := p.previewScroll
 		contentEnd := contentStart + innerHeight
 		if contentEnd > len(p.previewLines) {
@@ -271,6 +278,15 @@ func (p *Plugin) renderNormalPanes() string {
 			lineY := previewContentStartY + (i - contentStart)
 			// Region covers content area within preview pane
 			p.mouseHandler.HitMap.AddRect(regionPreviewLine, previewX+1, lineY, p.previewWidth-2, 1, i)
+		}
+	}
+
+	// Register preview tabs (first content row)
+	if len(p.tabHits) > 0 {
+		tabY := paneY + 1
+		tabX := previewX + 2 // left border + padding
+		for _, hit := range p.tabHits {
+			p.mouseHandler.HitMap.AddRect(regionPreviewTab, tabX+hit.X, tabY, hit.Width, 1, hit.Index)
 		}
 	}
 
@@ -626,6 +642,18 @@ func (p *Plugin) renderTreeNode(node *FileNode, selected bool, maxWidth int) str
 func (p *Plugin) renderPreviewPane(visibleHeight int) string {
 	var sb strings.Builder
 
+	// Tab line (replaces the blank spacer line when multiple tabs are open)
+	tabLine := ""
+	if len(p.tabs) > 1 {
+		tabLine = p.renderPreviewTabs(p.previewWidth - 4)
+	} else {
+		p.tabHits = nil
+	}
+	if tabLine != "" {
+		sb.WriteString(tabLine)
+		sb.WriteString("\n")
+	}
+
 	// Header with file path
 	header := "Preview"
 	if p.previewFile != "" {
@@ -647,7 +675,11 @@ func (p *Plugin) renderPreviewPane(visibleHeight int) string {
 		sb.WriteString("  ")
 		sb.WriteString(styles.Muted.Render(meta))
 	}
-	sb.WriteString("\n\n")
+	if tabLine == "" {
+		sb.WriteString("\n\n")
+	} else {
+		sb.WriteString("\n")
+	}
 
 	if p.previewFile == "" {
 		sb.WriteString(styles.Muted.Render("Select a file to preview"))

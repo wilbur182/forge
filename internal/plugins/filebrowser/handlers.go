@@ -94,15 +94,8 @@ func (p *Plugin) handleTreeKey(key string) (plugin.Plugin, tea.Cmd) {
 				_ = p.tree.Expand(node)
 			} else {
 				// Load file preview and switch to preview pane
-				p.previewFile = node.Path
-				p.updateWatchedFile()
-				p.previewScroll = 0
-				p.previewLines = nil
-				p.previewError = nil
-				p.isBinary = false
-				p.isTruncated = false
-				p.activePane = PanePreview // Switch to preview pane
-				return p, LoadPreview(p.ctx.WorkDir, node.Path)
+				p.activePane = PanePreview
+				return p, p.openTab(node.Path, TabOpenReplace)
 			}
 		}
 
@@ -114,15 +107,8 @@ func (p *Plugin) handleTreeKey(key string) (plugin.Plugin, tea.Cmd) {
 				_ = p.tree.Toggle(node)
 			} else {
 				// Load file preview and switch to preview pane
-				p.previewFile = node.Path
-				p.updateWatchedFile()
-				p.previewScroll = 0
-				p.previewLines = nil
-				p.previewError = nil
-				p.isBinary = false
-				p.isTruncated = false
 				p.activePane = PanePreview
-				return p, LoadPreview(p.ctx.WorkDir, node.Path)
+				return p, p.openTab(node.Path, TabOpenReplace)
 			}
 		}
 
@@ -184,7 +170,15 @@ func (p *Plugin) handleTreeKey(key string) (plugin.Plugin, tea.Cmd) {
 	case "e", "o":
 		node := p.tree.GetNode(p.treeCursor)
 		if node != nil && !node.IsDir {
-			return p, p.openFile(node.Path)
+			cmd := p.openTab(node.Path, TabOpenReplace)
+			return p, tea.Batch(cmd, p.openFile(node.Path))
+		}
+
+	case "t":
+		node := p.tree.GetNode(p.treeCursor)
+		if node != nil && !node.IsDir {
+			p.activePane = PanePreview
+			return p, p.openTab(node.Path, TabOpenNew)
 		}
 
 	case "R":
@@ -372,12 +366,18 @@ func (p *Plugin) handleTreeKey(key string) (plugin.Plugin, tea.Cmd) {
 		if p.treeCursor >= 0 && p.treeCursor < p.tree.Len() {
 			node := p.tree.GetNode(p.treeCursor)
 			if node != nil && node.Path != p.previewFile {
-				p.previewFile = node.Path
-				p.updateWatchedFile()
-				p.previewScroll = 0
-				return p, LoadPreview(p.ctx.WorkDir, p.previewFile)
+				return p, p.openTab(node.Path, TabOpenReplace)
 			}
 		}
+
+	case "[":
+		return p, p.cycleTab(-1)
+
+	case "]":
+		return p, p.cycleTab(1)
+
+	case "x":
+		return p, p.closeTab(p.activeTab)
 	}
 
 	return p, nil
@@ -521,6 +521,15 @@ func (p *Plugin) handlePreviewKey(key string) (plugin.Plugin, tea.Cmd) {
 		if p.previewFile != "" {
 			return p.openBlameView(p.previewFile)
 		}
+
+	case "[":
+		return p, p.cycleTab(-1)
+
+	case "]":
+		return p, p.cycleTab(1)
+
+	case "x":
+		return p, p.closeTab(p.activeTab)
 
 	case "tab", "shift+tab":
 		// Switch focus to tree pane (if visible)
@@ -1029,14 +1038,7 @@ func (p *Plugin) handleSearchKey(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 			p.searchMode = false
 			// If it's a file, load preview
 			if !match.IsDir {
-				p.previewFile = match.Path
-				p.updateWatchedFile()
-				p.previewScroll = 0
-				p.previewLines = nil
-				p.previewError = nil
-				p.isBinary = false
-				p.isTruncated = false
-				return p, LoadPreview(p.ctx.WorkDir, match.Path)
+				return p, p.openTab(match.Path, TabOpenReplace)
 			}
 			return p, nil
 		}
@@ -1102,14 +1104,7 @@ func (p *Plugin) loadPreviewForCursor() tea.Cmd {
 	if node == nil || node.IsDir {
 		return nil
 	}
-	p.previewFile = node.Path
-	p.updateWatchedFile()
-	p.previewScroll = 0
-	p.previewLines = nil
-	p.previewError = nil
-	p.isBinary = false
-	p.isTruncated = false
-	return LoadPreview(p.ctx.WorkDir, node.Path)
+	return p.openTab(node.Path, TabOpenReplace)
 }
 
 // openBlameView opens the blame view for the specified file.
@@ -1241,7 +1236,7 @@ func (p *Plugin) handleLineJumpKey(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
 					target = len(lines) - 1
 				}
 				p.previewScroll = target
-				
+
 				// Ensure visible
 				visibleHeight := p.visibleContentHeight()
 				maxScroll := len(lines) - visibleHeight

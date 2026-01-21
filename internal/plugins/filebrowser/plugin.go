@@ -27,8 +27,8 @@ const (
 	quickOpenTimeout    = 2 * time.Second // Max time to spend scanning
 
 	// Directory cache limits (for path auto-complete)
-	dirCacheMaxDirs    = 10000            // Max directories to cache
-	dirCacheMaxResults = 5                // Max suggestions to show
+	dirCacheMaxDirs    = 10000 // Max directories to cache
+	dirCacheMaxResults = 5     // Max suggestions to show
 )
 
 // FileOpMode represents the current file operation mode.
@@ -104,9 +104,9 @@ type Plugin struct {
 	focused bool
 
 	// Pane state
-	activePane   FocusPane
-	treeVisible  bool // Toggle tree pane visibility with \
-	showIgnored  bool // Toggle git-ignored file visibility with I
+	activePane  FocusPane
+	treeVisible bool // Toggle tree pane visibility with \
+	showIgnored bool // Toggle git-ignored file visibility with I
 
 	// Tree state
 	treeCursor    int
@@ -123,6 +123,11 @@ type Plugin struct {
 	previewSize        int64
 	previewModTime     time.Time
 	previewMode        os.FileMode
+
+	// Tab state
+	tabs      []FileTab
+	activeTab int
+	tabHits   []tabHit
 
 	// Markdown rendering state
 	markdownRenderer   *markdown.Renderer // Shared Glamour renderer
@@ -279,6 +284,8 @@ func (p *Plugin) saveState() {
 		return
 	}
 
+	p.saveActiveTabState()
+
 	// Get expanded directory paths
 	expandedPaths := p.tree.GetExpandedPaths()
 	expandedList := make([]string, 0, len(expandedPaths))
@@ -298,6 +305,24 @@ func (p *Plugin) saveState() {
 		activePane = "preview"
 	}
 
+	tabStates := make([]state.FileBrowserTabState, 0, len(p.tabs))
+	for _, tab := range p.tabs {
+		if tab.Path == "" {
+			continue
+		}
+		tabStates = append(tabStates, state.FileBrowserTabState{
+			Path:   tab.Path,
+			Scroll: tab.Scroll,
+		})
+	}
+
+	activeTab := p.activeTab
+	if activeTab < 0 {
+		activeTab = 0
+	} else if activeTab >= len(tabStates) && len(tabStates) > 0 {
+		activeTab = len(tabStates) - 1
+	}
+
 	fbState := state.FileBrowserState{
 		SelectedFile:  selectedFile,
 		TreeScroll:    p.treeScrollOff,
@@ -307,6 +332,8 @@ func (p *Plugin) saveState() {
 		PreviewFile:   p.previewFile,
 		TreeCursor:    p.treeCursor,
 		ShowIgnored:   &p.showIgnored,
+		Tabs:          tabStates,
+		ActiveTab:     activeTab,
 	}
 
 	if err := state.SetFileBrowserState(p.ctx.WorkDir, fbState); err != nil {
@@ -436,47 +463,42 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			p.activePane = PanePreview
 		}
 
-		// Restore preview file and load content
-		if fbState.PreviewFile != "" {
-			p.previewFile = fbState.PreviewFile
+		// Restore tabs and preview file
+		p.tabs = nil
+		if len(fbState.Tabs) > 0 {
+			for _, tab := range fbState.Tabs {
+				if tab.Path == "" {
+					continue
+				}
+				p.tabs = append(p.tabs, FileTab{Path: tab.Path, Scroll: tab.Scroll})
+			}
+		} else if fbState.PreviewFile != "" {
+			p.tabs = append(p.tabs, FileTab{Path: fbState.PreviewFile, Scroll: fbState.PreviewScroll})
+		}
+
+		if len(p.tabs) > 0 {
+			p.activeTab = fbState.ActiveTab
+			if p.activeTab < 0 || p.activeTab >= len(p.tabs) {
+				p.activeTab = 0
+			}
+			p.previewFile = p.tabs[p.activeTab].Path
+			p.previewScroll = p.tabs[p.activeTab].Scroll
 			p.updateWatchedFile()
-			p.previewScroll = fbState.PreviewScroll
 			return p, LoadPreview(p.ctx.WorkDir, p.previewFile)
 		}
 
+		p.previewFile = ""
+		p.previewScroll = 0
+
 	case PreviewLoadedMsg:
 		if msg.Path == p.previewFile {
-			p.clearTextSelection() // Clear selection when loading new file
-			p.previewLines = msg.Result.Lines
-			p.previewHighlighted = msg.Result.HighlightedLines
-			p.isBinary = msg.Result.IsBinary
-			p.isTruncated = msg.Result.IsTruncated
-			p.previewError = msg.Result.Error
-			p.previewSize = msg.Result.TotalSize
-			p.previewModTime = msg.Result.ModTime
-			p.previewMode = msg.Result.Mode
-
-			// Handle image preview state
-			p.isImage = msg.Result.IsImage
-			p.imageResult = nil // Clear cached render (will re-render at current size)
-			if p.isImage {
-				p.isBinary = false // Don't show "Binary file" for images
-			}
-
-			// Clear markdown cache when loading new file
-			p.markdownRendered = nil
-			if p.markdownRenderMode && p.isMarkdownFile() {
-				p.renderMarkdownContent()
-			}
-
-			// Preserve scroll position when coming from project search with target line
-			targetScroll := p.previewScroll
-			if !p.contentSearchMode {
-				p.previewScroll = 0
-			}
+			p.applyPreviewResult(msg.Result)
+			p.updateActiveTabResult(msg.Result)
+			p.clampPreviewScroll()
 
 			// Re-run search if still in search mode (e.g., navigating files with j/k)
 			if p.contentSearchMode && p.contentSearchQuery != "" {
+				targetScroll := p.previewScroll
 				p.updateContentMatches()
 				// Jump to match nearest the target line from project search
 				if targetScroll > 0 && len(p.contentSearchMatches) > 0 {
@@ -593,13 +615,17 @@ func (p *Plugin) Commands() []plugin.Command {
 	return []plugin.Command{
 		// Tree pane commands
 		{ID: "quick-open", Name: "Open", Description: "Quick open file by name", Category: plugin.CategorySearch, Context: "file-browser-tree", Priority: 1},
+		{ID: "new-tab", Name: "Tab+", Description: "Open file in new tab", Category: plugin.CategoryNavigation, Context: "file-browser-tree", Priority: 2},
 		{ID: "project-search", Name: "Find", Description: "Search in project", Category: plugin.CategorySearch, Context: "file-browser-tree", Priority: 2},
 		{ID: "info", Name: "Info", Description: "Show file info", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 2},
 		{ID: "blame", Name: "Blame", Description: "Show git blame", Category: plugin.CategoryView, Context: "file-browser-tree", Priority: 3},
 		{ID: "search", Name: "Filter", Description: "Filter files by name", Category: plugin.CategorySearch, Context: "file-browser-tree", Priority: 3},
+		{ID: "close-tab", Name: "Close", Description: "Close active tab", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 4},
 		{ID: "create-file", Name: "New", Description: "Create new file", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 4},
 		{ID: "create-dir", Name: "Mkdir", Description: "Create new directory", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 4},
 		{ID: "delete", Name: "Delete", Description: "Delete file or directory", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 4},
+		{ID: "prev-tab", Name: "Tab←", Description: "Previous tab", Category: plugin.CategoryNavigation, Context: "file-browser-tree", Priority: 5},
+		{ID: "next-tab", Name: "Tab→", Description: "Next tab", Category: plugin.CategoryNavigation, Context: "file-browser-tree", Priority: 5},
 		{ID: "yank", Name: "Yank", Description: "Mark file for copy (use p to paste)", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 5},
 		{ID: "copy-path", Name: "CopyPath", Description: "Copy relative path to clipboard", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 5},
 		{ID: "paste", Name: "Paste", Description: "Paste yanked file", Category: plugin.CategoryActions, Context: "file-browser-tree", Priority: 5},
@@ -614,9 +640,12 @@ func (p *Plugin) Commands() []plugin.Command {
 		{ID: "quick-open", Name: "Open", Description: "Quick open file by name", Category: plugin.CategorySearch, Context: "file-browser-preview", Priority: 1},
 		{ID: "project-search", Name: "Find", Description: "Search in project", Category: plugin.CategorySearch, Context: "file-browser-preview", Priority: 2},
 		{ID: "info", Name: "Info", Description: "Show file info", Category: plugin.CategoryActions, Context: "file-browser-preview", Priority: 2},
+		{ID: "prev-tab", Name: "Tab←", Description: "Previous tab", Category: plugin.CategoryNavigation, Context: "file-browser-preview", Priority: 3},
+		{ID: "next-tab", Name: "Tab→", Description: "Next tab", Category: plugin.CategoryNavigation, Context: "file-browser-preview", Priority: 3},
 		{ID: "blame", Name: "Blame", Description: "Show git blame", Category: plugin.CategoryView, Context: "file-browser-preview", Priority: 3},
 		{ID: "search-content", Name: "Search", Description: "Search file content", Category: plugin.CategorySearch, Context: "file-browser-preview", Priority: 3},
 		{ID: "toggle-markdown", Name: "Render", Description: "Toggle markdown rendering", Category: plugin.CategoryActions, Context: "file-browser-preview", Priority: 4},
+		{ID: "close-tab", Name: "Close", Description: "Close active tab", Category: plugin.CategoryActions, Context: "file-browser-preview", Priority: 4},
 		{ID: "back", Name: "Back", Description: "Return to file tree", Category: plugin.CategoryNavigation, Context: "file-browser-preview", Priority: 5},
 		{ID: "refresh", Name: "Refresh", Description: "Refresh file tree", Category: plugin.CategoryActions, Context: "file-browser-preview", Priority: 5},
 		{ID: "rename", Name: "Rename", Description: "Rename file", Category: plugin.CategoryActions, Context: "file-browser-preview", Priority: 6},
@@ -684,4 +713,3 @@ func (p *Plugin) FocusContext() string {
 	}
 	return "file-browser-tree"
 }
-

@@ -325,6 +325,10 @@ All plugins with two-pane layouts (Git, Conversations, Files) share consistent s
 | `a` | create-file | Create new file |
 | `A` | create-dir | Create new directory |
 | `d` | delete | Delete file/directory (with confirmation) |
+| `t` | new-tab | Open selected file in a new tab |
+| `[` | prev-tab | Previous file tab |
+| `]` | next-tab | Next file tab |
+| `x` | close-tab | Close active tab |
 | `y` | yank | Copy file/directory to clipboard |
 | `p` | paste | Paste from clipboard |
 | `s` | sort | Cycle sort mode (name/size/time/type) |
@@ -332,6 +336,8 @@ All plugins with two-pane layouts (Git, Conversations, Files) share consistent s
 | `m` | move | Move file/directory |
 | `R` | reveal | Reveal in system file manager |
 | `\` | toggle-sidebar | Collapse/expand tree pane |
+
+Tab navigation shortcuts (`[`/`]`, `x`) also work in the preview pane.
 
 ### Worktrees Plugin
 | Context | View | Description |

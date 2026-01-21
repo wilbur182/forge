@@ -14,6 +14,7 @@ const (
 	regionTreeItem    = "tree-item"    // Individual file/folder (Data: visible index)
 	regionQuickOpen   = "quick-open"   // Quick open modal item (Data: match index)
 	regionPreviewLine = "preview-line" // Individual preview line (Data: line index)
+	regionPreviewTab  = "preview-tab"  // Preview tab (Data: tab index)
 
 	// Project search regions
 	regionSearchToggleRegex = "search-toggle-regex" // Regex toggle button
@@ -25,9 +26,9 @@ const (
 	regionSearchResults     = "search-results"      // Results pane for scrolling
 
 	// File operation modal buttons
-	regionFileOpConfirm     = "file-op-confirm"     // Confirm/Create/Delete/Yes button
-	regionFileOpCancel      = "file-op-cancel"      // Cancel/No button
-	regionFileOpSuggestion  = "file-op-suggestion"  // Path suggestion item (Data: index)
+	regionFileOpConfirm    = "file-op-confirm"    // Confirm/Create/Delete/Yes button
+	regionFileOpCancel     = "file-op-cancel"     // Cancel/No button
+	regionFileOpSuggestion = "file-op-suggestion" // Path suggestion item (Data: index)
 )
 
 // searchMatchData holds indices for a search match region.
@@ -133,6 +134,13 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) (*Plugin, tea.Cmd) {
 			p.textSelectionAnchor = lineIdx
 			// Start drag tracking for potential drag-select
 			p.mouseHandler.StartDrag(action.X, action.Y, regionPreviewLine, lineIdx)
+		}
+		return p, nil
+
+	case regionPreviewTab:
+		if idx, ok := action.Region.Data.(int); ok {
+			p.activePane = PanePreview
+			return p, p.switchTab(idx)
 		}
 		return p, nil
 
@@ -505,7 +513,20 @@ func (p *Plugin) handleProjectSearchDoubleClick(action mouse.MouseAction) (*Plug
 					// Close project search and open file
 					p.projectSearchMode = false
 					p.projectSearchState = nil
-					return p, p.openFileAtLine(file.Path, match.LineNo)
+					cmd := p.openTab(file.Path, TabOpenReplace)
+					if match.LineNo > 0 {
+						p.previewScroll = match.LineNo - 1
+						if p.previewScroll < 0 {
+							p.previewScroll = 0
+						}
+						if len(p.tabs) > 0 && p.activeTab >= 0 && p.activeTab < len(p.tabs) {
+							p.tabs[p.activeTab].Scroll = p.previewScroll
+						}
+						if cmd == nil {
+							p.clampPreviewScroll()
+						}
+					}
+					return p, tea.Batch(cmd, p.openFileAtLine(file.Path, match.LineNo))
 				}
 			}
 		}
