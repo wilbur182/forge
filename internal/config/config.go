@@ -8,6 +8,12 @@ type Config struct {
 	Plugins  PluginsConfig  `json:"plugins"`
 	Keymap   KeymapConfig   `json:"keymap"`
 	UI       UIConfig       `json:"ui"`
+	Features FeaturesConfig `json:"features"`
+}
+
+// FeaturesConfig holds feature flag settings.
+type FeaturesConfig struct {
+	Flags map[string]bool `json:"flags"`
 }
 
 // ProjectsConfig configures project detection and layout.
@@ -113,6 +119,9 @@ func Default() *Config {
 				Name:      "default",
 				Overrides: make(map[string]string),
 			},
+		},
+		Features: FeaturesConfig{
+			Flags: make(map[string]bool),
 		},
 	}
 }

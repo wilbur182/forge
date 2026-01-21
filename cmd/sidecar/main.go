@@ -23,6 +23,7 @@ import (
 	"github.com/marcus/sidecar/internal/app"
 	"github.com/marcus/sidecar/internal/config"
 	"github.com/marcus/sidecar/internal/event"
+	"github.com/marcus/sidecar/internal/features"
 	"github.com/marcus/sidecar/internal/keymap"
 	"github.com/marcus/sidecar/internal/plugin"
 	"github.com/marcus/sidecar/internal/plugins/conversations"
@@ -38,11 +39,13 @@ import (
 var Version = ""
 
 var (
-	configPath   = flag.String("config", "", "path to config file")
-	projectRoot  = flag.String("project", ".", "project root directory")
-	debugFlag    = flag.Bool("debug", false, "enable debug logging")
-	versionFlag  = flag.Bool("version", false, "print version and exit")
-	shortVersion = flag.Bool("v", false, "print version and exit (short)")
+	configPath     = flag.String("config", "", "path to config file")
+	projectRoot    = flag.String("project", ".", "project root directory")
+	debugFlag      = flag.Bool("debug", false, "enable debug logging")
+	versionFlag    = flag.Bool("version", false, "print version and exit")
+	shortVersion   = flag.Bool("v", false, "print version and exit (short)")
+	enableFeature  = flag.String("enable-feature", "", "enable a feature flag (comma-separated)")
+	disableFeature = flag.String("disable-feature", "", "disable a feature flag (comma-separated)")
 )
 
 func main() {
@@ -96,6 +99,10 @@ func main() {
 
 	// Apply theme from config
 	styles.ApplyThemeWithOverrides(cfg.UI.Theme.Name, cfg.UI.Theme.Overrides)
+
+	// Initialize feature flags
+	features.Init(cfg)
+	applyFeatureOverrides()
 
 	// Load persistent state (ignore errors - state is optional)
 	_ = state.Init()
@@ -238,5 +245,30 @@ func openLogFile() (*os.File, error) {
 	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 }
 
-// Ensure strings import is used
-var _ = strings.TrimSpace
+// applyFeatureOverrides applies CLI feature flag overrides.
+func applyFeatureOverrides() {
+	if *enableFeature != "" {
+		for _, name := range strings.Split(*enableFeature, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if !features.IsKnownFeature(name) {
+				fmt.Fprintf(os.Stderr, "warning: unknown feature '%s'\n", name)
+			}
+			features.SetOverride(name, true)
+		}
+	}
+	if *disableFeature != "" {
+		for _, name := range strings.Split(*disableFeature, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if !features.IsKnownFeature(name) {
+				fmt.Fprintf(os.Stderr, "warning: unknown feature '%s'\n", name)
+			}
+			features.SetOverride(name, false)
+		}
+	}
+}

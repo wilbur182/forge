@@ -20,6 +20,7 @@ type rawConfig struct {
 	Plugins  rawPluginsConfig  `json:"plugins"`
 	Keymap   KeymapConfig      `json:"keymap"`
 	UI       UIConfig          `json:"ui"`
+	Features FeaturesConfig    `json:"features"`
 }
 
 type rawProjectsConfig struct {
@@ -188,6 +189,13 @@ func mergeConfig(cfg *Config, raw *rawConfig) {
 	if raw.UI.Theme.Overrides != nil {
 		for k, v := range raw.UI.Theme.Overrides {
 			cfg.UI.Theme.Overrides[k] = v
+		}
+	}
+
+	// Features
+	if raw.Features.Flags != nil {
+		for k, v := range raw.Features.Flags {
+			cfg.Features.Flags[k] = v
 		}
 	}
 }

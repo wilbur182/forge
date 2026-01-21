@@ -12,6 +12,7 @@ type saveConfig struct {
 	Plugins  savePluginsConfig  `json:"plugins"`
 	Keymap   KeymapConfig       `json:"keymap"`
 	UI       UIConfig           `json:"ui"`
+	Features FeaturesConfig     `json:"features,omitempty"`
 }
 
 type saveProjectsConfig struct {
@@ -75,8 +76,9 @@ func toSaveConfig(cfg *Config) saveConfig {
 				TmuxCaptureMaxBytes: &cfg.Plugins.Worktree.TmuxCaptureMaxBytes,
 			},
 		},
-		Keymap: cfg.Keymap,
-		UI:     cfg.UI,
+		Keymap:   cfg.Keymap,
+		UI:       cfg.UI,
+		Features: cfg.Features,
 	}
 }
 
