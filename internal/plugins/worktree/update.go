@@ -239,6 +239,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			if wt := p.findWorktree(msg.WorktreeName); wt != nil {
 				wt.Agent = agent
 				wt.Status = StatusActive
+				wt.IsOrphaned = false
 			}
 			p.agents[msg.WorktreeName] = agent
 			p.managedSessions[msg.SessionName] = true
@@ -763,6 +764,9 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 
 	case reconnectedAgentsMsg:
+		// After reconnecting to existing sessions, detect orphaned worktrees
+		// (worktrees with .sidecar-agent file but no tmux session)
+		p.detectOrphanedWorktrees()
 		return p, tea.Batch(msg.Cmds...)
 
 	case OpenCreateModalWithTaskMsg:

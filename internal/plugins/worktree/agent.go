@@ -987,6 +987,26 @@ func sessionExists(name string) bool {
 	return cmd.Run() == nil
 }
 
+// detectOrphanedWorktrees marks worktrees as orphaned if they have a saved
+// agent type but no running tmux session.
+func (p *Plugin) detectOrphanedWorktrees() {
+	for _, wt := range p.worktrees {
+		// Skip if agent is connected
+		if wt.Agent != nil {
+			wt.IsOrphaned = false
+			continue
+		}
+		// Skip if no agent type was ever chosen
+		if wt.ChosenAgentType == AgentNone || wt.ChosenAgentType == "" {
+			wt.IsOrphaned = false
+			continue
+		}
+		// Check if tmux session exists
+		sessionName := tmuxSessionPrefix + sanitizeName(wt.Name)
+		wt.IsOrphaned = !sessionExists(sessionName)
+	}
+}
+
 // reconnectAgents finds and reconnects to existing tmux sessions on startup.
 func (p *Plugin) reconnectAgents() tea.Cmd {
 	return func() tea.Msg {

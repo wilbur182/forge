@@ -455,12 +455,27 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 			return nil
 		}
-		// Attach to tmux session if agent running, otherwise focus preview
 		wt := p.selectedWorktree()
-		if wt != nil && wt.Agent != nil {
+		if wt == nil {
+			return nil
+		}
+		// Attach to tmux session if agent running
+		if wt.Agent != nil {
 			p.attachedSession = wt.Name
 			return p.AttachToSession(wt)
 		}
+		// Orphaned worktree: recover by starting new agent
+		if wt.IsOrphaned {
+			// Clear flag immediately for UI feedback; also cleared in AgentStartedMsg
+			// handler when agent actually starts (StartAgent is async)
+			wt.IsOrphaned = false
+			agentType := wt.ChosenAgentType
+			if agentType == AgentNone || agentType == "" {
+				agentType = AgentClaude // Fallback
+			}
+			return p.StartAgent(wt, agentType)
+		}
+		// No agent, not orphaned: focus preview
 		if p.activePane == PaneSidebar {
 			p.activePane = PanePreview
 		}

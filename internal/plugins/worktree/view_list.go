@@ -372,6 +372,12 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 		conflictIcon = " ⚠"
 	}
 
+	// Check for orphaned (session crashed)
+	orphanedIcon := ""
+	if wt.IsOrphaned {
+		orphanedIcon = " ⚠"
+	}
+
 	// Check for PR
 	hasPR := wt.PRURL != ""
 	prIcon := ""
@@ -384,7 +390,7 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 	timeStr := formatRelativeTime(wt.UpdatedAt)
 
 	// Calculate max name width to prevent wrapping
-	// Line structure: " [icon] [name][prIcon][conflictIcon]  [time]"
+	// Line structure: " [icon] [name][prIcon][conflictIcon][orphanedIcon]  [time]"
 	// Reserve: 4 (leading space + icon + space) + icons + time + 2 (min padding)
 	iconWidth := 4 // " X " where X is status icon
 	prWidth := 0
@@ -395,9 +401,13 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 	if hasConflict {
 		conflictWidth = 2 // " ⚠"
 	}
+	orphanedWidth := 0
+	if wt.IsOrphaned {
+		orphanedWidth = 2 // " ⚠"
+	}
 	timeWidth := lipgloss.Width(timeStr)
 	minPadding := 2
-	maxNameWidth := width - iconWidth - prWidth - conflictWidth - timeWidth - minPadding
+	maxNameWidth := width - iconWidth - prWidth - conflictWidth - orphanedWidth - timeWidth - minPadding
 	if maxNameWidth < 8 {
 		maxNameWidth = 8 // Minimum name width
 	}
@@ -438,11 +448,14 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 			parts = append(parts, fmt.Sprintf("⚠ %d conflicts", len(conflictFiles)))
 		}
 	}
+	if wt.IsOrphaned {
+		parts = append(parts, "⚠ session ended")
+	}
 
 	// When selected, use plain text to ensure consistent background
 	if isSelected {
 		// Build plain text lines
-		line1 := fmt.Sprintf(" %s %s%s%s", statusIcon, name, prIcon, conflictIcon)
+		line1 := fmt.Sprintf(" %s %s%s%s%s", statusIcon, name, prIcon, conflictIcon, orphanedIcon)
 		line1Width := lipgloss.Width(line1)
 		if line1Width < width-timeWidth-2 {
 			line1 = line1 + strings.Repeat(" ", width-line1Width-timeWidth-1) + timeStr
@@ -489,6 +502,12 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 		styledConflictIcon = styles.StatusModified.Render(" ⚠")
 	}
 
+	// Apply orphaned style (session ended)
+	styledOrphanedIcon := ""
+	if wt.IsOrphaned {
+		styledOrphanedIcon = styles.StatusModified.Render(" ⚠")
+	}
+
 	// Apply PR style
 	styledPRIcon := ""
 	if hasPR {
@@ -516,9 +535,12 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 			styledParts = append(styledParts, styles.StatusModified.Render(fmt.Sprintf("⚠ %d conflicts", len(conflictFiles))))
 		}
 	}
+	if wt.IsOrphaned {
+		styledParts = append(styledParts, styles.StatusModified.Render("⚠ session ended"))
+	}
 
 	// Build lines with styled elements
-	line1 := fmt.Sprintf(" %s %s%s%s", icon, name, styledPRIcon, styledConflictIcon)
+	line1 := fmt.Sprintf(" %s %s%s%s%s", icon, name, styledPRIcon, styledConflictIcon, styledOrphanedIcon)
 	line1Width := ansi.StringWidth(line1)
 	if line1Width < width-timeWidth-2 {
 		line1 = line1 + strings.Repeat(" ", width-line1Width-timeWidth-1) + timeStr

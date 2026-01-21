@@ -186,6 +186,7 @@ type Worktree struct {
 	Stats           *GitStats      // +/- line counts
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	IsOrphaned      bool // True if agent file exists but tmux session is gone
 }
 
 // ShellSession represents a tmux shell session (not tied to a git worktree).

@@ -188,6 +188,11 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		return dimText("No worktree selected")
 	}
 
+	// Check for orphaned worktree (agent file exists but tmux session gone)
+	if wt.IsOrphaned && wt.Agent == nil {
+		return p.renderOrphanedMessage(wt.ChosenAgentType)
+	}
+
 	if wt.Agent == nil {
 		return dimText("No agent running\nPress 's' to start an agent")
 	}
@@ -245,6 +250,36 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 	}
 
 	return hint + "\n" + strings.Join(displayLines, "\n")
+}
+
+// renderOrphanedMessage renders the recovery prompt for orphaned worktrees.
+func (p *Plugin) renderOrphanedMessage(agentType AgentType) string {
+	var lines []string
+
+	// Warning header
+	warningStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(styles.GetCurrentTheme().Colors.Warning))
+
+	lines = append(lines, warningStyle.Render("Session Ended"))
+	lines = append(lines, "")
+	lines = append(lines, dimText("The tmux session has ended, but your worktree and work are still intact."))
+	lines = append(lines, "")
+
+	// Show previously running agent
+	agentName := AgentDisplayNames[agentType]
+	if agentName == "" {
+		agentName = string(agentType)
+	}
+	lines = append(lines, dimText(fmt.Sprintf("Previously running: %s", agentName)))
+	lines = append(lines, "")
+
+	// Action prompt
+	actionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("62"))
+	lines = append(lines, actionStyle.Render("Press Enter to start a new session"))
+
+	return strings.Join(lines, "\n")
 }
 
 // renderShellOutput renders the selected shell's output.
