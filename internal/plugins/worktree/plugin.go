@@ -3,6 +3,7 @@ package worktree
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -456,7 +457,10 @@ func (p *Plugin) saveSelectionState() {
 			if shell == nil || shell.TmuxName == "" || shell.Name == "" {
 				continue
 			}
-			shellNames[shell.TmuxName] = shell.Name
+			// Only persist custom names, not defaults like "Shell 1", "Shell 2"
+			if !isDefaultShellName(shell.Name) {
+				shellNames[shell.TmuxName] = shell.Name
+			}
 		}
 		if len(shellNames) > 0 {
 			wtState.ShellDisplayNames = shellNames
@@ -510,6 +514,14 @@ func (p *Plugin) restoreSelectionState() bool {
 
 	// Saved items no longer exist
 	return false
+}
+
+// defaultShellNamePattern matches names like "Shell 1", "Shell 2", etc.
+var defaultShellNamePattern = regexp.MustCompile(`^Shell \d+$`)
+
+// isDefaultShellName returns true if the name matches the auto-generated pattern "Shell N".
+func isDefaultShellName(name string) bool {
+	return defaultShellNamePattern.MatchString(name)
 }
 
 // selectedWorktree returns the currently selected worktree.

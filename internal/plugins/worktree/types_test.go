@@ -192,3 +192,32 @@ func TestFormatRelativeTime(t *testing.T) {
 		t.Errorf("formatRelativeTime(zero) = %q, want empty", s)
 	}
 }
+
+func TestIsDefaultShellName(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected bool
+	}{
+		{"Shell 1", true},
+		{"Shell 2", true},
+		{"Shell 10", true},
+		{"Shell 123", true},
+		{"Backend", false},
+		{"Frontend", false},
+		{"shell 1", false},  // case sensitive
+		{"Shell1", false},   // no space
+		{"Shell", false},    // no number
+		{"Shell X", false},  // not a digit
+		{"My Shell 1", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isDefaultShellName(tt.name)
+			if got != tt.expected {
+				t.Errorf("isDefaultShellName(%q) = %v, want %v", tt.name, got, tt.expected)
+			}
+		})
+	}
+}
