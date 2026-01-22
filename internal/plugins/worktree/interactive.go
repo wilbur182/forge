@@ -536,6 +536,26 @@ func (p *Plugin) resizeInteractivePaneCmd() tea.Cmd {
 	}
 }
 
+func (p *Plugin) maybeResizeInteractivePane(paneWidth, paneHeight int) tea.Cmd {
+	if p.interactiveState == nil || !p.interactiveState.Active {
+		return nil
+	}
+	if paneWidth <= 0 || paneHeight <= 0 {
+		return nil
+	}
+
+	previewWidth, previewHeight := p.calculatePreviewDimensions()
+	if paneWidth == previewWidth && paneHeight == previewHeight {
+		return nil
+	}
+
+	if !p.interactiveState.LastResizeAt.IsZero() && time.Since(p.interactiveState.LastResizeAt) < 500*time.Millisecond {
+		return nil
+	}
+	p.interactiveState.LastResizeAt = time.Now()
+	return p.resizeInteractivePaneCmd()
+}
+
 // resizeTmuxPane resizes a tmux pane to the specified dimensions.
 func (p *Plugin) resizeTmuxPane(paneID string, width, height int) {
 	if width <= 0 && height <= 0 {
@@ -1103,7 +1123,11 @@ func renderWithCursor(content string, cursorRow, cursorCol int, visible bool) st
 
 	if cursorCol >= lineWidth {
 		// Cursor past end of line: append visible cursor block (td-43d37b)
-		lines[cursorRow] = line + cursorStyle.Render("█")
+		padding := cursorCol - lineWidth
+		if padding < 0 {
+			padding = 0
+		}
+		lines[cursorRow] = line + strings.Repeat(" ", padding) + cursorStyle.Render("█")
 	} else {
 		// Use ANSI-aware slicing to preserve escape codes in before/after
 		before := ansi.Cut(line, 0, cursorCol)

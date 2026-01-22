@@ -33,30 +33,36 @@ User Keypress → handleInteractiveKeys()
 
 ### 1. Cursor Positioning
 
-**The +1 Adjustment Mystery**
+**Current Approach**
 
-The cursor requires a `row + 1` adjustment to appear on the correct line:
+The cursor maps directly to tmux's 0-indexed `cursor_x/cursor_y`, with padding to keep line counts aligned to `pane_height`. No +1 hack is needed.
 
 ```go
 // view_preview.go
-relativeRow := row + 1 // +1 adjustment needed for correct positioning
+displayHeight := len(displayLines)
+relativeRow := cursorRow
 if paneHeight > displayHeight {
-    relativeRow = (row + 1) - (paneHeight - displayHeight)
+    relativeRow = cursorRow - (paneHeight - displayHeight)
+} else if paneHeight > 0 && paneHeight < displayHeight {
+    relativeRow = cursorRow + (displayHeight - paneHeight)
 }
 ```
 
-**Why this works** (not fully understood):
-- Tmux reports `cursor_y` as 0-indexed within the pane
-- The buffer splits content with `TrimSuffix(content, "\n")` to avoid spurious empty lines
-- There appears to be a coordinate system mismatch between tmux's cursor position and our buffer line numbers
-- The +1 adjustment empirically produces correct results
+**Trailing Space Rendering**
 
-**What we tried**:
-- Removing the adjustment → cursor appears 1 line above where it should
-- Adjusting buffer splitting → broke other aspects of rendering
-- Querying `pane_height` to calculate offset → still needed +1
+When the cursor is past the last visible character (e.g., after typing a space),
+we pad the line to the cursor column so the cursor renders at the correct position:
 
-**Current approach**: Accept the +1 as a necessary adjustment. The exact reason is unclear, but removing it consistently breaks cursor positioning.
+```go
+// interactive.go
+padding := cursorCol - lineWidth
+lines[cursorRow] = line + strings.Repeat(" ", padding) + cursorStyle.Render("█")
+```
+
+**Why this works**:
+- `cursor_y` is already 0-indexed
+- The display is padded to `pane_height` to preserve blank lines at the bottom
+- The cursor column can be beyond the line's visible width; we pad to that column
 
 ### 2. Horizontal Width Calculation
 
@@ -80,15 +86,10 @@ if !p.sidebarVisible {
 }
 ```
 
-**Known Issues**:
-- `panelOverhead` constant may not perfectly account for all border/padding
-- Horizontal scrolling (`previewHorizOffset`) works but the pane sizing could be more precise
-- Text near the right edge gets truncated even though there's visual space
-
-**Potential Improvements**:
-- Add padding to width calculation (e.g., `width - 2` for safety margin)
-- Dynamically measure actual render width vs tmux pane width
-- Adjust `panelOverhead` based on render testing
+**Current Approach**:
+- Resize tmux panes to `calculatePreviewDimensions()` on entry, resize, and sidebar changes
+- Capture `pane_width` alongside cursor position and clamp rendering to it
+- If captured `pane_width/pane_height` mismatch the preview size, trigger a resize retry
 
 ### 3. Polling and Performance
 
@@ -188,9 +189,9 @@ p.Agent.OutputBuf.Clear() // in enterInteractiveMode() and exitInteractiveMode()
 Cursor position must be captured atomically with output to avoid race conditions:
 
 ```go
-func queryCursorPositionSync(target string) (row, col, paneHeight int, visible, ok bool) {
+func queryCursorPositionSync(target string) (row, col, paneHeight, paneWidth int, visible, ok bool) {
     cmd := exec.Command("tmux", "display-message", "-t", target,
-        "-p", "#{cursor_x},#{cursor_y},#{cursor_flag},#{pane_height}")
+        "-p", "#{cursor_x},#{cursor_y},#{cursor_flag},#{pane_height},#{pane_width}")
     // ...
 }
 ```
@@ -214,7 +215,7 @@ func (p *Plugin) getCursorPosition() (row, col, paneHeight int, visible bool, er
 
 ### 6. Key Mapping
 
-**Basic Implementation** (`keymap_tmux.go`):
+**Basic Implementation** (`interactive.go`):
 
 ```go
 func MapKeyToTmux(msg tea.KeyMsg) (key string, useLiteral bool) {
@@ -232,10 +233,10 @@ func MapKeyToTmux(msg tea.KeyMsg) (key string, useLiteral bool) {
 
 **Literal Mode**: For printable characters, use `tmux send-keys -l "text"` to avoid interpretation.
 
-**Known Limitations**:
-- Modified special keys (Shift+Arrow, Ctrl+Arrow) are unreliable via `send-keys`
+**Notes**:
+- Modified arrows are forwarded via CSI sequences (e.g., `\x1b[1;2A`, `\x1b[1;5A`)
+- Mouse events are forwarded as SGR sequences when the app enables mouse reporting
 - Some terminal apps use different escape sequences than tmux expects
-- Application cursor keys mode not explicitly handled (tmux handles automatically)
 
 ## Common Pitfalls
 
@@ -247,9 +248,10 @@ Clearing `OutputBuf` breaks rendering. The hash-based change detection needs con
 
 After output messages, always check if in interactive mode and use `pollInteractivePane()` instead of regular intervals.
 
-### ❌ Don't Remove the +1 Cursor Adjustment
+### ❌ Don't Drop Pane Height Padding
 
-It's weird, but it's necessary. Removing it breaks cursor positioning.
+Padding lines to `pane_height` prevents cursor drift when the buffer has fewer lines
+than the actual tmux pane.
 
 ### ❌ Don't Call Subprocesses from View()
 
@@ -356,12 +358,8 @@ Enable in `~/.config/sidecar/config.json`:
 
 ## Future Improvements
 
-1. **Horizontal Width**: Fine-tune `calculatePreviewDimensions()` to prevent right-side truncation
-2. **Cursor Position**: Investigate the root cause of the +1 adjustment requirement
-3. **Mouse Support**: Forward mouse events to tmux for apps like htop/fzf
-4. **Bracketed Paste**: Detect and use bracketed paste mode when available
-5. **Modified Keys**: Support Shift+Arrow, Ctrl+Arrow combinations
-6. **Pane Resizing**: React to sidebar width changes and resize tmux pane dynamically
+1. **Capture Gating**: Skip capture-pane when history/cursor hasn't changed
+2. **Diagnostics**: Add optional logging to diff tmux output vs rendered buffer
 
 ## References
 
@@ -377,12 +375,12 @@ Enable in `~/.config/sidecar/config.json`:
 
 ## Key Takeaways
 
-1. **The +1 cursor adjustment is necessary** - don't remove it even though the reason is unclear
+1. **Cursor mapping is 0-indexed** - keep pane-height padding and cursor-col padding
 2. **Never clear OutputBuffer** - it breaks rendering
 3. **Poll continuity is critical** - interactive mode needs fast polling throughout
 4. **Hash before regex** - massive CPU savings when content unchanged
 5. **Debouncing works** - 20ms delay reduces subprocess spam significantly
-6. **Horizontal width is tricky** - sidebar calculations don't perfectly match tmux pane width
+6. **Width sync matters** - resize to preview size and clamp rendering to `pane_width`
 7. **Atomic cursor capture** - query cursor with output to avoid race conditions
 8. **Separate shell/worktree polling** - use the right scheduling function for each type
 9. **Use correct generation maps** - shells use `shellPollGeneration`, worktrees use `pollGeneration`

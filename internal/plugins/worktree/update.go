@@ -295,6 +295,9 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					p.interactiveState.PaneHeight = msg.PaneHeight
 					p.interactiveState.PaneWidth = msg.PaneWidth
 				}
+				if resizeCmd := p.maybeResizeInteractivePane(msg.PaneWidth, msg.PaneHeight); resizeCmd != nil {
+					cmds = append(cmds, resizeCmd)
+				}
 			}
 		}
 		// Schedule next poll with adaptive interval based on status
@@ -377,6 +380,9 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					p.interactiveState.CursorVisible = msg.CursorVisible
 					p.interactiveState.PaneHeight = msg.PaneHeight
 					p.interactiveState.PaneWidth = msg.PaneWidth
+				}
+				if resizeCmd := p.maybeResizeInteractivePane(msg.PaneWidth, msg.PaneHeight); resizeCmd != nil {
+					cmds = append(cmds, resizeCmd)
 				}
 			}
 		}
@@ -528,6 +534,9 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					p.interactiveState.CursorVisible = msg.CursorVisible
 					p.interactiveState.PaneHeight = msg.PaneHeight
 					p.interactiveState.PaneWidth = msg.PaneWidth
+				}
+				if resizeCmd := p.maybeResizeInteractivePane(msg.PaneWidth, msg.PaneHeight); resizeCmd != nil {
+					cmds = append(cmds, resizeCmd)
 				}
 			}
 		}

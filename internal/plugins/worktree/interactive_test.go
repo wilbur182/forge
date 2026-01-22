@@ -288,6 +288,15 @@ func TestRenderWithCursor_EndOfLine(t *testing.T) {
 	}
 }
 
+func TestRenderWithCursor_EndOfLineWithSpace(t *testing.T) {
+	content := "word"
+	result := renderWithCursor(content, 0, 5, true)
+
+	if !strings.Contains(result, "word ") {
+		t.Error("expected padded space before cursor when cursor past end")
+	}
+}
+
 // TestRenderWithCursor_NotVisible tests invisible cursor
 func TestRenderWithCursor_NotVisible(t *testing.T) {
 	content := "hello"
