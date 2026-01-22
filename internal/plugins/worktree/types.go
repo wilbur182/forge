@@ -272,6 +272,9 @@ type InteractiveState struct {
 	// EscapeTimerPending tracks if an escape timer is already in flight.
 	// Prevents duplicate timers from accumulating (td-83dc22).
 	EscapeTimerPending bool
+
+	// LastResizeAt tracks the last time we attempted to resize the tmux pane.
+	LastResizeAt time.Time
 }
 
 // AgentStatus represents the current status of an agent.
