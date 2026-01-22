@@ -782,7 +782,8 @@ func (p *Plugin) handlePollAgent(worktreeName string) tea.Cmd {
 				strings.Contains(err.Error(), "no server") {
 				return AgentStoppedMsg{WorktreeName: worktreeName}
 			}
-			// Schedule retry on other errors
+			// Schedule retry on other errors (with delay to prevent busy-loop)
+			time.Sleep(pollIntervalActive)
 			return pollAgentMsg{WorktreeName: worktreeName}
 		}
 
