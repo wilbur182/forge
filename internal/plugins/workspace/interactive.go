@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -44,6 +45,12 @@ const (
 
 	// defaultAttachKey is the default keybinding to attach from interactive mode (td-fd68d1).
 	defaultAttachKey = "ctrl+]"
+
+	// defaultCopyKey is the default keybinding to copy selection in interactive mode.
+	defaultCopyKey = "alt+c"
+
+	// defaultPasteKey is the default keybinding to paste clipboard in interactive mode.
+	defaultPasteKey = "alt+v"
 )
 
 // partialMouseSeqRegex matches SGR mouse sequences that lost their ESC prefix
@@ -81,6 +88,28 @@ func (p *Plugin) getInteractiveAttachKey() string {
 		}
 	}
 	return defaultAttachKey
+}
+
+// getInteractiveCopyKey returns the configured copy keybinding for interactive mode.
+// Falls back to defaultCopyKey ("alt+c") if not configured.
+func (p *Plugin) getInteractiveCopyKey() string {
+	if p.ctx != nil && p.ctx.Config != nil {
+		if key := p.ctx.Config.Plugins.Workspace.InteractiveCopyKey; key != "" {
+			return key
+		}
+	}
+	return defaultCopyKey
+}
+
+// getInteractivePasteKey returns the configured paste keybinding for interactive mode.
+// Falls back to defaultPasteKey ("alt+v") if not configured.
+func (p *Plugin) getInteractivePasteKey() string {
+	if p.ctx != nil && p.ctx.Config != nil {
+		if key := p.ctx.Config.Plugins.Workspace.InteractivePasteKey; key != "" {
+			return key
+		}
+	}
+	return defaultPasteKey
 }
 
 // isSessionDeadError checks if an error indicates the tmux session/pane is gone.
@@ -329,6 +358,39 @@ func sendBracketedPasteToTmux(sessionName, text string) error {
 	return sendLiteralToTmux(sessionName, bracketedPasteEnd)
 }
 
+func (p *Plugin) pasteClipboardToTmuxCmd() tea.Cmd {
+	if p.interactiveState == nil || !p.interactiveState.Active {
+		return nil
+	}
+
+	sessionName := p.interactiveState.TargetSession
+	if sessionName == "" {
+		return nil
+	}
+	bracketed := p.interactiveState.BracketedPasteEnabled
+
+	return func() tea.Msg {
+		text, err := clipboard.ReadAll()
+		if err != nil {
+			return InteractivePasteResultMsg{Err: err}
+		}
+		if text == "" {
+			return InteractivePasteResultMsg{Empty: true}
+		}
+
+		if bracketed {
+			err = sendBracketedPasteToTmux(sessionName, text)
+		} else {
+			err = sendPasteToTmux(sessionName, text)
+		}
+		if err != nil {
+			return InteractivePasteResultMsg{Err: err, SessionDead: isSessionDeadError(err)}
+		}
+
+		return InteractivePasteResultMsg{}
+	}
+}
+
 func detectMouseReportingMode(output string) bool {
 	enableSeqs := []string{
 		mouseModeEnable1000,
@@ -381,7 +443,13 @@ func (p *Plugin) updateBracketedPasteMode(output string) {
 // isPasteInput detects if the input is a paste operation.
 // Returns true if the input contains newlines or is longer than a typical typed sequence.
 func isPasteInput(msg tea.KeyMsg) bool {
-	if msg.Type != tea.KeyRunes || len(msg.Runes) <= 1 {
+	if msg.Type != tea.KeyRunes {
+		return false
+	}
+	if msg.Paste {
+		return true
+	}
+	if len(msg.Runes) <= 1 {
 		return false
 	}
 	text := string(msg.Runes)
@@ -445,6 +513,7 @@ func (p *Plugin) enterInteractiveMode() tea.Cmd {
 		LastKeyTime:   time.Now(),
 		CursorVisible: true, // Assume visible until we get first cursor query result
 	}
+	p.clearInteractiveSelection()
 
 	p.viewMode = ViewModeInteractive
 
@@ -682,6 +751,7 @@ func (p *Plugin) exitInteractiveMode() {
 		p.interactiveState.Active = false
 	}
 	p.interactiveState = nil
+	p.clearInteractiveSelection()
 	p.viewMode = ViewModeList
 }
 
@@ -768,6 +838,20 @@ func (p *Plugin) handleInteractiveKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 			return nil
 		}
+	}
+
+	if msg.String() == p.getInteractiveCopyKey() {
+		return p.copyInteractiveSelectionCmd()
+	}
+
+	if msg.String() == p.getInteractivePasteKey() {
+		p.interactiveState.LastKeyTime = time.Now()
+		if p.previewOffset > 0 {
+			p.previewOffset = 0
+			p.autoScrollOutput = true
+		}
+		cmds = append(cmds, p.pasteClipboardToTmuxCmd())
+		return tea.Batch(cmds...)
 	}
 
 	// Update last key time for polling decay

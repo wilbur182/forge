@@ -49,6 +49,8 @@ type saveWorkspaceConfig struct {
 	TmuxCaptureMaxBytes  *int   `json:"tmuxCaptureMaxBytes,omitempty"`
 	InteractiveExitKey   string `json:"interactiveExitKey,omitempty"`
 	InteractiveAttachKey string `json:"interactiveAttachKey,omitempty"`
+	InteractiveCopyKey   string `json:"interactiveCopyKey,omitempty"`
+	InteractivePasteKey  string `json:"interactivePasteKey,omitempty"`
 }
 
 // toSaveConfig converts Config to the JSON-serializable format.
@@ -78,6 +80,8 @@ func toSaveConfig(cfg *Config) saveConfig {
 				TmuxCaptureMaxBytes:  &cfg.Plugins.Workspace.TmuxCaptureMaxBytes,
 				InteractiveExitKey:   cfg.Plugins.Workspace.InteractiveExitKey,
 				InteractiveAttachKey: cfg.Plugins.Workspace.InteractiveAttachKey,
+				InteractiveCopyKey:   cfg.Plugins.Workspace.InteractiveCopyKey,
+				InteractivePasteKey:  cfg.Plugins.Workspace.InteractivePasteKey,
 			},
 		},
 		Keymap:   cfg.Keymap,

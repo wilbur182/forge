@@ -197,3 +197,10 @@ type cursorPositionMsg struct {
 	Col     int  // 0-indexed column
 	Visible bool // Whether cursor should be rendered
 }
+
+// InteractivePasteResultMsg reports clipboard paste results for interactive mode.
+type InteractivePasteResultMsg struct {
+	Err         error
+	Empty       bool
+	SessionDead bool
+}

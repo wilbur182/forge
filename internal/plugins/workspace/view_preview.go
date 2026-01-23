@@ -14,6 +14,10 @@ import (
 // renderPreviewContent renders the preview pane content (no borders).
 func (p *Plugin) renderPreviewContent(width, height int) string {
 	var lines []string
+	interactive := p.viewMode == ViewModeInteractive && p.interactiveState != nil && p.interactiveState.Active
+	if interactive {
+		p.interactiveState.ContentRowOffset = 0
+	}
 
 	// Show welcome guide only when no worktree AND no shell is selected
 	wt := p.selectedWorktree()
@@ -25,6 +29,9 @@ func (p *Plugin) renderPreviewContent(width, height int) string {
 	// (Output/Diff/Task tabs are not relevant for the project shell)
 	if p.shellSelected {
 		content := p.renderShellOutput(width, height)
+		if interactive && !p.flashPreviewTime.IsZero() && time.Since(p.flashPreviewTime) < flashDuration {
+			p.interactiveState.ContentRowOffset++
+		}
 		content = p.prependFlashHint(content)
 		return p.truncateAllLines(content, width)
 	}
@@ -41,6 +48,12 @@ func (p *Plugin) renderPreviewContent(width, height int) string {
 	switch p.previewTab {
 	case PreviewTabOutput:
 		content = p.renderOutputContent(width, contentHeight)
+		if interactive {
+			p.interactiveState.ContentRowOffset += 2
+			if !p.flashPreviewTime.IsZero() && time.Since(p.flashPreviewTime) < flashDuration {
+				p.interactiveState.ContentRowOffset++
+			}
+		}
 	case PreviewTabDiff:
 		content = p.renderDiffContent(width, contentHeight)
 	case PreviewTabTask:
@@ -206,7 +219,7 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		interactiveStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.GetCurrentTheme().Colors.Warning)).
 			Bold(true)
-		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText("Ctrl+\\ exit • Ctrl+] attach")
+		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText(p.getInteractiveExitKey()+" exit • "+p.getInteractiveAttachKey()+" attach")
 	} else {
 		// Only show "i for interactive" hint if feature flag is enabled
 		if features.IsEnabled(features.TmuxInteractiveInput.Name) {
@@ -230,6 +243,9 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 	var cursorRow, cursorCol, paneHeight, paneWidth int
 	var cursorVisible bool
 	if interactive {
+		p.interactiveState.VisibleStart = 0
+		p.interactiveState.VisibleEnd = 0
+		p.interactiveState.ContentRowOffset = 1
 		var err error
 		cursorRow, cursorCol, paneHeight, paneWidth, cursorVisible, err = p.getCursorPosition()
 		if err != nil {
@@ -289,16 +305,23 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 	if len(lines) == 0 {
 		return hint + "\n" + dimText("No output yet")
 	}
+	if interactive {
+		p.interactiveState.VisibleStart = start
+		p.interactiveState.VisibleEnd = end
+	}
 
 	// Apply horizontal offset and truncate each line
 	// Use TruncateLeftRight for horizontal scrolling to reduce cache thrashing
 	// and avoid cellbuf allocation churn from varying offsets.
 	displayLines := make([]string, 0, len(lines))
-	for _, line := range lines {
+	for i, line := range lines {
 		displayLine := expandTabs(line, tabStopWidth)
 		// Apply horizontal offset and truncate to width in a single cached operation
 		// This prevents allocation churn from repeated parsing with varying offsets
 		displayLine = p.truncateCache.TruncateLeftRight(displayLine, p.previewHorizOffset, displayWidth)
+		if interactive && p.isInteractiveLineSelected(start+i) {
+			displayLine = injectSelectionBackground(displayLine)
+		}
 		displayLines = append(displayLines, displayLine)
 	}
 
@@ -381,7 +404,7 @@ func (p *Plugin) renderShellOutput(width, height int) string {
 		interactiveStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.GetCurrentTheme().Colors.Warning)).
 			Bold(true)
-		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText("Ctrl+\\ exit")
+		hint = interactiveStyle.Render("INTERACTIVE") + " " + dimText(p.getInteractiveExitKey()+" exit")
 	} else {
 		// Only show "i for interactive" hint if feature flag is enabled
 		if features.IsEnabled(features.TmuxInteractiveInput.Name) {
@@ -405,6 +428,9 @@ func (p *Plugin) renderShellOutput(width, height int) string {
 	var cursorRow, cursorCol, paneHeight, paneWidth int
 	var cursorVisible bool
 	if interactive {
+		p.interactiveState.VisibleStart = 0
+		p.interactiveState.VisibleEnd = 0
+		p.interactiveState.ContentRowOffset = 1
 		var err error
 		cursorRow, cursorCol, paneHeight, paneWidth, cursorVisible, err = p.getCursorPosition()
 		if err != nil {
@@ -463,12 +489,19 @@ func (p *Plugin) renderShellOutput(width, height int) string {
 	if len(lines) == 0 {
 		return hint + "\n" + dimText("No output yet")
 	}
+	if interactive {
+		p.interactiveState.VisibleStart = start
+		p.interactiveState.VisibleEnd = end
+	}
 
 	// Apply horizontal offset and truncate each line
 	displayLines := make([]string, 0, len(lines))
-	for _, line := range lines {
+	for i, line := range lines {
 		displayLine := expandTabs(line, tabStopWidth)
 		displayLine = p.truncateCache.TruncateLeftRight(displayLine, p.previewHorizOffset, displayWidth)
+		if interactive && p.isInteractiveLineSelected(start+i) {
+			displayLine = injectSelectionBackground(displayLine)
+		}
 		displayLines = append(displayLines, displayLine)
 	}
 

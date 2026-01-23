@@ -2,12 +2,15 @@ package workspace
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/marcus/sidecar/internal/styles"
 )
+
+var ansiResetRe = regexp.MustCompile(`\x1b\[0?m`)
 
 // expandTabs replaces tabs with spaces, preserving ANSI sequences and column widths.
 func expandTabs(line string, tabWidth int) string {
@@ -99,4 +102,22 @@ func formatRelativeTime(t time.Time) string {
 	default:
 		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
+}
+
+func getSelectionBgANSI() string {
+	theme := styles.GetCurrentTheme()
+	hex := theme.Colors.BgTertiary
+	var r, g, b int
+	if _, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b); err != nil {
+		r, g, b = 55, 65, 81
+	}
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
+}
+
+// injectSelectionBackground adds a selection background while preserving ANSI resets.
+func injectSelectionBackground(s string) string {
+	selectionBg := getSelectionBgANSI()
+	result := selectionBg + s
+	result = ansiResetRe.ReplaceAllString(result, "${0}"+selectionBg)
+	return result + "\x1b[0m"
 }

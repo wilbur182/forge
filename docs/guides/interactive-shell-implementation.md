@@ -252,6 +252,13 @@ func MapKeyToTmux(msg tea.KeyMsg) (key string, useLiteral bool) {
 - Mouse events are forwarded as SGR sequences when the app enables mouse reporting
 - Some terminal apps use different escape sequences than tmux expects
 
+## Copy/Paste
+
+Interactive mode supports clipboard copy/paste without leaving Sidecar:
+
+- Copy: click-drag to select output lines when the app has mouse reporting disabled (otherwise clicks are forwarded to tmux). Press the copy key (`alt+c` by default, configurable via `plugins.worktree.interactiveCopyKey`) to copy the selection. If no selection exists, it copies the visible output.
+- Paste: press the paste key (`alt+v` by default, configurable via `plugins.worktree.interactivePasteKey`). Sidecar reads the system clipboard and sends it to tmux, using bracketed paste sequences when the app enabled bracketed paste mode.
+
 ## Common Pitfalls
 
 ### ❌ Don't Clear the OutputBuffer

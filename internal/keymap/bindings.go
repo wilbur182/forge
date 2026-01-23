@@ -300,7 +300,7 @@ func DefaultBindings() []Binding {
 		{Key: "[", Command: "prev-tab", Context: "workspace-list"},
 		{Key: "]", Command: "next-tab", Context: "workspace-list"},
 
-		// Worktree preview context
+		// Workspace preview context
 		{Key: "h", Command: "focus-left", Context: "workspace-preview"},
 		{Key: "left", Command: "focus-left", Context: "workspace-preview"},
 		{Key: "esc", Command: "focus-left", Context: "workspace-preview"},
@@ -320,6 +320,9 @@ func DefaultBindings() []Binding {
 		{Key: "k", Command: "scroll-up", Context: "workspace-preview"},
 		{Key: "ctrl+d", Command: "page-down", Context: "workspace-preview"},
 		{Key: "ctrl+u", Command: "page-up", Context: "workspace-preview"},
+
+		// Workspace interactive context bindings are registered dynamically
+		// by the workspace plugin Init() to reflect configured keys.
 	}
 }
 

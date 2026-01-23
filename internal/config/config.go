@@ -69,6 +69,10 @@ type WorkspacePluginConfig struct {
 	// InteractiveAttachKey is the keybinding to attach from interactive mode. Default: "ctrl+]".
 	// When pressed in interactive mode, exits interactive and attaches to the tmux session.
 	InteractiveAttachKey string `json:"interactiveAttachKey,omitempty"`
+	// InteractiveCopyKey is the keybinding to copy selection in interactive mode. Default: "alt+c".
+	InteractiveCopyKey string `json:"interactiveCopyKey,omitempty"`
+	// InteractivePasteKey is the keybinding to paste clipboard in interactive mode. Default: "alt+v".
+	InteractivePasteKey string `json:"interactivePasteKey,omitempty"`
 }
 
 // KeymapConfig holds key binding overrides.

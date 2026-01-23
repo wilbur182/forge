@@ -266,6 +266,15 @@ type InteractiveState struct {
 	// PaneWidth tracks the tmux pane width for display width alignment.
 	PaneWidth int
 
+	// VisibleStart and VisibleEnd track the buffer line range currently visible.
+	// Used for interactive selection mapping.
+	VisibleStart int
+	VisibleEnd   int
+
+	// ContentRowOffset is the number of preview content rows before output lines.
+	// Used to map mouse coordinates to buffer lines.
+	ContentRowOffset int
+
 	// BracketedPasteEnabled tracks whether the target app has enabled
 	// bracketed paste mode (ESC[?2004h). Updated from captured output.
 	BracketedPasteEnabled bool

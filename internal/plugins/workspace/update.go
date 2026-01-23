@@ -978,6 +978,25 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		p.toastMessage = "Session ended"
 		p.toastTime = time.Now()
 
+	case InteractivePasteResultMsg:
+		if msg.SessionDead {
+			p.exitInteractiveMode()
+			p.toastMessage = "Session ended"
+			p.toastTime = time.Now()
+			return p, nil
+		}
+		if msg.Empty {
+			return p, func() tea.Msg {
+				return app.ToastMsg{Message: "Clipboard empty", Duration: 2 * time.Second}
+			}
+		}
+		if msg.Err != nil {
+			return p, func() tea.Msg {
+				return app.ToastMsg{Message: "Paste failed: " + msg.Err.Error(), Duration: 2 * time.Second, IsError: true}
+			}
+		}
+		cmds = append(cmds, p.pollInteractivePaneImmediate())
+
 	case tea.KeyMsg:
 		cmd := p.handleKeyPress(msg)
 		if cmd != nil {

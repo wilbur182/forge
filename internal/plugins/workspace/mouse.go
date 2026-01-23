@@ -215,6 +215,9 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 	}
 	if p.viewMode == ViewModeInteractive && action.Region.ID == regionPreviewPane {
 		p.activePane = PanePreview
+		if p.interactiveState != nil && p.interactiveState.Active && !p.interactiveState.MouseReportingEnabled {
+			return p.startInteractiveSelection(action)
+		}
 		return tea.Batch(p.forwardClickToTmux(action.X, action.Y), p.pollInteractivePaneImmediate())
 	}
 
@@ -293,10 +296,14 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 	case regionPreviewTab:
 		// Click on preview tab
 		if idx, ok := action.Region.Data.(int); ok && idx >= 0 && idx <= 2 {
+			prevTab := p.previewTab
 			p.previewTab = PreviewTab(idx)
 			p.previewOffset = 0
 			p.previewHorizOffset = 0
 			p.autoScrollOutput = true
+			if prevTab == PreviewTabOutput && p.previewTab != PreviewTabOutput {
+				p.clearInteractiveSelection()
+			}
 
 			// Load content for the selected tab
 			switch p.previewTab {
@@ -787,7 +794,8 @@ func (p *Plugin) scrollKanban(delta int) tea.Cmd {
 
 // handleMouseDrag handles drag motion events.
 func (p *Plugin) handleMouseDrag(action mouse.MouseAction) tea.Cmd {
-	if p.mouseHandler.DragRegion() == regionPaneDivider {
+	switch p.mouseHandler.DragRegion() {
+	case regionPaneDivider:
 		// Calculate new sidebar width based on drag
 		startValue := p.mouseHandler.DragStartValue()
 		newWidth := startValue + (action.DragDX * 100 / p.width) // Convert px delta to %
@@ -800,12 +808,20 @@ func (p *Plugin) handleMouseDrag(action mouse.MouseAction) tea.Cmd {
 			newWidth = 60
 		}
 		p.sidebarWidth = newWidth
+	case regionPreviewPane:
+		if p.viewMode == ViewModeInteractive && p.interactiveState != nil && p.interactiveState.Active &&
+			!p.interactiveState.MouseReportingEnabled {
+			return p.handleInteractiveSelectionDrag(action)
+		}
 	}
 	return nil
 }
 
 // handleMouseDragEnd handles the end of a drag operation.
 func (p *Plugin) handleMouseDragEnd() tea.Cmd {
+	if p.interactiveSelectionActive {
+		return p.finishInteractiveSelection()
+	}
 	// Persist sidebar width
 	_ = state.SetWorkspaceSidebarWidth(p.sidebarWidth)
 	if p.viewMode == ViewModeInteractive && p.interactiveState != nil && p.interactiveState.Active {

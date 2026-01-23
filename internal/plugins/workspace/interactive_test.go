@@ -225,6 +225,14 @@ func TestIsPasteInput_SingleChar(t *testing.T) {
 	}
 }
 
+// TestIsPasteInput_PasteFlag tests paste flag triggers paste detection
+func TestIsPasteInput_PasteFlag(t *testing.T) {
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a"), Paste: true}
+	if !isPasteInput(msg) {
+		t.Error("paste flag should be detected as paste")
+	}
+}
+
 // TestIsPasteInput_ShortString tests short string without newlines
 func TestIsPasteInput_ShortString(t *testing.T) {
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("hello")}
