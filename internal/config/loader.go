@@ -42,8 +42,10 @@ type rawPluginsConfig struct {
 }
 
 type rawWorktreeConfig struct {
-	DirPrefix           *bool `json:"dirPrefix"`
-	TmuxCaptureMaxBytes *int  `json:"tmuxCaptureMaxBytes"`
+	DirPrefix            *bool  `json:"dirPrefix"`
+	TmuxCaptureMaxBytes  *int   `json:"tmuxCaptureMaxBytes"`
+	InteractiveExitKey   string `json:"interactiveExitKey"`
+	InteractiveAttachKey string `json:"interactiveAttachKey"`
 }
 
 type rawGitStatusConfig struct {
@@ -171,6 +173,12 @@ func mergeConfig(cfg *Config, raw *rawConfig) {
 	}
 	if raw.Plugins.Worktree.TmuxCaptureMaxBytes != nil {
 		cfg.Plugins.Worktree.TmuxCaptureMaxBytes = *raw.Plugins.Worktree.TmuxCaptureMaxBytes
+	}
+	if raw.Plugins.Worktree.InteractiveExitKey != "" {
+		cfg.Plugins.Worktree.InteractiveExitKey = raw.Plugins.Worktree.InteractiveExitKey
+	}
+	if raw.Plugins.Worktree.InteractiveAttachKey != "" {
+		cfg.Plugins.Worktree.InteractiveAttachKey = raw.Plugins.Worktree.InteractiveAttachKey
 	}
 
 	// Keymap

@@ -45,8 +45,10 @@ type saveConversationsConfig struct {
 }
 
 type saveWorktreeConfig struct {
-	DirPrefix           *bool `json:"dirPrefix,omitempty"`
-	TmuxCaptureMaxBytes *int  `json:"tmuxCaptureMaxBytes,omitempty"`
+	DirPrefix            *bool  `json:"dirPrefix,omitempty"`
+	TmuxCaptureMaxBytes  *int   `json:"tmuxCaptureMaxBytes,omitempty"`
+	InteractiveExitKey   string `json:"interactiveExitKey,omitempty"`
+	InteractiveAttachKey string `json:"interactiveAttachKey,omitempty"`
 }
 
 // toSaveConfig converts Config to the JSON-serializable format.
@@ -72,8 +74,10 @@ func toSaveConfig(cfg *Config) saveConfig {
 				ClaudeDataDir: cfg.Plugins.Conversations.ClaudeDataDir,
 			},
 			Worktree: saveWorktreeConfig{
-				DirPrefix:           &cfg.Plugins.Worktree.DirPrefix,
-				TmuxCaptureMaxBytes: &cfg.Plugins.Worktree.TmuxCaptureMaxBytes,
+				DirPrefix:            &cfg.Plugins.Worktree.DirPrefix,
+				TmuxCaptureMaxBytes:  &cfg.Plugins.Worktree.TmuxCaptureMaxBytes,
+				InteractiveExitKey:   cfg.Plugins.Worktree.InteractiveExitKey,
+				InteractiveAttachKey: cfg.Plugins.Worktree.InteractiveAttachKey,
 			},
 		},
 		Keymap:   cfg.Keymap,
@@ -104,7 +108,7 @@ func Save(cfg *Config) error {
 func SaveTheme(themeName string) error {
 	cfg, err := Load()
 	if err != nil {
-		cfg = Default()
+		return err
 	}
 	cfg.UI.Theme.Name = themeName
 	return Save(cfg)

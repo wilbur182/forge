@@ -165,10 +165,19 @@ func SetEnabled(name string, enabled bool) error {
 	globalManager.mu.Lock()
 	defer globalManager.mu.Unlock()
 
-	if globalManager.cfg.Features.Flags == nil {
-		globalManager.cfg.Features.Flags = make(map[string]bool)
+	// Reload from disk to avoid overwriting changes made since startup.
+	cfg, err := config.Load()
+	if err != nil {
+		return err
 	}
-	globalManager.cfg.Features.Flags[name] = enabled
 
-	return config.Save(globalManager.cfg)
+	if cfg.Features.Flags == nil {
+		cfg.Features.Flags = make(map[string]bool)
+	}
+	cfg.Features.Flags[name] = enabled
+
+	// Update in-memory config.
+	globalManager.cfg.Features.Flags = cfg.Features.Flags
+
+	return config.Save(cfg)
 }
