@@ -286,11 +286,113 @@ Adapters don't need to do anything special for turn view—it's computed from me
 - ContentBlocks tool_use and tool_result share matching ToolUseID
 - Usage() matches message totals
 - Watch() emits create/write events (if supported)
+- Watch() events include SessionID (not empty string)
 - Conversation flow view renders messages with inline tool results
+- Metadata cache hits for unchanged files (no re-parse)
+- Active session file growth does NOT trigger full re-parse (incremental or two-pass)
+- Sessions() with 50+ files completes in <50ms (benchmark)
 
 ## Performance Best Practices
 
-The `Sessions()` method is called frequently (on every watch event). Poorly optimized adapters can cause CPU spikes during active AI sessions.
+The `Sessions()` method is called frequently (on every watch event). Poorly optimized adapters can cause CPU spikes during active AI sessions. During an active session the hot path fires every ~350ms:
+
+```
+Watch event (100-200ms debounce) → Coalescer (250ms window) → loadSessions()
+  → adapter.Sessions(wtPath) × N worktrees
+    → sessionMetadata(path) × N sessions
+      → full file parse on cache miss
+```
+
+### Metadata Cache Invalidation on Active Sessions
+
+The metadata cache keys on `(path, size, modTime)`. For append-only formats (JSONL), the active session file grows on every message write, so the cache **always misses**. This is the primary cause of CPU spikes.
+
+**Design your session format with cache behavior in mind:**
+
+| Format | Cache behavior | Mitigation |
+|--------|---------------|-------------|
+| JSONL (append) | Always misses for active session | Incremental parsing (seek to offset) |
+| Atomic JSON rewrite | Misses only on actual update | Usually fine as-is |
+| SQLite | Misses on every WAL write | Query only changed rows |
+| Separate files per message | Session metadata file rarely changes | Count message files without parsing them |
+
+### Incremental Parsing for Append-Only Formats
+
+If your format appends data (like JSONL), avoid re-parsing from byte 0 on every cache miss. Cache the byte offset where you stopped and resume from there:
+
+```go
+type metaCacheEntry struct {
+    meta       *SessionMetadata
+    size       int64
+    modTime    time.Time
+    byteOffset int64  // resume point for incremental parse
+}
+
+func (a *Adapter) sessionMetadata(path string, info os.FileInfo) (*SessionMetadata, error) {
+    if entry, ok := a.cache[path]; ok {
+        if entry.size == info.Size() && entry.modTime.Equal(info.ModTime()) {
+            return entry.meta, nil // exact hit
+        }
+        if info.Size() > entry.size {
+            // File grew — parse only new bytes
+            return a.parseIncremental(path, entry.meta, entry.byteOffset)
+        }
+    }
+    // Full parse (new file or file shrank)
+    return a.parseFull(path)
+}
+```
+
+**Key insight:** Head metadata (SessionID, FirstMsg, FirstUserMessage, CWD) is set-once from early messages and never changes. Only tail metadata (LastMsg, MsgCount, TotalTokens) updates as the file grows. Avoid re-deriving immutable fields.
+
+### Two-Pass Parsing for Large Files
+
+If incremental parsing isn't feasible, use a two-pass approach: read the head for immutable metadata, seek to the tail for mutable metadata, and skip the middle entirely:
+
+```go
+const (
+    headLines     = 100   // first N lines for session identity
+    tailBytes     = 8192  // last N bytes for recent timestamps/tokens
+    smallFileSize = 16384 // below this, just parse the whole thing
+)
+
+func (a *Adapter) parseMetadata(path string) (*SessionMetadata, error) {
+    stat, _ := os.Stat(path)
+    if stat.Size() < smallFileSize {
+        return a.parseFull(path)
+    }
+    // Pass 1: head — SessionID, CWD, FirstMsg, FirstUserMessage
+    // Pass 2: tail — LastMsg, TotalTokens, MsgCount (approximate)
+    return a.parseTwoPasses(path, stat.Size())
+}
+```
+
+### Targeted Refresh Support
+
+The conversations plugin's coalescer provides specific `SessionID`s that changed. Adapters that support single-session lookup avoid the full `Sessions()` directory scan on every write:
+
+```go
+// Optional interface — implement to enable targeted refresh
+type TargetedRefresher interface {
+    SessionByID(sessionID string) (*adapter.Session, error)
+}
+```
+
+When implemented, the plugin updates only the changed session in-place rather than re-listing and re-parsing all sessions. This reduces the hot path from O(N sessions) to O(1).
+
+### Lazy-Load Expensive Metadata
+
+Not all metadata needs to be computed during `Sessions()`. Fields like `FirstUserMessage`, `TotalTokens`, and `EstCost` can be deferred:
+
+```go
+// GOOD: Populate expensive fields only when needed
+func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
+    // Only extract: SessionID, FirstMsg, LastMsg, MsgCount
+    // Skip: FirstUserMessage content parsing, token aggregation, cost calculation
+}
+```
+
+This is especially important for adapters with many session files. If the UI only displays timestamps and message counts in the list view, don't parse message content just to extract a title.
 
 ### Cache within Sessions()
 
@@ -312,6 +414,26 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
         msgCount := len(messages)
         firstMsg := extractFirstUserMessage(messages)
     }
+}
+```
+
+### Pre-resolve Paths Outside Loops
+
+Path resolution (`filepath.Abs`, `filepath.EvalSymlinks`) is expensive. Resolve once before iterating sessions:
+
+```go
+// BAD: Resolves on every iteration
+for _, meta := range sessions {
+    abs, _ := filepath.Abs(projectRoot)      // called N times
+    sym, _ := filepath.EvalSymlinks(abs)     // called N times
+    if sym == meta.CWD { ... }
+}
+
+// GOOD: Resolve once
+resolved, _ := filepath.Abs(projectRoot)
+resolved, _ = filepath.EvalSymlinks(resolved)
+for _, meta := range sessions {
+    if resolved == meta.CWD { ... }
 }
 ```
 
@@ -337,7 +459,7 @@ func stripTags(s string) string {
 ### Watch Event Efficiency
 
 When implementing `Watch()`:
-1. Include `SessionID` in emitted events so consumers can do targeted refreshes
+1. Always include `SessionID` in emitted events — this enables targeted refresh
 2. Use adequate debounce (100-200ms) to coalesce rapid writes
 3. Consider file modification time checks to avoid spurious events
 
@@ -346,6 +468,31 @@ When implementing `Watch()`:
 events <- adapter.Event{
     Type:      adapter.EventMessageAdded,
     SessionID: sessionID,  // enables smart refresh
+}
+```
+
+Without `SessionID`, the plugin falls back to a full `loadSessions()` call on every event.
+
+### Directory Listing Cache
+
+If your session files are spread across a directory tree (e.g., `YYYY/MM/DD/session.jsonl`), cache the directory walk result with a short TTL:
+
+```go
+type dirCacheEntry struct {
+    files     []sessionFileEntry
+    expiresAt time.Time
+}
+
+const dirCacheTTL = 500 * time.Millisecond
+
+func (a *Adapter) sessionFiles() ([]sessionFileEntry, error) {
+    if c := a.dirCache; c != nil && time.Now().Before(c.expiresAt) {
+        return c.files, nil // cache hit
+    }
+    // Walk directory tree, cache result
+    files := walkSessionDir(a.rootDir)
+    a.dirCache = &dirCacheEntry{files: files, expiresAt: time.Now().Add(dirCacheTTL)}
+    return files, nil
 }
 ```
 
