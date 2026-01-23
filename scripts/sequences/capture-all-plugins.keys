@@ -47,14 +47,14 @@ Escape
 @sleep:200
 @capture:sidecar-conversations.png
 
-# 5. Worktrees plugin - wait for unique footer hint
+# 5. Workspaces plugin - wait for unique footer hint
 Escape
 Escape
 @sleep:100
 5
 @wait:Kanban
 @sleep:200
-@capture:sidecar-worktrees.png
+@capture:sidecar-workspaces.png
 
 # Quit
 Escape

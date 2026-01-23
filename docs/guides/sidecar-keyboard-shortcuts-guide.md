@@ -383,22 +383,22 @@ All plugins with two-pane layouts (Git, Conversations, Files) share consistent s
 
 Tab navigation shortcuts (`[`/`]`, `x`) also work in the preview pane.
 
-### Worktrees Plugin
+### Workspaces Plugin
 | Context | View | Description |
 |---------|------|-------------|
-| `worktree-list` | Worktree list | Root view, 'q' quits |
-| `worktree-preview` | Preview pane | Preview pane focused |
-| `worktree-create` | Create form | Create worktree input |
-| `worktree-task-link` | Task linking | Task selection modal |
-| `worktree-merge` | Merge workflow | Merge workflow modal |
+| `workspace-list` | Workspace list | Root view, 'q' quits |
+| `workspace-preview` | Preview pane | Preview pane focused |
+| `workspace-create` | Create form | Create worktree input |
+| `workspace-task-link` | Task linking | Task selection modal |
+| `workspace-merge` | Merge workflow | Merge workflow modal |
 
-#### Worktree List Shortcuts
+#### Workspace List Shortcuts
 | Key | Command | Description |
 |-----|---------|-------------|
-| `n` | new-worktree | Create new worktree |
+| `n` | new-workspace | Create new workspace |
 | `v` | toggle-view | Toggle list/kanban view |
 | `r` | refresh | Refresh worktree list |
-| `D` | delete-worktree | Delete selected worktree |
+| `D` | delete-workspace | Delete selected workspace |
 | `p` | push | Push branch to remote |
 | `m` | merge-workflow | Start merge workflow |
 | `t` | link-task | Link/unlink task |
@@ -440,7 +440,7 @@ In root contexts, pressing 'q' shows the quit confirmation. In non-root contexts
 - `conversations`, `conversations-sidebar`
 - `git-status`, `git-status-commits`, `git-status-diff`
 - `file-browser-tree`
-- `worktree-list`
+- `workspace-list`
 - `td-monitor`
 
 **Non-root contexts** (q = back/close):
@@ -448,7 +448,7 @@ In root contexts, pressing 'q' shows the quit confirmation. In non-root contexts
 - `conversation-detail`, `message-detail`, `analytics`
 - `git-diff`, `git-commit`, `git-history`, etc.
 - `file-browser-preview`, etc.
-- `worktree-create`, `worktree-task-link`, `worktree-merge`, `worktree-preview`
+- `workspace-create`, `workspace-task-link`, `workspace-merge`, `workspace-preview`
 - `td-modal`, `td-stats`, `td-search`, `td-confirm`, `td-epic-tasks`, `td-parent-epic`, `td-handoffs`
 
 ## Complete Example: Adding "edit" to File Browser

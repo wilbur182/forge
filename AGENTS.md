@@ -78,4 +78,4 @@ func (p *Plugin) openInFileBrowser(path string) tea.Cmd {
 }
 ```
 
-Worktree tmux preview capture cap is configurable via `plugins.worktree.tmuxCaptureMaxBytes` in `~/.config/sidecar/config.json`.
+Workspace tmux preview capture cap is configurable via `plugins.workspace.tmuxCaptureMaxBytes` in `~/.config/sidecar/config.json`.

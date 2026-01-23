@@ -139,7 +139,7 @@ pollingDecaySlow   = 500ms  // After 10s inactivity
 ```go
 // In AgentOutputMsg handler:
 if p.viewMode == ViewModeInteractive && !p.shellSelected {
-    if wt := p.selectedWorktree(); wt != nil && wt.Name == msg.WorktreeName {
+    if wt := p.selectedWorkspace(); wt != nil && wt.Name == msg.WorkspaceName {
         cmds = append(cmds, p.pollInteractivePane())
         return p, tea.Batch(cmds...)
     }
@@ -273,13 +273,13 @@ Cursor queries and tmux operations must run asynchronously in poll handlers, not
 
 ### ❌ Don't Use `scheduleAgentPoll` for Shells
 
-Shells require `scheduleShellPollByName()`, worktrees require `scheduleAgentPoll()`. Mixing them breaks the polling mechanism.
+Shells require `scheduleShellPollByName()`, workspaces require `scheduleAgentPoll()`. Mixing them breaks the polling mechanism.
 
 ### ❌ Don't Use Wrong Generation Maps
 
 When incrementing poll generations to cancel stale timers:
 - Shells use `shellPollGeneration` (not `pollGeneration`)
-- Worktrees use `pollGeneration`
+- Workspaces use `pollGeneration`
 
 Using the wrong map makes generation tracking ineffective. See td-97327e.
 
@@ -349,18 +349,18 @@ Enable in `~/.config/sidecar/config.json`:
 
 | File | Purpose |
 |------|---------|
-| `internal/plugins/worktree/interactive.go` | Main interactive mode logic, polling, key handling |
-| `internal/plugins/worktree/keymap_tmux.go` | Bubble Tea → tmux key translation |
-| `internal/plugins/worktree/view_preview.go` | Cursor overlay rendering |
-| `internal/plugins/worktree/agent.go` | Tmux capture and polling coordination |
-| `internal/plugins/worktree/shell.go` | Shell-specific polling (similar to agent.go) |
-| `internal/plugins/worktree/types.go` | OutputBuffer with hash-based change detection |
-| `internal/plugins/worktree/update.go` | Message handlers for output and polling |
+| `internal/plugins/workspace/interactive.go` | Main interactive mode logic, polling, key handling |
+| `internal/plugins/workspace/keymap_tmux.go` | Bubble Tea → tmux key translation |
+| `internal/plugins/workspace/view_preview.go` | Cursor overlay rendering |
+| `internal/plugins/workspace/agent.go` | Tmux capture and polling coordination |
+| `internal/plugins/workspace/shell.go` | Shell-specific polling (similar to agent.go) |
+| `internal/plugins/workspace/types.go` | OutputBuffer with hash-based change detection |
+| `internal/plugins/workspace/update.go` | Message handlers for output and polling |
 
 ## Testing Interactive Mode
 
 1. Start sidecar with tmux_interactive_input enabled
-2. Create or select a worktree/shell
+2. Create or select a workspace/shell
 3. Focus preview pane, press `i`
 4. Type commands: `ls`, `echo hello`, navigate with arrows
 5. Verify:
@@ -396,8 +396,8 @@ Enable in `~/.config/sidecar/config.json`:
 5. **Debouncing works** - 20ms delay reduces subprocess spam significantly
 6. **Width sync matters** - resize panes in background at all times (not just interactive mode) and clamp rendering to `pane_width`
 7. **Atomic cursor capture** - query cursor with output to avoid race conditions
-8. **Separate shell/worktree polling** - use the right scheduling function for each type
-9. **Use correct generation maps** - shells use `shellPollGeneration`, worktrees use `pollGeneration`
+8. **Separate shell/workspace polling** - use the right scheduling function for each type
+9. **Use correct generation maps** - shells use `shellPollGeneration`, workspaces use `pollGeneration`
 10. **Invalidate old poll chains on mode entry** - increment generation when entering interactive mode to prevent duplicate parallel poll chains (causes 200% CPU)
 11. **Three-state visibility polling** - visible+focused (fast), visible+unfocused (medium), not visible (slow)
 

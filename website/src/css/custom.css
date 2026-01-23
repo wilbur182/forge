@@ -537,7 +537,7 @@ a:hover {
   background: rgba(102, 217, 239, 0.12);
 }
 
-/* Side-by-side layout for git/files/conversations/worktrees */
+/* Side-by-side layout for git/files/conversations/workspaces */
 .sc-frameBody {
   display: grid;
   grid-template-columns: 28% 72%;
@@ -1109,7 +1109,7 @@ a:hover {
 .sc-mockupDiff,
 .sc-mockupPreview,
 .sc-mockupConvo,
-.sc-mockupWorktree {
+.sc-mockupWorkspace {
   background: rgba(0, 0, 0, 0.25);
   border-radius: 6px;
   border: 1px solid var(--sc-border);

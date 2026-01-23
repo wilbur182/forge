@@ -10,18 +10,18 @@ import (
 // State holds persistent user preferences.
 type State struct {
 	GitDiffMode      string `json:"gitDiffMode"`                // "unified" or "side-by-side"
-	WorktreeDiffMode string `json:"worktreeDiffMode,omitempty"` // "unified" or "side-by-side"
+	WorkspaceDiffMode string `json:"workspaceDiffMode,omitempty"` // "unified" or "side-by-side"
 	GitGraphEnabled  bool   `json:"gitGraphEnabled,omitempty"`  // Show commit graph in sidebar
 
 	// Pane width preferences (percentage of total width, 0 = use default)
 	FileBrowserTreeWidth   int `json:"fileBrowserTreeWidth,omitempty"`
 	GitStatusSidebarWidth  int `json:"gitStatusSidebarWidth,omitempty"`
 	ConversationsSideWidth int `json:"conversationsSideWidth,omitempty"`
-	WorktreeSidebarWidth   int `json:"worktreeSidebarWidth,omitempty"`
+	WorkspaceSidebarWidth   int `json:"workspaceSidebarWidth,omitempty"`
 
 	// Plugin-specific state (keyed by working directory path)
 	FileBrowser  map[string]FileBrowserState `json:"fileBrowser,omitempty"`
-	Worktree     map[string]WorktreeState    `json:"worktree,omitempty"`
+	Workspace    map[string]WorkspaceState    `json:"workspace,omitempty"`
 	ActivePlugin map[string]string           `json:"activePlugin,omitempty"`
 }
 
@@ -45,10 +45,10 @@ type FileBrowserState struct {
 	ActiveTab     int                   `json:"activeTab,omitempty"`
 }
 
-// WorktreeState holds persistent worktree plugin state.
-type WorktreeState struct {
-	WorktreeName      string            `json:"worktreeName,omitempty"`      // Name of selected worktree
-	ShellTmuxName     string            `json:"shellTmuxName,omitempty"`     // TmuxName of selected shell (empty = worktree selected)
+// WorkspaceState holds persistent workspace plugin state.
+type WorkspaceState struct {
+	WorkspaceName      string            `json:"workspaceName,omitempty"`      // Name of selected workspace
+	ShellTmuxName     string            `json:"shellTmuxName,omitempty"`     // TmuxName of selected shell (empty = workspace selected)
 	ShellDisplayNames map[string]string `json:"shellDisplayNames,omitempty"` // TmuxName -> display name
 }
 
@@ -138,23 +138,23 @@ func SetGitDiffMode(mode string) error {
 	return Save()
 }
 
-// GetWorktreeDiffMode returns the saved worktree diff mode.
-func GetWorktreeDiffMode() string {
+// GetWorkspaceDiffMode returns the saved workspace diff mode.
+func GetWorkspaceDiffMode() string {
 	mu.RLock()
 	defer mu.RUnlock()
-	if current == nil || current.WorktreeDiffMode == "" {
+	if current == nil || current.WorkspaceDiffMode == "" {
 		return "unified"
 	}
-	return current.WorktreeDiffMode
+	return current.WorkspaceDiffMode
 }
 
-// SetWorktreeDiffMode saves the worktree diff mode preference.
-func SetWorktreeDiffMode(mode string) error {
+// SetWorkspaceDiffMode saves the workspace diff mode preference.
+func SetWorkspaceDiffMode(mode string) error {
 	mu.Lock()
 	if current == nil {
 		current = &State{}
 	}
-	current.WorktreeDiffMode = mode
+	current.WorkspaceDiffMode = mode
 	mu.Unlock()
 	return Save()
 }
@@ -246,24 +246,24 @@ func SetConversationsSideWidth(width int) error {
 	return Save()
 }
 
-// GetWorktreeSidebarWidth returns the saved worktree sidebar width.
+// GetWorkspaceSidebarWidth returns the saved workspace sidebar width.
 // Returns 0 if no preference is saved (use default).
-func GetWorktreeSidebarWidth() int {
+func GetWorkspaceSidebarWidth() int {
 	mu.RLock()
 	defer mu.RUnlock()
 	if current == nil {
 		return 0
 	}
-	return current.WorktreeSidebarWidth
+	return current.WorkspaceSidebarWidth
 }
 
-// SetWorktreeSidebarWidth saves the worktree sidebar width.
-func SetWorktreeSidebarWidth(width int) error {
+// SetWorkspaceSidebarWidth saves the workspace sidebar width.
+func SetWorkspaceSidebarWidth(width int) error {
 	mu.Lock()
 	if current == nil {
 		current = &State{}
 	}
-	current.WorktreeSidebarWidth = width
+	current.WorkspaceSidebarWidth = width
 	mu.Unlock()
 	return Save()
 }
@@ -292,26 +292,26 @@ func SetFileBrowserState(workdir string, fbState FileBrowserState) error {
 	return Save()
 }
 
-// GetWorktreeState returns the saved worktree state for a given working directory.
-func GetWorktreeState(workdir string) WorktreeState {
+// GetWorkspaceState returns the saved workspace state for a given working directory.
+func GetWorkspaceState(workdir string) WorkspaceState {
 	mu.RLock()
 	defer mu.RUnlock()
-	if current == nil || current.Worktree == nil {
-		return WorktreeState{}
+	if current == nil || current.Workspace == nil {
+		return WorkspaceState{}
 	}
-	return current.Worktree[workdir]
+	return current.Workspace[workdir]
 }
 
-// SetWorktreeState saves the worktree state for a given working directory.
-func SetWorktreeState(workdir string, wtState WorktreeState) error {
+// SetWorkspaceState saves the workspace state for a given working directory.
+func SetWorkspaceState(workdir string, wtState WorkspaceState) error {
 	mu.Lock()
 	if current == nil {
 		current = &State{}
 	}
-	if current.Worktree == nil {
-		current.Worktree = make(map[string]WorktreeState)
+	if current.Workspace == nil {
+		current.Workspace = make(map[string]WorkspaceState)
 	}
-	current.Worktree[workdir] = wtState
+	current.Workspace[workdir] = wtState
 	mu.Unlock()
 	return Save()
 }

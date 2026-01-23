@@ -1,6 +1,6 @@
 # Creating Prompts
 
-Prompts are reusable templates that configure the initial context for agents when creating worktrees. They help standardize common workflows like code reviews, bug fixes, or feature implementation.
+Prompts are reusable templates that configure the initial context for agents when creating workspaces. They help standardize common workflows like code reviews, bug fixes, or feature implementation.
 
 ## Configuration Locations
 

@@ -371,7 +371,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// This ensures characters like `, ~, ?, !, @, 1-5 reach tmux instead of triggering app shortcuts
 	// Ctrl+C is forwarded to tmux (to interrupt running processes) instead of showing quit dialog
 	// User can exit interactive mode with Ctrl+\ first, then quit normally
-	if m.activeContext == "worktree-interactive" {
+	if m.activeContext == "workspace-interactive" {
 		// Forward ALL keys to plugin (exit keys and ctrl+c handled by plugin)
 		if p := m.ActivePlugin(); p != nil {
 			newPlugin, cmd := p.Update(msg)
@@ -852,7 +852,7 @@ func isRootContext(ctx string) bool {
 		return true
 	case "file-browser-tree", "file-browser-preview":
 		return true
-	case "worktree-list", "worktree-preview":
+	case "workspace-list", "workspace-preview":
 		return true
 	case "td-monitor", "td-board":
 		return true
@@ -872,7 +872,7 @@ func isTextInputContext(ctx string) bool {
 		"file-browser-project-search",
 		"file-browser-line-jump",
 		"td-search",
-		"worktree-create", "worktree-task-link", "worktree-rename-shell",
+		"workspace-create", "workspace-task-link", "workspace-rename-shell",
 		"theme-switcher":
 		return true
 	default:

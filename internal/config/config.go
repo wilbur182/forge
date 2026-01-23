@@ -34,7 +34,7 @@ type PluginsConfig struct {
 	GitStatus     GitStatusPluginConfig     `json:"git-status"`
 	TDMonitor     TDMonitorPluginConfig     `json:"td-monitor"`
 	Conversations ConversationsPluginConfig `json:"conversations"`
-	Worktree      WorktreePluginConfig      `json:"worktree"`
+	Workspace     WorkspacePluginConfig      `json:"workspace"`
 }
 
 // GitStatusPluginConfig configures the git status plugin.
@@ -56,10 +56,10 @@ type ConversationsPluginConfig struct {
 	ClaudeDataDir string `json:"claudeDataDir"`
 }
 
-// WorktreePluginConfig configures the worktree plugin.
-type WorktreePluginConfig struct {
-	// DirPrefix prefixes worktree directory names with the repo name (e.g., 'myrepo-feature-auth')
-	// This helps associate conversations with the repo after worktree deletion. Default: true.
+// WorkspacePluginConfig configures the workspace plugin.
+type WorkspacePluginConfig struct {
+	// DirPrefix prefixes workspace directory names with the repo name (e.g., 'myrepo-feature-auth')
+	// This helps associate conversations with the repo after workspace deletion. Default: true.
 	DirPrefix bool `json:"dirPrefix"`
 	// TmuxCaptureMaxBytes caps tmux pane capture size for the preview pane. Default: 2MB.
 	TmuxCaptureMaxBytes int `json:"tmuxCaptureMaxBytes"`
@@ -110,7 +110,7 @@ func Default() *Config {
 				Enabled:       true,
 				ClaudeDataDir: "~/.claude",
 			},
-			Worktree: WorktreePluginConfig{
+			Workspace: WorkspacePluginConfig{
 				DirPrefix:           true,
 				TmuxCaptureMaxBytes: 2 * 1024 * 1024,
 			},
@@ -140,8 +140,8 @@ func (c *Config) Validate() error {
 	if c.Plugins.TDMonitor.RefreshInterval < 0 {
 		c.Plugins.TDMonitor.RefreshInterval = 2 * time.Second
 	}
-	if c.Plugins.Worktree.TmuxCaptureMaxBytes <= 0 {
-		c.Plugins.Worktree.TmuxCaptureMaxBytes = 2 * 1024 * 1024
+	if c.Plugins.Workspace.TmuxCaptureMaxBytes <= 0 {
+		c.Plugins.Workspace.TmuxCaptureMaxBytes = 2 * 1024 * 1024
 	}
 	return nil
 }

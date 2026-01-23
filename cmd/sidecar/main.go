@@ -30,7 +30,7 @@ import (
 	"github.com/marcus/sidecar/internal/plugins/filebrowser"
 	"github.com/marcus/sidecar/internal/plugins/gitstatus"
 	"github.com/marcus/sidecar/internal/plugins/tdmonitor"
-	"github.com/marcus/sidecar/internal/plugins/worktree"
+	"github.com/marcus/sidecar/internal/plugins/workspace"
 	"github.com/marcus/sidecar/internal/state"
 	"github.com/marcus/sidecar/internal/styles"
 )
@@ -151,7 +151,7 @@ func main() {
 	registry.Register(gitstatus.New())
 	registry.Register(filebrowser.New())
 	registry.Register(conversations.New())
-	registry.Register(worktree.New())
+	registry.Register(workspace.New())
 
 	// Apply user keymap overrides
 	for key, cmdID := range cfg.Keymap.Overrides {

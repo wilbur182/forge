@@ -9,7 +9,7 @@ import (
 	"github.com/marcus/td/pkg/monitor"
 	"github.com/marcus/sidecar/internal/app"
 	"github.com/marcus/sidecar/internal/plugin"
-	"github.com/marcus/sidecar/internal/plugins/worktree"
+	"github.com/marcus/sidecar/internal/plugins/workspace"
 	"github.com/marcus/sidecar/internal/styles"
 )
 
@@ -137,12 +137,12 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		return p, p.model.Init()
 	}
 
-	// Intercept TD's SendTaskToWorktree message and route to worktree plugin
+	// Intercept TD's SendTaskToWorktree message and route to workspace plugin
 	if sendMsg, ok := msg.(monitor.SendTaskToWorktreeMsg); ok {
 		return p, tea.Batch(
-			app.FocusPlugin("worktree-manager"),
+			app.FocusPlugin("workspace-manager"),
 			func() tea.Msg {
-				return worktree.OpenCreateModalWithTaskMsg{
+				return workspace.OpenCreateModalWithTaskMsg{
 					TaskID:    sendMsg.TaskID,
 					TaskTitle: sendMsg.TaskTitle,
 				}

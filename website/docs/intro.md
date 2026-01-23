@@ -7,7 +7,7 @@ title: Getting Started
 
 **A terminal dashboard for monitoring AI coding agents.**
 
-Watch your agents work in real-time: see git changes, browse session history, track tasks, and manage parallel worktrees—all from a split-screen terminal UI that complements your agent workflow.
+Watch your agents work in real-time: see git changes, browse session history, track tasks, and manage parallel workspaces—all from a split-screen terminal UI that complements your agent workflow.
 
 ![Sidecar Git Status](../../docs/screenshots/sidecar-git.png)
 
@@ -20,7 +20,7 @@ AI coding agents are powerful but opaque. When Claude Code or Cursor makes chang
 - **Real-time git monitoring** - Stage files, review diffs, commit changes while your agent works
 - **Multi-agent support** - Browse session history from Claude Code, Cursor, Gemini CLI, and more
 - **Parallel development** - Run multiple agents across git worktrees with live output streaming
-- **Task integration** - Connect worktrees to TD tasks for context tracking across sessions
+- **Task integration** - Connect workspaces to TD tasks for context tracking across sessions
 - **Zero context switching** - Everything in your terminal, no editor required
 
 ## Quick Install
@@ -51,7 +51,7 @@ Split your terminal horizontally: agent on the left, sidecar on the right.
 │   Claude Code / Cursor      │      Sidecar        │
 │                             │                     │
 │   $ claude                  │   [Git] [Files]     │
-│   > fix the auth bug...     │   [TD]  [Worktrees] │
+│   > fix the auth bug...     │   [TD]  [Workspaces] │
 │                             │                     │
 └─────────────────────────────┴─────────────────────┘
 ```
@@ -61,7 +61,7 @@ Split your terminal horizontally: agent on the left, sidecar on the right.
 - Watch files appear in Git Status with live diffs
 - See tasks progress through workflow stages in TD Monitor
 - Browse and edit code yourself in File Browser
-- Launch parallel agents in worktrees for multi-branch work
+- Launch parallel agents in workspaces for multi-branch work
 
 This setup provides full transparency into agent actions without breaking focus.
 
@@ -91,18 +91,18 @@ Watch your agent's changes in real-time with syntax-highlighted diffs, stage fil
 
 [Full Git Plugin documentation →](./git-plugin)
 
-### Worktrees
+### Workspaces
 
 **Run parallel AI agents across git worktrees with real-time output streaming.**
 
-Create isolated branches, launch agents with custom prompts, and watch their progress in a Kanban board. Each worktree streams agent output live, shows diffs, and links to TD tasks for context. Perfect for multi-branch development or testing multiple approaches simultaneously.
+Create isolated branches, launch agents with custom prompts, and watch their progress in a Kanban board. Each workspace streams agent output live, shows diffs, and links to TD tasks for context. Perfect for multi-branch development or testing multiple approaches simultaneously.
 
 **Essential shortcuts:**
 
 | Key | Action |
 |-----|--------|
-| `n` | Create new worktree |
-| `s` | Start agent in worktree |
+| `n` | Create new workspace |
+| `s` | Start agent in workspace |
 | `enter` | Attach to running agent |
 | `v` | Toggle list/Kanban view |
 | `m` | Start merge workflow |
@@ -110,7 +110,7 @@ Create isolated branches, launch agents with custom prompts, and watch their pro
 
 **Supported agents:** Claude Code, Cursor, Gemini CLI, OpenCode, Codex, Aider
 
-[Full Worktrees Plugin documentation →](./worktrees-plugin)
+[Full Workspaces Plugin documentation →](./workspaces-plugin)
 
 ### Conversations
 
@@ -194,7 +194,7 @@ Sidecar runs with sensible defaults. Create `~/.config/sidecar/config.json` only
     "td-monitor": { "enabled": true, "refreshInterval": "2s" },
     "conversations": { "enabled": true },
     "file-browser": { "enabled": true },
-    "worktrees": { "enabled": true }
+    "workspaces": { "enabled": true }
   },
   "ui": {
     "showFooter": true,
@@ -203,7 +203,7 @@ Sidecar runs with sensible defaults. Create `~/.config/sidecar/config.json` only
 }
 ```
 
-**Plugin-specific config:** Worktree prompts support project-level overrides via `.sidecar/config.json`. See [Worktrees documentation](./worktrees-plugin#custom-prompts) for details.
+**Plugin-specific config:** Workspace prompts support project-level overrides via `.sidecar/config.json`. See [Workspaces documentation](./workspaces-plugin#custom-prompts) for details.
 
 ## Command-Line Options
 
@@ -227,7 +227,7 @@ curl -fsSL https://raw.githubusercontent.com/marcus/sidecar/main/scripts/setup.s
 ## What's Next?
 
 - **[Git Plugin](./git-plugin)** - Full reference for staging, diffing, and commits
-- **[Worktrees Plugin](./worktrees-plugin)** - Parallel agent setup and management
+- **[Workspaces Plugin](./workspaces-plugin)** - Parallel agent setup and management
 - **[TD Integration](./td)** - Task tracking across sessions
 - **[GitHub Repository](https://github.com/marcus/sidecar)** - Source code and issues
 

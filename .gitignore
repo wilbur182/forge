@@ -50,7 +50,7 @@ config.local.json
 .sidecar-task
 .td-root
 
-# Sidecar worktree state files
+# Sidecar workspace state files
 .sidecar-pr
 
 # Docusaurus
@@ -58,6 +58,6 @@ website/node_modules/
 website/.docusaurus/
 website/build/
 
-# Sidecar worktree state files
+# Sidecar workspace state files
 .sidecar-start.sh
 screenshots/

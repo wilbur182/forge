@@ -65,7 +65,7 @@ A practical, code-oriented guide for building first-class Sidecar plugins. Use t
 - Add a field to `state.State` struct plus getter/setter functions following the existing pattern.
 - Load saved values in `Init()`: `if saved := state.GetMyPaneWidth(); saved > 0 { p.paneWidth = saved }`.
 - Save on user action (e.g., drag end): `_ = state.SetMyPaneWidth(p.paneWidth)`.
-- See `WorktreeSidebarWidth`, `GitStatusSidebarWidth` for examples.
+- See `WorkspaceSidebarWidth`, `GitStatusSidebarWidth` for examples.
 
 ## Watchers and goroutines
 - Start watchers in `Start()` via a `tea.Cmd` that spawns the goroutine and returns a typed `Msg` on events.

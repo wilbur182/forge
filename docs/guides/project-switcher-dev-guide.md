@@ -373,7 +373,7 @@ func (m *Model) switchProject(projectPath string) tea.Cmd {
 
 ### Plugin Reinitialization
 
-When switching projects, plugins receive a new `Init()` call. Plugins must reset their state - see `internal/plugins/worktree/plugin.go:259-265` for an example of proper state reset.
+When switching projects, plugins receive a new `Init()` call. Plugins must reset their state - see `internal/plugins/workspace/plugin.go:259-265` for an example of proper state reset.
 
 ## Adding New Features
 

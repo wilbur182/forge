@@ -305,16 +305,16 @@ td handoff td-bug123 \
   --uncertain "Should we add circuit breaker for auth service?"
 ```
 
-### Parallel Work with Sidecar Worktrees
+### Parallel Work with Sidecar Workspaces
 
-TD integrates with Sidecar's worktree management for parallel development:
+TD integrates with Sidecar's workspace management for parallel development:
 
 ```bash
 # In Sidecar:
-# 1. Press 'n' - create worktree for feature branch
-# 2. Press 't' - link TD task to worktree
-# 3. Agent works in worktree, tracks with TD
-# 4. Press 'r' - review in original worktree (different session)
+# 1. Press 'n' - create workspace for feature branch
+# 2. Press 't' - link TD task to workspace
+# 3. Agent works in workspace, tracks with TD
+# 4. Press 'r' - review in original workspace (different session)
 ```
 
 This workflow ensures clean separation: implementation session cannot approve its own work.
@@ -342,7 +342,7 @@ Sidecar's **TD Monitor plugin** provides seamless integration:
 - Submit reviews directly (`r`)
 - Navigate to issue details (`enter`)
 - Real-time refresh on file changes
-- Synchronized with Sidecar's worktree management
+- Synchronized with Sidecar's workspace management
 
 Open TD Monitor: press `t` in Sidecar's main view.
 

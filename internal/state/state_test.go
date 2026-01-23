@@ -396,36 +396,36 @@ func TestRoundTrip(t *testing.T) {
 	current = originalCurrent
 }
 
-func TestGetWorktreeState_Default(t *testing.T) {
+func TestGetWorkspaceState_Default(t *testing.T) {
 	originalCurrent := current
 	defer func() { current = originalCurrent }()
 
 	current = nil
-	state := GetWorktreeState("/path/to/project")
-	if state.WorktreeName != "" || state.ShellTmuxName != "" || len(state.ShellDisplayNames) > 0 {
-		t.Errorf("GetWorktreeState() with nil current should return empty state")
+	state := GetWorkspaceState("/path/to/project")
+	if state.WorkspaceName != "" || state.ShellTmuxName != "" || len(state.ShellDisplayNames) > 0 {
+		t.Errorf("GetWorkspaceState() with nil current should return empty state")
 	}
 }
 
-func TestGetWorktreeState_EmptyMap(t *testing.T) {
+func TestGetWorkspaceState_EmptyMap(t *testing.T) {
 	originalCurrent := current
 	defer func() { current = originalCurrent }()
 
-	current = &State{Worktree: nil}
-	state := GetWorktreeState("/path/to/project")
-	if state.WorktreeName != "" || state.ShellTmuxName != "" || len(state.ShellDisplayNames) > 0 {
-		t.Errorf("GetWorktreeState() with nil map should return empty state")
+	current = &State{Workspace: nil}
+	state := GetWorkspaceState("/path/to/project")
+	if state.WorkspaceName != "" || state.ShellTmuxName != "" || len(state.ShellDisplayNames) > 0 {
+		t.Errorf("GetWorkspaceState() with nil map should return empty state")
 	}
 }
 
-func TestGetWorktreeState_Found(t *testing.T) {
+func TestGetWorkspaceState_Found(t *testing.T) {
 	originalCurrent := current
 	defer func() { current = originalCurrent }()
 
 	current = &State{
-		Worktree: map[string]WorktreeState{
+		Workspace: map[string]WorkspaceState{
 			"/path/to/project": {
-				WorktreeName:  "feature-branch",
+				WorkspaceName:  "feature-branch",
 				ShellTmuxName: "sidecar-sh-project-1",
 				ShellDisplayNames: map[string]string{
 					"sidecar-sh-project-1": "Backend",
@@ -433,9 +433,9 @@ func TestGetWorktreeState_Found(t *testing.T) {
 			},
 		},
 	}
-	state := GetWorktreeState("/path/to/project")
-	if state.WorktreeName != "feature-branch" {
-		t.Errorf("WorktreeName = %q, want feature-branch", state.WorktreeName)
+	state := GetWorkspaceState("/path/to/project")
+	if state.WorkspaceName != "feature-branch" {
+		t.Errorf("WorkspaceName = %q, want feature-branch", state.WorkspaceName)
 	}
 	if state.ShellTmuxName != "sidecar-sh-project-1" {
 		t.Errorf("ShellTmuxName = %q, want sidecar-sh-project-1", state.ShellTmuxName)
@@ -445,7 +445,7 @@ func TestGetWorktreeState_Found(t *testing.T) {
 	}
 }
 
-func TestSetWorktreeState(t *testing.T) {
+func TestSetWorkspaceState(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalPath := path
 	originalCurrent := current
@@ -458,23 +458,23 @@ func TestSetWorktreeState(t *testing.T) {
 	path = stateFile
 	current = &State{}
 
-	wtState := WorktreeState{
-		WorktreeName:  "my-worktree",
+	wtState := WorkspaceState{
+		WorkspaceName:  "my-workspace",
 		ShellTmuxName: "",
 		ShellDisplayNames: map[string]string{
 			"sidecar-sh-project-1": "Backend",
 		},
 	}
 
-	err := SetWorktreeState("/projects/sidecar", wtState)
+	err := SetWorkspaceState("/projects/sidecar", wtState)
 	if err != nil {
-		t.Fatalf("SetWorktreeState() failed: %v", err)
+		t.Fatalf("SetWorkspaceState() failed: %v", err)
 	}
 
 	// Verify in memory
-	stored := current.Worktree["/projects/sidecar"]
-	if stored.WorktreeName != "my-worktree" {
-		t.Errorf("stored WorktreeName = %q, want my-worktree", stored.WorktreeName)
+	stored := current.Workspace["/projects/sidecar"]
+	if stored.WorkspaceName != "my-workspace" {
+		t.Errorf("stored WorkspaceName = %q, want my-workspace", stored.WorkspaceName)
 	}
 	if stored.ShellDisplayNames["sidecar-sh-project-1"] != "Backend" {
 		t.Errorf("stored ShellDisplayNames[sidecar-sh-project-1] = %q, want Backend", stored.ShellDisplayNames["sidecar-sh-project-1"])
@@ -484,15 +484,15 @@ func TestSetWorktreeState(t *testing.T) {
 	data, _ := os.ReadFile(stateFile)
 	var loaded State
 	_ = json.Unmarshal(data, &loaded)
-	if loaded.Worktree["/projects/sidecar"].WorktreeName != "my-worktree" {
-		t.Errorf("persisted WorktreeName = %q, want my-worktree", loaded.Worktree["/projects/sidecar"].WorktreeName)
+	if loaded.Workspace["/projects/sidecar"].WorkspaceName != "my-workspace" {
+		t.Errorf("persisted WorkspaceName = %q, want my-workspace", loaded.Workspace["/projects/sidecar"].WorkspaceName)
 	}
-	if loaded.Worktree["/projects/sidecar"].ShellDisplayNames["sidecar-sh-project-1"] != "Backend" {
-		t.Errorf("persisted ShellDisplayNames[sidecar-sh-project-1] = %q, want Backend", loaded.Worktree["/projects/sidecar"].ShellDisplayNames["sidecar-sh-project-1"])
+	if loaded.Workspace["/projects/sidecar"].ShellDisplayNames["sidecar-sh-project-1"] != "Backend" {
+		t.Errorf("persisted ShellDisplayNames[sidecar-sh-project-1] = %q, want Backend", loaded.Workspace["/projects/sidecar"].ShellDisplayNames["sidecar-sh-project-1"])
 	}
 }
 
-func TestSetWorktreeState_ShellSelection(t *testing.T) {
+func TestSetWorkspaceState_ShellSelection(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalPath := path
 	originalCurrent := current
@@ -505,22 +505,22 @@ func TestSetWorktreeState_ShellSelection(t *testing.T) {
 	current = &State{}
 
 	// Save shell selection
-	wtState := WorktreeState{
-		WorktreeName:  "",
+	wtState := WorkspaceState{
+		WorkspaceName:  "",
 		ShellTmuxName: "sidecar-sh-project-2",
 	}
 
-	err := SetWorktreeState("/projects/myapp", wtState)
+	err := SetWorkspaceState("/projects/myapp", wtState)
 	if err != nil {
-		t.Fatalf("SetWorktreeState() failed: %v", err)
+		t.Fatalf("SetWorkspaceState() failed: %v", err)
 	}
 
 	// Verify
-	stored := current.Worktree["/projects/myapp"]
+	stored := current.Workspace["/projects/myapp"]
 	if stored.ShellTmuxName != "sidecar-sh-project-2" {
 		t.Errorf("stored ShellTmuxName = %q, want sidecar-sh-project-2", stored.ShellTmuxName)
 	}
-	if stored.WorktreeName != "" {
-		t.Errorf("stored WorktreeName = %q, want empty", stored.WorktreeName)
+	if stored.WorkspaceName != "" {
+		t.Errorf("stored WorkspaceName = %q, want empty", stored.WorkspaceName)
 	}
 }

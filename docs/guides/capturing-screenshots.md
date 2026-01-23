@@ -34,7 +34,7 @@ This starts sidecar in a detached tmux session sized to your current terminal.
 Or directly: `tmux attach -t sidecar-screenshot`
 
 Once attached:
-1. Navigate to screens using number keys: **1=TD, 2=Git, 3=Files, 4=Conversations, 5=Worktrees**
+1. Navigate to screens using number keys: **1=TD, 2=Git, 3=Files, 4=Conversations, 5=Workspaces**
 2. Within a screen, use **j/k** (or arrow keys) to navigate up/down
 3. Press **Enter** or **Space** to interact with items
 4. Detach from tmux with **Ctrl+A D** (the tmux prefix in this session is Ctrl+A)
@@ -112,7 +112,7 @@ Before you can interact with sidecar via tmux, you must configure tmux to allow 
 - **2** = Git
 - **3** = Files (file browser)
 - **4** = Conversations
-- **5** = Worktrees
+- **5** = Workspaces
 
 **Within a screen:**
 - **j/k** or arrow keys = navigate items
@@ -180,14 +180,14 @@ y                         # Confirm
 - **2** = Git
 - **3** = Files
 - **4** = Conversations
-- **5** = Worktrees
+- **5** = Workspaces
 
 **Waiting for render:** Each plugin has unique footer hints. Use `@wait:` to ensure the plugin is fully rendered:
 - TD: `@wait:Handoffs`
 - Git: `@wait:Stage`
 - Files: `@wait:Blame`
 - Conversations: `@wait:Resume`
-- Worktrees: `@wait:Kanban`
+- Workspaces: `@wait:Kanban`
 
 ### Creating New Sequences
 

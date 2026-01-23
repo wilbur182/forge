@@ -38,10 +38,10 @@ type rawPluginsConfig struct {
 	GitStatus     rawGitStatusConfig     `json:"git-status"`
 	TDMonitor     rawTDMonitorConfig     `json:"td-monitor"`
 	Conversations rawConversationsConfig `json:"conversations"`
-	Worktree      rawWorktreeConfig      `json:"worktree"`
+	Workspace     rawWorkspaceConfig      `json:"workspace"`
 }
 
-type rawWorktreeConfig struct {
+type rawWorkspaceConfig struct {
 	DirPrefix            *bool  `json:"dirPrefix"`
 	TmuxCaptureMaxBytes  *int   `json:"tmuxCaptureMaxBytes"`
 	InteractiveExitKey   string `json:"interactiveExitKey"`
@@ -167,18 +167,18 @@ func mergeConfig(cfg *Config, raw *rawConfig) {
 		cfg.Plugins.Conversations.ClaudeDataDir = raw.Plugins.Conversations.ClaudeDataDir
 	}
 
-	// Worktree
-	if raw.Plugins.Worktree.DirPrefix != nil {
-		cfg.Plugins.Worktree.DirPrefix = *raw.Plugins.Worktree.DirPrefix
+	// Workspace
+	if raw.Plugins.Workspace.DirPrefix != nil {
+		cfg.Plugins.Workspace.DirPrefix = *raw.Plugins.Workspace.DirPrefix
 	}
-	if raw.Plugins.Worktree.TmuxCaptureMaxBytes != nil {
-		cfg.Plugins.Worktree.TmuxCaptureMaxBytes = *raw.Plugins.Worktree.TmuxCaptureMaxBytes
+	if raw.Plugins.Workspace.TmuxCaptureMaxBytes != nil {
+		cfg.Plugins.Workspace.TmuxCaptureMaxBytes = *raw.Plugins.Workspace.TmuxCaptureMaxBytes
 	}
-	if raw.Plugins.Worktree.InteractiveExitKey != "" {
-		cfg.Plugins.Worktree.InteractiveExitKey = raw.Plugins.Worktree.InteractiveExitKey
+	if raw.Plugins.Workspace.InteractiveExitKey != "" {
+		cfg.Plugins.Workspace.InteractiveExitKey = raw.Plugins.Workspace.InteractiveExitKey
 	}
-	if raw.Plugins.Worktree.InteractiveAttachKey != "" {
-		cfg.Plugins.Worktree.InteractiveAttachKey = raw.Plugins.Worktree.InteractiveAttachKey
+	if raw.Plugins.Workspace.InteractiveAttachKey != "" {
+		cfg.Plugins.Workspace.InteractiveAttachKey = raw.Plugins.Workspace.InteractiveAttachKey
 	}
 
 	// Keymap

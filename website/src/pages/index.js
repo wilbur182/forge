@@ -3,7 +3,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 
-const TABS = ['td', 'git', 'files', 'conversations', 'worktrees'];
+const TABS = ['td', 'git', 'files', 'conversations', 'workspaces'];
 
 const INSTALL_COMMAND = 'curl -fsSL https://raw.githubusercontent.com/marcus/sidecar/main/scripts/setup.sh | bash';
 
@@ -244,11 +244,11 @@ function ConversationsPane() {
   );
 }
 
-function WorktreesPane() {
+function WorkspacesPane() {
   return (
     <>
       <div className="sc-paneSidebar">
-        <p className="sc-sectionTitle">Worktrees</p>
+        <p className="sc-sectionTitle">Workspaces</p>
         <div className="sc-list">
           <div className="sc-item">
             <span className="sc-bullet sc-bulletGreen" />
@@ -280,7 +280,7 @@ function WorktreesPane() {
           <div><span className="sc-lineYellow">Prompts:</span> 3 configured</div>
           <div style={{ height: 3 }} />
           <div className="sc-lineDim">Actions:</div>
-          <div>  <span className="sc-lineGreen">[n]</span> New worktree + agent</div>
+          <div>  <span className="sc-lineGreen">[n]</span> New workspace + agent</div>
           <div>  <span className="sc-lineGreen">[s]</span> Send task from td</div>
           <div>  <span className="sc-lineGreen">[p]</span> Run prompt sequence</div>
           <div style={{ height: 3 }} />
@@ -312,8 +312,8 @@ function Frame({ activeTab, onTabChange }) {
       case 'git': return <GitPane />;
       case 'files': return <FilesPane />;
       case 'conversations': return <ConversationsPane />;
-      case 'worktrees': return <WorktreesPane />;
-      default: return <WorktreesPane />;
+      case 'workspaces': return <WorkspacesPane />;
+      default: return <WorkspacesPane />;
     }
   };
 
@@ -608,11 +608,11 @@ function ConversationsMockup() {
   );
 }
 
-function WorktreesMockup() {
+function WorkspacesMockup() {
   return (
-    <div className="sc-mockup sc-mockupWorktrees">
+    <div className="sc-mockup sc-mockupWorkspaces">
       <div className="sc-mockupHeader">
-        <span className="sc-mockupTitle">Worktrees</span>
+        <span className="sc-mockupTitle">Workspaces</span>
         <span className="sc-lineDim">zero commands | auto</span>
       </div>
       <div className="sc-mockupBody">
@@ -640,7 +640,7 @@ function WorktreesMockup() {
           </div>
         </div>
         <div className="sc-mockupMain">
-          <div className="sc-mockupWorktree">
+          <div className="sc-mockupWorkspace">
             <div className="sc-lineBlue" style={{ fontSize: 12, marginBottom: 6 }}>feature/auth</div>
             <div style={{ display: 'grid', gap: 3, fontSize: 10 }}>
               <div><span className="sc-lineDim">PR:</span> <span className="sc-lineGreen">#47 Add JWT auth</span></div>
@@ -649,7 +649,7 @@ function WorktreesMockup() {
             </div>
             <div style={{ marginTop: 8, fontSize: 10 }}>
               <div className="sc-lineDim" style={{ marginBottom: 3 }}>Quick actions</div>
-              <div><span className="sc-lineGreen">[n]</span> New worktree + agent</div>
+              <div><span className="sc-lineGreen">[n]</span> New workspace + agent</div>
               <div><span className="sc-lineGreen">[s]</span> Send task from td</div>
               <div><span className="sc-lineGreen">[p]</span> Run prompt sequence</div>
               <div><span className="sc-lineGreen">[m]</span> Merge & cleanup</div>
@@ -785,7 +785,7 @@ export default function Home() {
   return (
     <Layout
       title="You might never open your editor again"
-      description="AI agents write your code. Sidecar keeps you in the terminal for everything else: planning tasks, reviewing diffs, staging commits, managing worktrees."
+      description="AI agents write your code. Sidecar keeps you in the terminal for everything else: planning tasks, reviewing diffs, staging commits, managing workspaces."
     >
       <header className="sc-hero">
         <div className="container">
@@ -801,7 +801,7 @@ export default function Home() {
 
             <p className="sc-subtitle">
               Sidecar puts your entire development workflow in one shell:
-              plan tasks with <a href="https://github.com/marcus/td" className="sc-inlineLink">td</a>, chat with AI agents, review diffs, stage commits, review past conversations, and manage git worktrees—all without leaving Sidecar.
+              plan tasks with <a href="https://github.com/marcus/td" className="sc-inlineLink">td</a>, chat with AI agents, review diffs, stage commits, review past conversations, and manage git workspaces—all without leaving Sidecar.
             </p>
 
             <div className="sc-heroCta">
@@ -897,13 +897,13 @@ export default function Home() {
               </FeatureCard>
 
               <FeatureCard
-                id="worktrees"
-                title="Zero-command worktree workflow"
-                chip="worktrees"
-                isHighlighted={activeTab === 'worktrees'}
-                onClick={() => handleCardClick('worktrees')}
+                id="workspaces"
+                title="Zero-command workspace workflow"
+                chip="workspaces"
+                isHighlighted={activeTab === 'workspaces'}
+                onClick={() => handleCardClick('workspaces')}
               >
-                Create worktrees, pass tasks from td, kick off with configured prompts—no git commands needed. Everything is automatic.
+                Create workspaces, pass tasks from td, kick off with configured prompts—no git commands needed. Everything is automatic.
               </FeatureCard>
             </div>
           </div>
@@ -983,18 +983,18 @@ export default function Home() {
             />
 
             <ComponentSection
-              id="showcase-worktrees"
-              title="Zero-Command Worktree Workflow"
+              id="showcase-workspaces"
+              title="Zero-Command Workspace Workflow"
               gradient="sc-gradientYellow"
-              MockupComponent={WorktreesMockup}
+              MockupComponent={WorkspacesMockup}
               features={[
                 'No git commands needed--everything is automatic',
-                'Pass tasks directly from td to new worktrees',
+                'Pass tasks directly from td to new workspaces',
                 'Configure prompt sequences to kick off agents',
                 'Create, switch, merge, delete with single keys',
                 'PR status and CI checks at a glance',
                 'Auto-cleanup after merge',
-                'Linked task tracking across worktrees',
+                'Linked task tracking across workspaces',
               ]}
             />
           </div>
@@ -1046,7 +1046,7 @@ export default function Home() {
                 icon="git-branch"
                 title="Git Integration"
                 color="blue"
-                description="Deep integration with git: status, diff, staging, commits, branches, and worktrees."
+                description="Deep integration with git: status, diff, staging, commits, branches, and workspaces."
               />
               <FeatureListItem
                 icon="palette"
@@ -1117,7 +1117,7 @@ export default function Home() {
               </div>
               <div className="sc-miniFeature">
                 <span className="sc-miniFeatureIcon"><i className="icon-trello" /></span>
-                <span>Kanban Worktrees</span>
+                <span>Kanban Workspaces</span>
               </div>
               <div className="sc-miniFeature">
                 <span className="sc-miniFeatureIcon"><i className="icon-link" /></span>

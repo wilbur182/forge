@@ -10,7 +10,7 @@ You might never open your editor again.
 
 ## Overview
 
-Sidecar puts your entire development workflow in one shell: plan tasks with [td](https://github.com/marcus/td), chat with AI agents, review diffs, stage commits, review past conversations, and manage git worktrees—all without leaving Sidecar.
+Sidecar puts your entire development workflow in one shell: plan tasks with [td](https://github.com/marcus/td), chat with AI agents, review diffs, stage commits, review past conversations, and manage workspaces—all without leaving Sidecar.
 
 ## Quick Install
 
@@ -43,7 +43,7 @@ Split your terminal horizontally: run your coding agent (Claude Code, Cursor, et
 │   Claude Code / Cursor      │      Sidecar        │
 │                             │                     │
 │   $ claude                  │   [Git] [Files]     │
-│   > fix the auth bug...     │   [Tasks] [Worktrees]│
+│   > fix the auth bug...     │   [Tasks] [Workspaces]│
 │                             │                     │
 └─────────────────────────────┴─────────────────────┘
 ```
@@ -134,16 +134,16 @@ Navigate project files with a tree view and syntax-highlighted preview. [Full do
 - Code preview with syntax highlighting
 - Auto-refresh on file changes
 
-### Worktrees
+### Workspaces
 
-Manage git worktrees for parallel development with integrated agent support. Create isolated branches as sibling directories, link tasks from TD, and launch coding agents directly from sidecar. [Full documentation →](https://marcus.github.io/sidecar/docs/worktrees-plugin)
+Manage workspaces for parallel development with integrated agent support. Create isolated branches as sibling directories, link tasks from TD, and launch coding agents directly from sidecar. [Full documentation →](https://marcus.github.io/sidecar/docs/workspaces-plugin)
 
-![Worktrees](docs/screenshots/sidecar-worktrees.png)
+![Workspaces](docs/screenshots/sidecar-workspaces.png)
 
 **Features:**
 
-- Create and delete git worktrees with `n`/`D`
-- Link TD tasks to worktrees for context tracking
+- Create and delete workspaces with `n`/`D`
+- Link TD tasks to workspaces for context tracking
 - Launch Claude Code, Cursor, or OpenRouter agents with `a`
 - Merge workflow: commit, push, create PR, and cleanup with `m`
 - Auto-adds sidecar state files to .gitignore
@@ -199,12 +199,12 @@ All plugins reinitialize with the new project context. State (active plugin, cur
 | `h/l` | Switch sidebar/diff focus |
 | `c`   | Commit staged changes     |
 
-### Worktree Shortcuts
+### Workspace Shortcuts
 
 | Key | Action                  |
 | --- | ----------------------- |
-| `n` | Create new worktree     |
-| `D` | Delete worktree         |
+| `n` | Create new workspace     |
+| `D` | Delete workspace         |
 | `a` | Launch/attach agent     |
 | `t` | Link/unlink TD task     |
 | `m` | Start merge workflow    |
@@ -222,7 +222,7 @@ Config file: `~/.config/sidecar/config.json`
     "td-monitor": { "enabled": true, "refreshInterval": "2s" },
     "conversations": { "enabled": true },
     "file-browser": { "enabled": true },
-    "worktrees": { "enabled": true }
+    "workspaces": { "enabled": true }
   },
   "ui": {
     "showFooter": true,

@@ -25,7 +25,7 @@ type savePluginsConfig struct {
 	GitStatus     saveGitStatusConfig     `json:"git-status,omitempty"`
 	TDMonitor     saveTDMonitorConfig     `json:"td-monitor,omitempty"`
 	Conversations saveConversationsConfig `json:"conversations,omitempty"`
-	Worktree      saveWorktreeConfig      `json:"worktree,omitempty"`
+	Workspace     saveWorkspaceConfig      `json:"workspace,omitempty"`
 }
 
 type saveGitStatusConfig struct {
@@ -44,7 +44,7 @@ type saveConversationsConfig struct {
 	ClaudeDataDir string `json:"claudeDataDir,omitempty"`
 }
 
-type saveWorktreeConfig struct {
+type saveWorkspaceConfig struct {
 	DirPrefix            *bool  `json:"dirPrefix,omitempty"`
 	TmuxCaptureMaxBytes  *int   `json:"tmuxCaptureMaxBytes,omitempty"`
 	InteractiveExitKey   string `json:"interactiveExitKey,omitempty"`
@@ -73,11 +73,11 @@ func toSaveConfig(cfg *Config) saveConfig {
 				Enabled:       &cfg.Plugins.Conversations.Enabled,
 				ClaudeDataDir: cfg.Plugins.Conversations.ClaudeDataDir,
 			},
-			Worktree: saveWorktreeConfig{
-				DirPrefix:            &cfg.Plugins.Worktree.DirPrefix,
-				TmuxCaptureMaxBytes:  &cfg.Plugins.Worktree.TmuxCaptureMaxBytes,
-				InteractiveExitKey:   cfg.Plugins.Worktree.InteractiveExitKey,
-				InteractiveAttachKey: cfg.Plugins.Worktree.InteractiveAttachKey,
+			Workspace: saveWorkspaceConfig{
+				DirPrefix:            &cfg.Plugins.Workspace.DirPrefix,
+				TmuxCaptureMaxBytes:  &cfg.Plugins.Workspace.TmuxCaptureMaxBytes,
+				InteractiveExitKey:   cfg.Plugins.Workspace.InteractiveExitKey,
+				InteractiveAttachKey: cfg.Plugins.Workspace.InteractiveAttachKey,
 			},
 		},
 		Keymap:   cfg.Keymap,

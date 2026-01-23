@@ -38,7 +38,7 @@ All notable changes to sidecar are documented here.
 ### Performance
 - **Interactive Mode**: Three-state visibility polling (visible+focused, visible+unfocused, not visible)
 - **Interactive Mode**: Fixed duplicate poll chain bug causing 200% CPU usage
-- **Interactive Mode**: Correct generation map usage for shell vs worktree polling
+- **Interactive Mode**: Correct generation map usage for shell vs workspace polling
 
 ## [v0.38.0] - 2026-01-22
 
@@ -46,7 +46,7 @@ All notable changes to sidecar are documented here.
 - **Interactive Mode**: Beta interactive shell mode behind feature flag (`features.interactiveMode`)
 
 ### Improvements
-- **Worktree**: Modal keyboard navigation with tab/shift+tab cycling
+- **Workspace**: Modal keyboard navigation with tab/shift+tab cycling
 
 ### Dependencies
 - Updated embedded td to v0.20.0
@@ -70,8 +70,8 @@ All notable changes to sidecar are documented here.
 
 ### Features
 - **Tabs**: Configurable tab themes with 16 built-in presets
-- **Worktree**: File picker modal (`f`) in diff view
-- **Worktree**: File headers and navigation in diff pane
+- **Workspace**: File picker modal (`f`) in diff view
+- **Workspace**: File headers and navigation in diff pane
 - **Project Switcher**: Header click opens project switcher
 - **Shells**: Rename shells with persistent display names
 - **Shortcuts**: Improved modal layout
@@ -82,9 +82,9 @@ All notable changes to sidecar are documented here.
 
 ### Bug Fixes
 - **Merge**: Better error handling and resolution actions
-- **Worktree**: Fix race conditions in caches and pre-fetch
-- **Worktree**: Flash preview pane on invalid key interactions
-- **Worktree**: Fix worktree deletion from non-repo cwd
+- **Workspace**: Fix race conditions in caches and pre-fetch
+- **Workspace**: Flash preview pane on invalid key interactions
+- **Workspace**: Fix workspace deletion from non-repo cwd
 - **Watchers**: Fix race conditions and buffer issues
 - **Project Switcher**: Don't hijack filter input
 - **Shells**: Fix display name persistence when saving defaults
@@ -96,36 +96,36 @@ All notable changes to sidecar are documented here.
 ## [v0.33.0] - 2026-01-20
 
 ### Features
-- **Worktree**: Multiple shells per worktree - open and manage multiple terminal sessions
-- **Worktree**: [+] buttons in Shells and Worktrees sub-headers for quick creation
-- **Worktree**: Persist and restore worktree/shell selection across sessions
+- **Workspace**: Multiple shells per workspace - open and manage multiple terminal sessions
+- **Workspace**: [+] buttons in Shells and Workspaces sub-headers for quick creation
+- **Workspace**: Persist and restore workspace/shell selection across sessions
 - **Project Switcher**: g/G navigation to jump to first/last project
 - **File Browser**: Auto-refresh tree on plugin focus
 
 ### Bug Fixes
-- **Worktree**: Fix orphaned tmux sessions on worktree delete/merge
-- **Worktree**: Fix shell selection shift when earlier shell removed
-- **Worktree**: Fix shell selection bugs and use name-based polling
+- **Workspace**: Fix orphaned tmux sessions on workspace delete/merge
+- **Workspace**: Fix shell selection shift when earlier shell removed
+- **Workspace**: Fix shell selection bugs and use name-based polling
 
 ## [v0.32.0] - 2026-01-20
 
 ### Features
-- **Worktree**: Improved shell UX and navigation
+- **Workspace**: Improved shell UX and navigation
 
 ### Bug Fixes
-- **Worktree**: Auto-focus newly created worktree in list and preview
-- **Worktree**: Handle waitForSession failure in ensureShellAndAttach
+- **Workspace**: Auto-focus newly created workspace in list and preview
+- **Workspace**: Handle waitForSession failure in ensureShellAndAttach
 
 ## [v0.31.0] - 2026-01-20
 
 ### Features
-- **Worktree**: Project shell as first entry in worktree list
+- **Workspace**: Project shell as first entry in workspace list
 
 ### Bug Fixes
-- **Worktree**: Shell preview shows output immediately
-- **Worktree**: Auto-attach to existing shell with improved primer text
-- **Worktree**: Fixed shell preview, primer, and project switch issues
-- **Worktree**: Replace fixed sleep with retry loop in ensureShellAndAttach
+- **Workspace**: Shell preview shows output immediately
+- **Workspace**: Auto-attach to existing shell with improved primer text
+- **Workspace**: Fixed shell preview, primer, and project switch issues
+- **Workspace**: Replace fixed sleep with retry loop in ensureShellAndAttach
 - **Project Switcher**: Better help modal
 - **Website**: Fixed hamburger menu navigation links
 
@@ -157,7 +157,7 @@ All notable changes to sidecar are documented here.
 - **File Browser**: Vim-style `:<number>` line jump in file preview
 
 ### Bug Fixes
-- **Worktree**: Reload commit status when cached list is empty
+- **Workspace**: Reload commit status when cached list is empty
 
 ### Dependencies
 - Updated embedded td to v0.16.0
@@ -176,14 +176,14 @@ All notable changes to sidecar are documented here.
 
 ### Features
 - **Git Blame View**: Added blame view to file browser plugin
-- **Thinking Status**: Added thinking status indicator to worktree with detection priority fix
+- **Thinking Status**: Added thinking status indicator to workspace with detection priority fix
 - **Truncation Cache**: Added truncation cache to eliminate ANSI parser allocation churn
 
 ### Performance
 - **Conversations Plugin**: Performance improvements with code review refinements
 
 ### Bug Fixes
-- Fixed memory leak in worktree output panel horizontal scrolling
+- Fixed memory leak in workspace output panel horizontal scrolling
 - Fixed unicode truncation and extracted blame constants
 
 ### Dependencies
@@ -218,15 +218,15 @@ All notable changes to sidecar are documented here.
 
 ### Features
 - **Yank keyboard shortcuts**: Added y/Y keys for copying content in conversations plugin
-- **Send-to-worktree integration**: Launch agents directly from td monitor to worktrees
+- **Send-to-workspace integration**: Launch agents directly from td monitor to workspaces
 
 ### Bug Fixes
-- Fixed worktree session lookup for nested directories and sanitized names
-- Fixed send-to-worktree with lazy loaded npm environments
+- Fixed workspace session lookup for nested directories and sanitized names
+- Fixed send-to-workspace with lazy loaded npm environments
 - Fixed Unicode truncation and refactored modal initialization
-- Fixed memory leak and CPU performance in worktree output pane
-- Fixed off-by-one mouse hit regions in worktree modals
-- Fixed commit status not showing for worktrees with unset BaseBranch
+- Fixed memory leak and CPU performance in workspace output pane
+- Fixed off-by-one mouse hit regions in workspace modals
+- Fixed commit status not showing for workspaces with unset BaseBranch
 - Fixed O(n²) cache eviction in session metadata cache
 - Fixed detectDefaultBranch() not being called due to caller defaults
 
@@ -243,7 +243,7 @@ All notable changes to sidecar are documented here.
 ## [v0.20.0] - 2026-01-17
 
 ### Features
-- **Simplified worktree kanban**: Removed "Thinking" status, streamlined to Active/Waiting/Done/Paused
+- **Simplified workspace kanban**: Removed "Thinking" status, streamlined to Active/Waiting/Done/Paused
 - Updated Waiting status icon from 💬 to ⧗ for better clarity
 
 ### Dependencies
@@ -252,19 +252,19 @@ All notable changes to sidecar are documented here.
 ## [v0.19.0] - 2026-01-16
 
 ### Features
-- **Worktree merge improvements**: Gracefully handle existing MRs, mouse support for merge modal
-- **Worktree conversation integration**: Better worktree-conversation linking
+- **Workspace merge improvements**: Gracefully handle existing MRs, mouse support for merge modal
+- **Workspace conversation integration**: Better workspace-conversation linking
 - **Website**: TUI-themed homepage with interactive demo, agents section
 - **Docusaurus documentation site**: Added Docusaurus 3.9 documentation site
 
 ### Bug Fixes
 - Fixed race condition in cleanup completion
 - Added branch deletion warnings
-- Fixed worktree click offset
-- Fixed worktree create modal mouse support
+- Fixed workspace click offset
+- Fixed workspace create modal mouse support
 
 ### Performance
-- Worktree adaptive polling and optimized tmux capture
+- Workspace adaptive polling and optimized tmux capture
 
 ### Improvements
 - Split large files for better maintainability
@@ -272,24 +272,24 @@ All notable changes to sidecar are documented here.
 ## [v0.18.0] - 2026-01-15
 
 ### Features
-- **Worktree diff improvements**: Show commits in diff pane even when no uncommitted changes
-- **Worktree conversation preservation**: Conversations now preserved after worktree deletion
-- **Worktree-aware conversations**: Conversations plugin now understands worktree context
-- **Mouse support**: Comprehensive mouse support added to worktree plugin
-- **Git worktree guide**: Added git worktree explanation to welcome guide
+- **Workspace diff improvements**: Show commits in diff pane even when no uncommitted changes
+- **Workspace conversation preservation**: Conversations now preserved after workspace deletion
+- **Workspace-aware conversations**: Conversations plugin now understands workspace context
+- **Mouse support**: Comprehensive mouse support added to workspace plugin
+- **Workspace guide**: Added workspace explanation to welcome guide
 
 ### Bug Fixes
 - Fixed SanitizeBranchName `.lock` suffix handling
-- Improved worktree conversation detection
+- Improved workspace conversation detection
 
 ## [v0.17.0] - 2026-01-15
 
 ### Features
-- **Worktree prompts**: Create worktrees with custom prompts attached
+- **Workspace prompts: Create workspaces with custom prompts attached
 - **Auto-generated default prompts**: New users get starter prompts automatically
-- **PR indicator**: Worktrees with open PRs now show visual indicator
-- **Inline tmux guide**: Tmux setup instructions integrated into worktree view
-- **Better waiting/paused visibility**: Clearer distinction between waiting and paused states in worktrees
+- **PR indicator: Workspaces with open PRs now show visual indicator
+- **Inline tmux guide**: Tmux setup instructions integrated into workspace view
+- **Better waiting/paused visibility**: Clearer distinction between waiting and paused states in workspaces
 
 ### Bug Fixes
 - Fixed 20+ Unicode byte-slicing bugs in UI string truncation across multiple components
@@ -302,20 +302,20 @@ All notable changes to sidecar are documented here.
 ## [v0.16.3] - 2026-01-14
 
 ### Improvements
-- Improved kanban board in worktrees plugin
+- Improved kanban board in workspaces plugin
 
 ### Bug Fixes
 - Use launcher script for agent prompts to avoid shell escaping issues
-- Change 'c' key in merge workflow to skip cleanup (keep worktree) instead of advancing to cleanup
+- Change 'c' key in merge workflow to skip cleanup (keep workspace) instead of advancing to cleanup
 
 ## [v0.16.2] - 2026-01-14
 
 ### Bug Fixes
-- Escape agent messages properly in worktrees plugin
-- Pass task context to all agent types in worktrees plugin
+- Escape agent messages properly in workspaces plugin
+- Pass task context to all agent types in workspaces plugin
 - Better workspace initial environment handling
 - Minor improvements to Claude Code adapter
-- Consolidate env var commands in worktree sessions (cleaner output)
+- Consolidate env var commands in workspace sessions (cleaner output)
 
 ### Dependencies
 - Updated embedded td to latest
@@ -349,15 +349,15 @@ All notable changes to sidecar are documented here.
 ## [v0.15.0] - 2026-01-14
 
 ### Features
-- Remember worktree diff mode (staged/unstaged preference persists)
-- Documented worktrees plugin in README
+- Remember workspace diff mode (staged/unstaged preference persists)
+- Documented workspaces plugin in README
 
 ### Bug Fixes
 - Fixed git diff view for commits
 - Many QoL changes and bug fixes
 - Ignore double-click on folders in git status (single-click handles expansion)
 - Clear stale push hash on push error
-- Add shift+tab support for worktree pane switching
+- Add shift+tab support for workspace pane switching
 
 ### Dependencies
 - Updated embedded td to v0.12.1 (from v0.12.0)
@@ -365,13 +365,13 @@ All notable changes to sidecar are documented here.
 ## [v0.14.7] - 2026-01-14
 
 ### Features
-- Auto-add sidecar state files (.sidecar-agent, .sidecar-task, .td-root) to .gitignore on worktree creation
+- Auto-add sidecar state files (.sidecar-agent, .sidecar-task, .td-root) to .gitignore on workspace creation
 
 ### Bug Fixes
 - Fixed nil pointer in stageAllAndCommit when git tree fails to initialize
-- Clear preview pane when worktree is deleted to prevent stale content
+- Clear preview pane when workspace is deleted to prevent stale content
 - Cancel merge workflow on error instead of proceeding with broken state
-- Show "No worktree selected" message when worktree list is empty
+- Show "No workspace selected" message when workspace list is empty
 
 ## [v0.14.6] - 2026-01-14
 
@@ -381,7 +381,7 @@ All notable changes to sidecar are documented here.
 ## [v0.14.5] - 2026-01-14
 
 ### Features
-- Added confirmation dialog before deleting worktrees
+- Added confirmation dialog before deleting workspaces
 
 ### Bug Fixes
 - Fixes from code review
@@ -400,7 +400,7 @@ All notable changes to sidecar are documented here.
 ## [v0.14.3] - 2026-01-14
 
 ### Bug Fixes
-- Fixed horizontal scroll to preserve syntax highlighting in diffs and worktree views
+- Fixed horizontal scroll to preserve syntax highlighting in diffs and workspace views
 
 ### Dependencies
 - Updated embedded td to v0.12.0 (from v0.11.0)
