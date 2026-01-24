@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/marcus/sidecar/internal/community"
 	"github.com/marcus/sidecar/internal/config"
 	appmsg "github.com/marcus/sidecar/internal/msg"
 	"github.com/marcus/sidecar/internal/palette"
@@ -82,6 +83,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m.handleProjectSwitcherMouse(msg)
 		case ModalThemeSwitcher:
+			if m.showCommunityBrowser {
+				return m.handleCommunityBrowserMouse(msg)
+			}
 			return m.handleThemeSwitcherMouse(msg)
 		}
 
@@ -309,6 +313,19 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.updateContext()
 			return m, nil
 		case ModalThemeSwitcher:
+			if m.showCommunityBrowser {
+				// Esc in community browser: clear filter or return to built-in view
+				if m.communityBrowserInput.Value() != "" {
+					m.communityBrowserInput.SetValue("")
+					m.communityBrowserFiltered = community.ListSchemes()
+					m.communityBrowserCursor = 0
+					m.communityBrowserScroll = 0
+					return m, nil
+				}
+				m.applyThemeFromConfig(m.communityBrowserOriginal)
+				m.resetCommunityBrowser()
+				return m, nil
+			}
 			// Esc: clear filter if set, otherwise close (restore original)
 			if m.themeSwitcherInput.Value() != "" {
 				m.themeSwitcherInput.SetValue("")
@@ -574,6 +591,22 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Handle theme switcher modal keys (Esc handled above)
 	if m.showThemeSwitcher {
+		// Tab toggles between built-in and community views
+		if msg.String() == "tab" {
+			if m.showCommunityBrowser {
+				m.applyThemeFromConfig(m.communityBrowserOriginal)
+				m.resetCommunityBrowser()
+			} else {
+				m.initCommunityBrowser()
+			}
+			return m, nil
+		}
+
+		// Community browser sub-mode handles its own keys
+		if m.showCommunityBrowser {
+			return m.handleCommunityBrowserKey(msg)
+		}
+
 		themes := m.themeSwitcherFiltered
 
 		switch msg.Type {
@@ -1382,6 +1415,240 @@ func (m Model) handleProjectAddMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 	if msg.Action == tea.MouseActionMotion {
 		m.projectAddButtonHover = 0
+	}
+
+	return m, nil
+}
+
+// handleCommunityBrowserKey handles key events in the community browser sub-mode.
+func (m Model) handleCommunityBrowserKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	schemes := m.communityBrowserFiltered
+	const maxVisible = 8
+
+	switch msg.Type {
+	case tea.KeyEnter:
+		if m.communityBrowserCursor >= 0 && m.communityBrowserCursor < len(schemes) {
+			selectedName := schemes[m.communityBrowserCursor]
+			scheme := community.GetScheme(selectedName)
+			if scheme != nil {
+				palette := community.Convert(scheme)
+				styles.ApplyThemeColors(styles.Theme{Colors: palette})
+				overrides := community.PaletteToOverrides(palette)
+				m.resetCommunityBrowser()
+				m.resetThemeSwitcher()
+				m.updateContext()
+				if err := config.SaveThemeWithOverrides("default", overrides); err != nil {
+					return m, func() tea.Msg {
+						return ToastMsg{Message: "Theme applied (save failed)", Duration: 3 * time.Second, IsError: true}
+					}
+				}
+				return m, func() tea.Msg {
+					return ToastMsg{Message: "Theme: " + selectedName + " (community)", Duration: 2 * time.Second}
+				}
+			}
+		}
+		return m, nil
+
+	case tea.KeyUp:
+		m.communityBrowserCursor--
+		if m.communityBrowserCursor < 0 {
+			m.communityBrowserCursor = 0
+		}
+		m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, m.communityBrowserScroll, maxVisible)
+		m.previewCommunityScheme()
+		return m, nil
+
+	case tea.KeyDown:
+		m.communityBrowserCursor++
+		if m.communityBrowserCursor >= len(schemes) {
+			m.communityBrowserCursor = len(schemes) - 1
+		}
+		if m.communityBrowserCursor < 0 {
+			m.communityBrowserCursor = 0
+		}
+		m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, m.communityBrowserScroll, maxVisible)
+		m.previewCommunityScheme()
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "ctrl+n":
+		m.communityBrowserCursor++
+		if m.communityBrowserCursor >= len(schemes) {
+			m.communityBrowserCursor = len(schemes) - 1
+		}
+		if m.communityBrowserCursor < 0 {
+			m.communityBrowserCursor = 0
+		}
+		m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, m.communityBrowserScroll, maxVisible)
+		m.previewCommunityScheme()
+		return m, nil
+
+	case "ctrl+p":
+		m.communityBrowserCursor--
+		if m.communityBrowserCursor < 0 {
+			m.communityBrowserCursor = 0
+		}
+		m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, m.communityBrowserScroll, maxVisible)
+		m.previewCommunityScheme()
+		return m, nil
+
+	case "#":
+		// Close both modals and restore
+		m.applyThemeFromConfig(m.communityBrowserOriginal)
+		m.resetCommunityBrowser()
+		m.resetThemeSwitcher()
+		m.updateContext()
+		return m, nil
+	}
+
+	// Forward other keys to text input for filtering
+	var cmd tea.Cmd
+	m.communityBrowserInput, cmd = m.communityBrowserInput.Update(msg)
+
+	// Re-filter on input change
+	m.communityBrowserFiltered = filterCommunitySchemes(community.ListSchemes(), m.communityBrowserInput.Value())
+	m.communityBrowserHover = -1
+	if m.communityBrowserCursor >= len(m.communityBrowserFiltered) {
+		m.communityBrowserCursor = len(m.communityBrowserFiltered) - 1
+	}
+	if m.communityBrowserCursor < 0 {
+		m.communityBrowserCursor = 0
+	}
+	m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, 0, maxVisible)
+	m.previewCommunityScheme()
+
+	return m, cmd
+}
+
+// previewCommunityScheme applies the currently selected community scheme for live preview.
+func (m *Model) previewCommunityScheme() {
+	schemes := m.communityBrowserFiltered
+	if m.communityBrowserCursor >= 0 && m.communityBrowserCursor < len(schemes) {
+		scheme := community.GetScheme(schemes[m.communityBrowserCursor])
+		if scheme != nil {
+			palette := community.Convert(scheme)
+			styles.ApplyThemeColors(styles.Theme{Colors: palette})
+		}
+	}
+}
+
+// handleCommunityBrowserMouse handles mouse events for the community browser modal.
+func (m Model) handleCommunityBrowserMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	schemes := m.communityBrowserFiltered
+	maxVisible := 8
+	visibleCount := len(schemes)
+	if visibleCount > maxVisible {
+		visibleCount = maxVisible
+	}
+
+	// Modal dimensions matching view rendering
+	modalContentLines := 2 + 1 + 1 + visibleCount + 2
+	if m.communityBrowserScroll > 0 {
+		modalContentLines++
+	}
+	if len(schemes) > m.communityBrowserScroll+visibleCount {
+		modalContentLines++
+	}
+	if len(schemes) == 0 {
+		modalContentLines = 2 + 1 + 1 + 2 + 2
+	}
+
+	modalHeight := modalContentLines + 4
+	modalWidth := 50
+	modalX := (m.width - modalWidth) / 2
+	modalY := (m.height - modalHeight) / 2
+
+	// Inside modal
+	if msg.X >= modalX && msg.X < modalX+modalWidth &&
+		msg.Y >= modalY && msg.Y < modalY+modalHeight {
+
+		if len(schemes) == 0 {
+			return m, nil
+		}
+
+		// Calculate scheme list start Y
+		contentStartY := modalY + 2 + 2 + 1 + 1
+		if m.communityBrowserScroll > 0 {
+			contentStartY++
+		}
+
+		relY := msg.Y - contentStartY
+		if relY >= 0 && relY < visibleCount {
+			schemeIdx := m.communityBrowserScroll + relY
+			if schemeIdx >= 0 && schemeIdx < len(schemes) {
+				switch msg.Action {
+				case tea.MouseActionPress:
+					if msg.Button == tea.MouseButtonLeft {
+						selectedName := schemes[schemeIdx]
+						scheme := community.GetScheme(selectedName)
+						if scheme != nil {
+							palette := community.Convert(scheme)
+							styles.ApplyThemeColors(styles.Theme{Colors: palette})
+							overrides := community.PaletteToOverrides(palette)
+							m.resetCommunityBrowser()
+							m.resetThemeSwitcher()
+							m.updateContext()
+							if err := config.SaveThemeWithOverrides("default", overrides); err != nil {
+								return m, func() tea.Msg {
+									return ToastMsg{Message: "Theme applied (save failed)", Duration: 3 * time.Second, IsError: true}
+								}
+							}
+							return m, func() tea.Msg {
+								return ToastMsg{Message: "Theme: " + selectedName + " (community)", Duration: 2 * time.Second}
+							}
+						}
+					}
+				case tea.MouseActionMotion:
+					m.communityBrowserHover = schemeIdx
+					scheme := community.GetScheme(schemes[schemeIdx])
+					if scheme != nil {
+						palette := community.Convert(scheme)
+						styles.ApplyThemeColors(styles.Theme{Colors: palette})
+					}
+				}
+			}
+		} else {
+			if msg.Action == tea.MouseActionMotion {
+				m.communityBrowserHover = -1
+			}
+		}
+
+		// Scroll wheel
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.communityBrowserCursor--
+			if m.communityBrowserCursor < 0 {
+				m.communityBrowserCursor = 0
+			}
+			m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, m.communityBrowserScroll, maxVisible)
+			m.previewCommunityScheme()
+		case tea.MouseButtonWheelDown:
+			m.communityBrowserCursor++
+			if m.communityBrowserCursor >= len(schemes) {
+				m.communityBrowserCursor = len(schemes) - 1
+			}
+			if m.communityBrowserCursor < 0 {
+				m.communityBrowserCursor = 0
+			}
+			m.communityBrowserScroll = themeSwitcherEnsureCursorVisible(m.communityBrowserCursor, m.communityBrowserScroll, maxVisible)
+			m.previewCommunityScheme()
+		}
+
+		return m, nil
+	}
+
+	// Click outside modal - cancel
+	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+		m.applyThemeFromConfig(m.communityBrowserOriginal)
+		m.resetCommunityBrowser()
+		m.resetThemeSwitcher()
+		m.updateContext()
+		return m, nil
+	}
+
+	if msg.Action == tea.MouseActionMotion {
+		m.communityBrowserHover = -1
 	}
 
 	return m, nil
