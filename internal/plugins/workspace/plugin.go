@@ -120,9 +120,8 @@ type Plugin struct {
 	selectedIdx        int
 	scrollOffset       int // Sidebar list scroll offset
 	visibleCount       int // Number of visible list items
-	previewOffset      int
-	previewHorizOffset int       // Horizontal scroll offset for preview pane
-	autoScrollOutput   bool      // Auto-scroll output to follow agent (paused when user scrolls up)
+	previewOffset    int
+	autoScrollOutput bool // Auto-scroll output to follow agent (paused when user scrolls up)
 	sidebarWidth       int       // Persisted sidebar width
 	sidebarVisible     bool      // Whether sidebar is visible (toggled with \)
 	flashPreviewTime   time.Time // When preview flash was triggered
@@ -781,7 +780,6 @@ func (p *Plugin) moveCursor(delta int) {
 		(!p.shellSelected && p.selectedIdx != oldWorktreeIdx)
 	if selectionChanged {
 		p.previewOffset = 0
-		p.previewHorizOffset = 0
 		p.autoScrollOutput = true
 		p.taskLoading = false // Reset task loading state for new selection (td-3668584f)
 		// Exit interactive mode when switching selection (td-fc758e88)
@@ -820,7 +818,6 @@ func (p *Plugin) cyclePreviewTab(delta int) tea.Cmd {
 	prevTab := p.previewTab
 	p.previewTab = PreviewTab((int(p.previewTab) + delta + 3) % 3)
 	p.previewOffset = 0
-	p.previewHorizOffset = 0
 	p.autoScrollOutput = true // Reset auto-scroll when switching tabs
 
 	if prevTab == PreviewTabOutput && p.previewTab != PreviewTabOutput {

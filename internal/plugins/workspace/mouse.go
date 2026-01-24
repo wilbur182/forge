@@ -41,8 +41,6 @@ func (p *Plugin) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		return p.handleMouseDoubleClick(action)
 	case mouse.ActionScrollUp, mouse.ActionScrollDown:
 		return p.handleMouseScroll(action)
-	case mouse.ActionScrollLeft, mouse.ActionScrollRight:
-		return p.handleMouseHorizontalScroll(action)
 	case mouse.ActionDrag:
 		return p.handleMouseDrag(action)
 	case mouse.ActionDragEnd:
@@ -304,7 +302,6 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 						p.shellSelected = true
 						p.selectedShellIdx = shellIdx
 						p.previewOffset = 0
-						p.previewHorizOffset = 0
 						p.autoScrollOutput = true
 						p.taskLoading = false // Reset task loading on selection change (td-3668584f)
 						// Exit interactive mode when switching selection (td-fc758e88)
@@ -320,7 +317,6 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 					p.shellSelected = false
 					p.selectedIdx = idx
 					p.previewOffset = 0
-					p.previewHorizOffset = 0
 					p.autoScrollOutput = true
 					p.taskLoading = false // Reset task loading on selection change (td-3668584f)
 					// Exit interactive mode when switching selection (td-fc758e88)
@@ -338,7 +334,6 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 			prevTab := p.previewTab
 			p.previewTab = PreviewTab(idx)
 			p.previewOffset = 0
-			p.previewHorizOffset = 0
 			p.autoScrollOutput = true
 			if prevTab == PreviewTabOutput && p.previewTab != PreviewTabOutput {
 				p.clearInteractiveSelection()
@@ -726,40 +721,6 @@ func (p *Plugin) handleMouseScroll(action mouse.MouseAction) tea.Cmd {
 		}
 		return p.scrollPreview(delta)
 	}
-}
-
-// handleMouseHorizontalScroll handles horizontal scroll events in the preview pane.
-func (p *Plugin) handleMouseHorizontalScroll(action mouse.MouseAction) tea.Cmd {
-	// Guard: absorb horizontal scroll when a modal is open (td-f63097).
-	if p.isModalViewMode() {
-		return nil
-	}
-
-	// Only horizontal scroll in preview pane
-	if action.Region == nil {
-		// No hit region - use X position to determine if in preview pane
-		sidebarW := (p.width * p.sidebarWidth) / 100
-		if action.X >= sidebarW+dividerWidth {
-			return p.scrollPreviewHorizontal(action.Delta)
-		}
-		return nil
-	}
-
-	switch action.Region.ID {
-	case regionPreviewPane:
-		return p.scrollPreviewHorizontal(action.Delta)
-	}
-
-	return nil
-}
-
-// scrollPreviewHorizontal scrolls the preview pane horizontally.
-func (p *Plugin) scrollPreviewHorizontal(delta int) tea.Cmd {
-	p.previewHorizOffset += delta
-	if p.previewHorizOffset < 0 {
-		p.previewHorizOffset = 0
-	}
-	return nil
 }
 
 // scrollSidebar scrolls the sidebar list (shells + worktrees).

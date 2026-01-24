@@ -596,15 +596,14 @@ func TestInteractiveColAtX_WithHorizOffset(t *testing.T) {
 	}}
 	p.selectedShellIdx = 0
 	p.interactiveSelectionRect = mouse.Rect{X: 0, Y: 2, W: 80, H: 12}
-	p.previewHorizOffset = 3
 
-	// viewport X=4 (content col 2) with offset 3 → visual col 5
+	// viewport X=4 (content col 2) → visual col 2
 	col, ok := p.interactiveColAtX(2+panelOverhead/2, 0)
 	if !ok {
 		t.Fatal("expected ok=true")
 	}
-	if col != 5 {
-		t.Errorf("horiz offset: col = %d, want 5", col)
+	if col != 2 {
+		t.Errorf("col = %d, want 2", col)
 	}
 }
 

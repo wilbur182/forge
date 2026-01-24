@@ -212,18 +212,3 @@ func TestNonModalClickPassesThrough(t *testing.T) {
 	}
 }
 
-func TestModalHorizontalScrollGuard(t *testing.T) {
-	p := &Plugin{
-		viewMode:     ViewModeMerge,
-		mouseHandler: mouse.NewHandler(),
-	}
-	action := mouse.MouseAction{
-		Type:   mouse.ActionScrollRight,
-		Delta:  1,
-		Region: &mouse.Region{ID: regionPreviewPane},
-	}
-	cmd := p.handleMouseHorizontalScroll(action)
-	if cmd != nil {
-		t.Error("handleMouseHorizontalScroll should return nil when modal is open")
-	}
-}

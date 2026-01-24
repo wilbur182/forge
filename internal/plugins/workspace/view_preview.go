@@ -310,8 +310,7 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		p.interactiveState.VisibleEnd = end
 	}
 
-	// Apply horizontal offset and truncate each line
-	// Use TruncateLeftRight for horizontal scrolling to reduce cache thrashing
+	// Truncate each line to display width
 	// and avoid cellbuf allocation churn from varying offsets.
 	displayLines := make([]string, 0, len(lines))
 	for i, line := range lines {
@@ -323,8 +322,8 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 				displayLine = injectCharacterRangeBackground(displayLine, startCol, endCol)
 			}
 		}
-		// Apply horizontal offset and truncate to width in a single cached operation
-		displayLine = p.truncateCache.TruncateLeftRight(displayLine, p.previewHorizOffset, displayWidth)
+		// Truncate to width
+		displayLine = p.truncateCache.Truncate(displayLine, displayWidth, "")
 		displayLines = append(displayLines, displayLine)
 	}
 
@@ -351,7 +350,7 @@ func (p *Plugin) renderOutputContent(width, height int) string {
 		} else if paneHeight > 0 && paneHeight < displayHeight {
 			relativeRow = cursorRow + (displayHeight - paneHeight)
 		}
-		relativeCol := cursorCol - p.previewHorizOffset
+		relativeCol := cursorCol
 
 		// Only render cursor if within visible area
 		if relativeRow >= 0 && relativeRow < displayHeight && relativeCol >= 0 && relativeCol < displayWidth {
@@ -508,7 +507,7 @@ func (p *Plugin) renderShellOutput(width, height int) string {
 				displayLine = injectCharacterRangeBackground(displayLine, startCol, endCol)
 			}
 		}
-		displayLine = p.truncateCache.TruncateLeftRight(displayLine, p.previewHorizOffset, displayWidth)
+		displayLine = p.truncateCache.Truncate(displayLine, displayWidth, "")
 		displayLines = append(displayLines, displayLine)
 	}
 
@@ -535,7 +534,7 @@ func (p *Plugin) renderShellOutput(width, height int) string {
 		} else if paneHeight > 0 && paneHeight < displayHeight {
 			relativeRow = cursorRow + (displayHeight - paneHeight)
 		}
-		relativeCol := cursorCol - p.previewHorizOffset
+		relativeCol := cursorCol
 
 		// Only render cursor if within visible area
 		if relativeRow >= 0 && relativeRow < displayHeight && relativeCol >= 0 && relativeCol < displayWidth {

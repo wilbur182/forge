@@ -499,7 +499,6 @@ func (p *Plugin) enterInteractiveMode() tea.Cmd {
 	if target != "" {
 		// Reset scroll offsets so cursor alignment matches the visible pane (td-43d37b)
 		p.previewOffset = 0
-		p.previewHorizOffset = 0
 		p.autoScrollOutput = true
 		previewWidth, previewHeight := p.calculatePreviewDimensions()
 		p.resizeTmuxPane(target, previewWidth, previewHeight)
@@ -1065,7 +1064,7 @@ func (p *Plugin) interactiveMouseCoords(x, y int) (col, row int, ok bool) {
 		return 0, 0, false
 	}
 
-	col = relX + 1 + p.previewHorizOffset
+	col = relX + 1
 	row = relY + 1
 	if col > paneWidth {
 		col = paneWidth

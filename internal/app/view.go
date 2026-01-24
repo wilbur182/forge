@@ -124,8 +124,6 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 
 	// Title
 	b.WriteString(styles.ModalTitle.Render("Switch Project"))
-	b.WriteString("  ")
-	b.WriteString(styles.Muted.Render("@"))
 	b.WriteString("\n\n")
 
 	allProjects := m.cfg.Projects.List

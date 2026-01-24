@@ -62,8 +62,7 @@ func (p *Plugin) interactiveColAtX(x, lineIdx int) (int, bool) {
 		return 0, false
 	}
 
-	// Add horizontal scroll offset to get absolute visual column
-	visualCol := relX + p.previewHorizOffset
+	visualCol := relX
 
 	buf := p.interactiveOutputBuffer()
 	if buf == nil {

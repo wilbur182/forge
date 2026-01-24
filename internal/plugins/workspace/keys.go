@@ -613,9 +613,6 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 		if p.activePane == PaneSidebar {
 			p.activePane = PanePreview
-		} else {
-			// Horizontal scroll right in preview pane
-			p.previewHorizOffset += 10
 		}
 	case "enter":
 		// Shell entry: attach to selected shell session
@@ -656,13 +653,7 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			return p.loadSelectedContent()
 		}
 		if p.activePane == PanePreview {
-			// Horizontal scroll left in preview pane
-			if p.previewHorizOffset > 0 {
-				p.previewHorizOffset -= 10
-				if p.previewHorizOffset < 0 {
-					p.previewHorizOffset = 0
-				}
-			}
+			p.activePane = PaneSidebar
 		}
 	case "esc":
 		if p.activePane == PanePreview {
@@ -770,12 +761,6 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				}
 			}
 		}
-	case "0":
-		// Reset horizontal scroll
-		if p.activePane == PanePreview {
-			p.previewHorizOffset = 0
-		}
-
 	// Agent control keys
 	case "s":
 		// Start agent on selected worktree

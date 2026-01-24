@@ -49,7 +49,7 @@ func (p *Plugin) renderDiffContent(width, height int) string {
 		} else {
 			mode = gitstatus.DiffViewUnified
 		}
-		diffContent := gitstatus.RenderMultiFileDiff(p.multiFileDiff, mode, width, p.previewOffset, contentHeight, p.previewHorizOffset)
+		diffContent := gitstatus.RenderMultiFileDiff(p.multiFileDiff, mode, width, p.previewOffset, contentHeight, 0)
 		if header != "" {
 			return header + "\n" + diffContent
 		}
@@ -76,9 +76,9 @@ func (p *Plugin) renderDiffContent(width, height int) string {
 	// Render based on view mode
 	var diffContent string
 	if p.diffViewMode == DiffViewSideBySide {
-		diffContent = gitstatus.RenderSideBySide(parsed, width, p.previewOffset, contentHeight, p.previewHorizOffset, highlighter)
+		diffContent = gitstatus.RenderSideBySide(parsed, width, p.previewOffset, contentHeight, 0, highlighter)
 	} else {
-		diffContent = gitstatus.RenderLineDiff(parsed, width, p.previewOffset, contentHeight, p.previewHorizOffset, highlighter)
+		diffContent = gitstatus.RenderLineDiff(parsed, width, p.previewOffset, contentHeight, 0, highlighter)
 	}
 
 	if header != "" {
@@ -127,9 +127,6 @@ func (p *Plugin) renderDiffContentBasicWithHeight(width, height int) string {
 			styledLine = line
 		}
 
-		if p.previewHorizOffset > 0 {
-			styledLine = p.truncateCache.TruncateLeft(styledLine, p.previewHorizOffset, "")
-		}
 		if lipgloss.Width(styledLine) > width {
 			styledLine = p.truncateCache.Truncate(styledLine, width, "")
 		}

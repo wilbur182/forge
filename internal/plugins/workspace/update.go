@@ -151,7 +151,6 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			p.shellSelected = false
 			p.selectedIdx = len(p.worktrees) - 1
 			p.previewOffset = 0
-			p.previewHorizOffset = 0
 			p.autoScrollOutput = true
 			p.saveSelectionState()
 			p.ensureVisible()

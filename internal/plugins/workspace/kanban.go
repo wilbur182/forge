@@ -106,7 +106,6 @@ func (p *Plugin) applyKanbanSelectionChange(oldShellSelected bool, oldShellIdx, 
 		(!p.shellSelected && p.selectedIdx != oldWorktreeIdx)
 	if selectionChanged {
 		p.previewOffset = 0
-		p.previewHorizOffset = 0
 		p.autoScrollOutput = true
 		p.taskLoading = false
 		p.exitInteractiveMode()
