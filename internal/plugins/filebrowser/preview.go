@@ -110,7 +110,10 @@ func LoadPreview(rootDir, path string) tea.Cmd {
 			result.IsTruncated = true
 		}
 
-		return PreviewLoadedMsg{Path: path, Result: result}
+		return PreviewLoadedMsg{
+			Path:   path,
+			Result: result,
+		}
 	}
 }
 

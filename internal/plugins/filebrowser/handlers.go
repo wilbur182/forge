@@ -79,12 +79,14 @@ func (p *Plugin) handleTreeKey(key string) (plugin.Plugin, tea.Cmd) {
 		if p.treeCursor < p.tree.Len()-1 {
 			p.treeCursor++
 			p.ensureTreeCursorVisible()
+			return p, p.loadPreviewForCursor()
 		}
 
 	case "k", "up":
 		if p.treeCursor > 0 {
 			p.treeCursor--
 			p.ensureTreeCursorVisible()
+			return p, p.loadPreviewForCursor()
 		}
 
 	case "l", "right":

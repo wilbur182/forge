@@ -46,7 +46,9 @@ const (
 // Message types
 type (
 	RefreshMsg       struct{}
-	TreeBuiltMsg     struct{ Err error }
+	TreeBuiltMsg struct {
+		Err error
+	}
 	StateRestoredMsg struct {
 		State state.FileBrowserState
 	}
@@ -388,7 +390,9 @@ func (p *Plugin) updateWatchedFile() {
 // refresh rebuilds the file tree, preserving expanded state.
 func (p *Plugin) refresh() tea.Cmd {
 	return func() tea.Msg {
-		err := p.tree.Refresh()
+		expandedPaths := p.tree.GetExpandedPaths()
+		err := p.tree.Build()
+		p.tree.RestoreExpandedPaths(expandedPaths)
 		return TreeBuiltMsg{Err: err}
 	}
 }
@@ -419,7 +423,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 
 	case TreeBuiltMsg:
 		if msg.Err != nil {
-			p.ctx.Logger.Error("file browser: tree build failed", "error", msg.Err)
+			p.ctx.Logger.Error("tree build failed", "error", msg.Err)
 		}
 		// Restore state after first tree build
 		if !p.stateRestored {

@@ -197,6 +197,21 @@ func (p *Plugin) syncTreeSelection(path string) {
 		return
 	}
 
+	// Fast path: cursor already points to this file (e.g. click-initiated)
+	if node := p.tree.GetNode(p.treeCursor); node != nil && node.Path == path {
+		return
+	}
+
+	// Try FlatList lookup (no disk I/O, O(n) over visible nodes)
+	for i, node := range p.tree.FlatList {
+		if node.Path == path {
+			p.treeCursor = i
+			p.ensureTreeCursorVisible()
+			return
+		}
+	}
+
+	// Fallback: walk full tree to find node in unexpanded directories
 	var targetNode *FileNode
 	p.walkTree(p.tree.Root, func(node *FileNode) {
 		if node.Path == path {

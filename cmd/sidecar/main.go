@@ -89,6 +89,7 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(logWriter, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
+	slog.SetDefault(logger)
 
 	// Load configuration
 	cfg, err := loadConfig(*configPath)
@@ -241,7 +242,7 @@ func init() {
 
 // openLogFile creates/opens the debug log file in config directory.
 func openLogFile() (*os.File, error) {
-	logPath := filepath.Join(config.ConfigPath(), "debug.log")
+	logPath := filepath.Join(filepath.Dir(config.ConfigPath()), "debug.log")
 	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 }
 
