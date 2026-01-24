@@ -189,3 +189,46 @@ func EnsureDefaultPrompts(globalConfigDir string) bool {
 
 	return true
 }
+
+// WriteDefaultPromptsToConfig merges default prompts into the global config.
+// If config.json exists, it preserves other fields and adds/replaces the prompts key.
+// If config.json does not exist, it creates one with default prompts.
+// Returns true on success.
+func WriteDefaultPromptsToConfig(globalConfigDir string) bool {
+	path := filepath.Join(globalConfigDir, "config.json")
+
+	// Create directory if needed
+	if err := os.MkdirAll(globalConfigDir, 0755); err != nil {
+		return false
+	}
+
+	// Read existing config as raw JSON to preserve unknown fields
+	var raw map[string]json.RawMessage
+	if data, err := os.ReadFile(path); err == nil {
+		if jsonErr := json.Unmarshal(data, &raw); jsonErr != nil {
+			raw = make(map[string]json.RawMessage)
+		}
+	} else {
+		raw = make(map[string]json.RawMessage)
+	}
+
+	// Marshal default prompts and set in config
+	defaults := DefaultPrompts()
+	promptsData, err := json.Marshal(defaults)
+	if err != nil {
+		return false
+	}
+	raw["prompts"] = promptsData
+
+	// Write merged config
+	data, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return false
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return false
+	}
+
+	return true
+}

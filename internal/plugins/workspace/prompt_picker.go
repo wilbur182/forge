@@ -30,6 +30,9 @@ type PromptSelectedMsg struct {
 // PromptCancelledMsg is sent when the picker is cancelled.
 type PromptCancelledMsg struct{}
 
+// PromptInstallDefaultsMsg is sent when user requests installing default prompts.
+type PromptInstallDefaultsMsg struct{}
+
 // NewPromptPicker creates a new prompt picker.
 func NewPromptPicker(prompts []Prompt, width, height int) *PromptPicker {
 	ti := textinput.New()
@@ -56,6 +59,11 @@ func (pp *PromptPicker) Update(msg tea.Msg) (*PromptPicker, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		key := msg.String()
+
+		// When no prompts configured, handle 'd' to install defaults
+		if len(pp.prompts) == 0 && key == "d" {
+			return pp, func() tea.Msg { return PromptInstallDefaultsMsg{} }
+		}
 
 		// Universal keys - always handled regardless of focus
 		switch key {
@@ -192,7 +200,7 @@ func (pp *PromptPicker) View() string {
 		sb.WriteString("\n\n")
 		sb.WriteString(dimText("See: docs/guides/creating-prompts.md"))
 		sb.WriteString("\n\n")
-		sb.WriteString(dimText("Press Esc or Enter to continue without a prompt"))
+		sb.WriteString(dimText("d: add defaults   Esc/Enter: continue without prompt"))
 		return sb.String()
 	}
 

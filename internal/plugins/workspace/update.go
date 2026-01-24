@@ -2,6 +2,8 @@ package workspace
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -196,6 +198,15 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		// Picker cancelled, return to create modal
 		p.viewMode = ViewModeCreate
 		p.promptPicker = nil
+
+	case PromptInstallDefaultsMsg:
+		// User pressed 'd' to install default prompts
+		home, _ := os.UserHomeDir()
+		configDir := filepath.Join(home, ".config", "sidecar")
+		if WriteDefaultPromptsToConfig(configDir) {
+			p.createPrompts = LoadPrompts(configDir, p.ctx.WorkDir)
+			p.promptPicker = NewPromptPicker(p.createPrompts, p.width, p.height)
+		}
 
 	case DeleteDoneMsg:
 		if msg.Err != nil {

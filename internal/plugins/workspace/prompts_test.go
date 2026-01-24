@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -400,5 +401,64 @@ func TestEnsureDefaultPromptsDoesNotOverwrite(t *testing.T) {
 	}
 	if prompts[0].Name != "existing-prompt" {
 		t.Errorf("Prompt name = %q, want 'existing-prompt'", prompts[0].Name)
+	}
+}
+
+func TestWriteDefaultPromptsToConfig_NewFile(t *testing.T) {
+	dir := t.TempDir()
+
+	if !WriteDefaultPromptsToConfig(dir) {
+		t.Fatal("WriteDefaultPromptsToConfig returned false")
+	}
+
+	prompts := LoadPrompts(dir, t.TempDir())
+	if len(prompts) != 5 {
+		t.Errorf("Expected 5 prompts, got %d", len(prompts))
+	}
+}
+
+func TestWriteDefaultPromptsToConfig_MergesExisting(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write existing config with other fields but no prompts
+	existing := `{"plugins": {"git-status": {"enabled": true}}}`
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(existing), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if !WriteDefaultPromptsToConfig(dir) {
+		t.Fatal("WriteDefaultPromptsToConfig returned false")
+	}
+
+	// Verify prompts were added
+	prompts := LoadPrompts(dir, t.TempDir())
+	if len(prompts) != 5 {
+		t.Errorf("Expected 5 prompts, got %d", len(prompts))
+	}
+
+	// Verify other fields preserved
+	data, _ := os.ReadFile(filepath.Join(dir, "config.json"))
+	if !strings.Contains(string(data), "plugins") {
+		t.Error("Expected plugins field to be preserved")
+	}
+}
+
+func TestWriteDefaultPromptsToConfig_OverwritesPrompts(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write config with a single custom prompt
+	existing := `{"prompts": [{"name": "Custom", "body": "custom body"}]}`
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(existing), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if !WriteDefaultPromptsToConfig(dir) {
+		t.Fatal("WriteDefaultPromptsToConfig returned false")
+	}
+
+	// Should now have 5 default prompts (custom was replaced)
+	prompts := LoadPrompts(dir, t.TempDir())
+	if len(prompts) != 5 {
+		t.Errorf("Expected 5 prompts, got %d", len(prompts))
 	}
 }
