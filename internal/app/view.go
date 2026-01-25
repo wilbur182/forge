@@ -102,63 +102,44 @@ func (m Model) renderQuitConfirmOverlay(content string) string {
 
 // renderProjectSwitcherOverlay renders the project switcher modal.
 func (m Model) renderProjectSwitcherOverlay(content string) string {
-	// Render add form if in add mode
-	if m.projectAddMode {
-		return m.renderProjectAddOverlay(content)
-	}
-
 	var b strings.Builder
 
-	// Title
 	b.WriteString(styles.ModalTitle.Render("Switch Project"))
 	b.WriteString("\n\n")
 
 	allProjects := m.cfg.Projects.List
-
-	// Empty state (no projects configured at all)
-	if len(allProjects) == 0 {
-		b.WriteString(styles.Muted.Render("No projects configured."))
-		b.WriteString("\n\n")
-
-		// LLM setup prompt - prominent
-		b.WriteString(lipgloss.NewStyle().Foreground(styles.Secondary).Bold(true).Render("Quick Setup"))
-		b.WriteString("\n")
-		b.WriteString(styles.KeyHint.Render("y"))
-		b.WriteString(styles.Muted.Render(" copy setup prompt for LLM"))
-		b.WriteString("\n\n")
-
-		// Manual config
-		b.WriteString(styles.Muted.Render("Or manually edit:\n"))
-		b.WriteString(styles.KeyHint.Render("~/.config/sidecar/config.json"))
-		b.WriteString("\n\n")
-		configExample := `{
-  "projects": {
-    "list": [
-      {"name": "myapp", "path": "~/code/myapp"}
-    ]
-  }
-}`
-		b.WriteString(styles.Subtle.Render(configExample))
-		b.WriteString("\n\n")
-		b.WriteString(styles.KeyHint.Render("ctrl+a"))
-		b.WriteString(styles.Muted.Render(" add project  "))
-		b.WriteString(styles.KeyHint.Render("esc"))
-		b.WriteString(styles.Muted.Render(" close"))
-
-		modal := styles.ModalBox.Render(b.String())
-		return ui.OverlayModal(content, modal, m.width, m.height)
-	}
+	projects := m.projectSwitcherFiltered
 
 	// Render search input
 	b.WriteString(m.projectSwitcherInput.View())
 	b.WriteString("\n")
 
-	// Show count if filtering
-	projects := m.projectSwitcherFiltered
+	// Count line (always reserve a line)
 	if m.projectSwitcherInput.Value() != "" {
 		b.WriteString(styles.Muted.Render(fmt.Sprintf("%d of %d projects", len(projects), len(allProjects))))
+	} else if len(allProjects) > 0 {
+		b.WriteString(styles.Muted.Render(fmt.Sprintf("%d projects", len(allProjects))))
 	}
 	b.WriteString("\n")
+
+	if len(allProjects) == 0 {
+		b.WriteString("\n")
+		b.WriteString(styles.Muted.Render("No projects configured"))
+		b.WriteString("\n\n")
+		b.WriteString(styles.KeyHint.Render("ctrl+a"))
+		b.WriteString(styles.Muted.Render(" add  "))
+		b.WriteString(styles.KeyHint.Render("y"))
+		b.WriteString(styles.Muted.Render(" copy prompt  "))
+		b.WriteString(styles.KeyHint.Render("esc"))
+		b.WriteString(styles.Muted.Render(" close"))
+
+		modal := styles.ModalBox.Render(b.String())
+		base := ui.OverlayModal(content, modal, m.width, m.height)
+		if m.projectAddMode {
+			return m.renderProjectAddOverlay(base)
+		}
+		return base
+	}
 
 	// Empty filtered state
 	if len(projects) == 0 {
@@ -171,53 +152,43 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 		b.WriteString(styles.Muted.Render(" close"))
 
 		modal := styles.ModalBox.Render(b.String())
-		return ui.OverlayModal(content, modal, m.width, m.height)
+		base := ui.OverlayModal(content, modal, m.width, m.height)
+		if m.projectAddMode {
+			return m.renderProjectAddOverlay(base)
+		}
+		return base
 	}
 
-	// Calculate visible window for scrolling
 	maxVisible := 8
 	visibleCount := len(projects)
 	if visibleCount > maxVisible {
 		visibleCount = maxVisible
 	}
-
-	// Use stored scroll offset
 	scrollOffset := m.projectSwitcherScroll
 
-	// Render scroll indicator if needed (top)
 	if scrollOffset > 0 {
-		b.WriteString(styles.Muted.Render(fmt.Sprintf("  ↑ %d more above\n", scrollOffset)))
+		b.WriteString(styles.Muted.Render(fmt.Sprintf("  ↑ %d more above", scrollOffset)))
+		b.WriteString("\n")
 	}
 
-	// Styles for project items
 	cursorStyle := lipgloss.NewStyle().Foreground(styles.Primary)
-	// Normal name: themed color (secondary/blue) for visibility
 	nameNormalStyle := lipgloss.NewStyle().Foreground(styles.Secondary)
-	// Selected name: brighter primary color + bold
 	nameSelectedStyle := lipgloss.NewStyle().Foreground(styles.Primary).Bold(true)
-	// Current project: green + bold
 	nameCurrentStyle := lipgloss.NewStyle().Foreground(styles.Success).Bold(true)
-	// Current + selected: bright green + bold
 	nameCurrentSelectedStyle := lipgloss.NewStyle().Foreground(styles.Success).Bold(true)
-	// Paths: always muted, never bold (slightly brighter when selected)
-	pathNormalStyle := styles.Subtle
-	pathSelectedStyle := styles.Muted
 
-	// Render project list
 	for i := scrollOffset; i < scrollOffset+visibleCount && i < len(projects); i++ {
-		proj := projects[i]
+		project := projects[i]
 		isCursor := i == m.projectSwitcherCursor
 		isHover := i == m.projectSwitcherHover
-		isCurrent := proj.Path == m.ui.WorkDir
+		isCurrent := project.Path == m.ui.WorkDir
 
-		// Cursor indicator
 		if isCursor {
-			b.WriteString(cursorStyle.Render("→ "))
+			b.WriteString(cursorStyle.Render("> "))
 		} else {
 			b.WriteString("  ")
 		}
 
-		// Project name - always has themed color, bold when selected
 		var nameStyle lipgloss.Style
 		if isCurrent {
 			if isCursor || isHover {
@@ -230,44 +201,38 @@ func (m Model) renderProjectSwitcherOverlay(content string) string {
 		} else {
 			nameStyle = nameNormalStyle
 		}
-		b.WriteString(nameStyle.Render(proj.Name))
 
-		// Current indicator
+		b.WriteString(nameStyle.Render(project.Name))
 		if isCurrent {
 			b.WriteString(styles.Muted.Render(" (current)"))
 		}
 		b.WriteString("\n")
-
-		// Project path (always non-bold, slightly brighter when selected)
-		pathStyle := pathNormalStyle
-		if isCursor || isHover {
-			pathStyle = pathSelectedStyle
-		}
-		b.WriteString("  ")
-		b.WriteString(pathStyle.Render(proj.Path))
+		b.WriteString(styles.Muted.Render("  " + project.Path))
 		b.WriteString("\n")
 	}
 
-	// Render scroll indicator if needed (bottom)
 	remaining := len(projects) - (scrollOffset + visibleCount)
 	if remaining > 0 {
-		b.WriteString(styles.Muted.Render(fmt.Sprintf("  ↓ %d more below\n", remaining)))
+		b.WriteString(styles.Muted.Render(fmt.Sprintf("  ↓ %d more below", remaining)))
+		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
-
-	// Help text
 	b.WriteString(styles.KeyHint.Render("enter"))
-	b.WriteString(styles.Muted.Render(" select  "))
+	b.WriteString(styles.Muted.Render(" switch  "))
 	b.WriteString(styles.KeyHint.Render("↑/↓"))
 	b.WriteString(styles.Muted.Render(" navigate  "))
 	b.WriteString(styles.KeyHint.Render("ctrl+a"))
 	b.WriteString(styles.Muted.Render(" add  "))
 	b.WriteString(styles.KeyHint.Render("esc"))
-	b.WriteString(styles.Muted.Render(" cancel  "))
+	b.WriteString(styles.Muted.Render(" close"))
 
 	modal := styles.ModalBox.Render(b.String())
-	return ui.OverlayModal(content, modal, m.width, m.height)
+	base := ui.OverlayModal(content, modal, m.width, m.height)
+	if m.projectAddMode {
+		return m.renderProjectAddOverlay(base)
+	}
+	return base
 }
 
 // renderProjectAddOverlay renders the project add form as a sub-mode.

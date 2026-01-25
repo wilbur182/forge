@@ -85,7 +85,7 @@ Also see `docs/guides/ui-feature-guide.md` for the modal initialization pattern.
 | Create Worktree | Form | ✓ |
 | Task Link | Dropdown | ✓ |
 | Confirm Delete | Confirmation | ✓ |
-| Confirm Delete Shell | Confirmation | ○ |
+| Confirm Delete Shell | Confirmation | ✓ |
 | Rename Shell | Form | ✓ |
 | Prompt Picker | Selection | ○ |
 | Agent Choice | Selection | ○ |

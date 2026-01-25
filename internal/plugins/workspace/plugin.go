@@ -86,8 +86,6 @@ const (
 	regionTypeSelectorNameInput = "type-selector-name-input"
 
 	// Shell delete confirmation modal regions
-	regionDeleteShellConfirmDelete = "delete-shell-confirm-delete"
-	regionDeleteShellConfirmCancel = "delete-shell-confirm-cancel"
 )
 
 // Plugin implements the worktree manager plugin.
@@ -246,9 +244,9 @@ type Plugin struct {
 	deleteWarnings          []string // Warnings from last delete operation (e.g., branch deletion failures)
 
 	// Shell delete confirmation modal state
-	deleteConfirmShell            *ShellSession // Shell pending deletion
-	deleteShellConfirmFocus       int           // 0=delete button, 1=cancel button
-	deleteShellConfirmButtonHover int           // 0=none, 1=delete, 2=cancel (for mouse hover)
+	deleteConfirmShell    *ShellSession // Shell pending deletion
+	deleteShellModal      *modal.Modal
+	deleteShellModalWidth int
 
 	// Rename shell modal state
 	renameShellSession    *ShellSession   // Shell being renamed

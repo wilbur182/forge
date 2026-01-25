@@ -44,6 +44,10 @@ func (p *Plugin) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		return p.handleConfirmDeleteModalMouse(msg)
 	}
 
+	if p.viewMode == ViewModeConfirmDeleteShell {
+		return p.handleConfirmDeleteShellModalMouse(msg)
+	}
+
 	action := p.mouseHandler.HandleMouse(msg)
 
 	switch action.Type {
@@ -179,6 +183,24 @@ func (p *Plugin) handleConfirmDeleteModalMouse(msg tea.MouseMsg) tea.Cmd {
 	return nil
 }
 
+func (p *Plugin) handleConfirmDeleteShellModalMouse(msg tea.MouseMsg) tea.Cmd {
+	p.ensureConfirmDeleteShellModal()
+	if p.deleteShellModal == nil {
+		return nil
+	}
+
+	action := p.deleteShellModal.HandleMouse(msg, p.mouseHandler)
+	switch action {
+	case "":
+		return nil
+	case "cancel", deleteShellConfirmCancelID:
+		return p.cancelShellDelete()
+	case deleteShellConfirmDeleteID:
+		return p.executeShellDelete()
+	}
+	return nil
+}
+
 // handleMouseHover handles hover events for visual feedback.
 func (p *Plugin) handleMouseHover(action mouse.MouseAction) tea.Cmd {
 	// Guard: absorb background region hovers when a modal is open (td-f63097).
@@ -217,19 +239,6 @@ func (p *Plugin) handleMouseHover(action mouse.MouseAction) tea.Cmd {
 			p.agentChoiceButtonHover = 2
 		default:
 			p.agentChoiceButtonHover = 0
-		}
-	case ViewModeConfirmDeleteShell:
-		if action.Region == nil {
-			p.deleteShellConfirmButtonHover = 0
-			return nil
-		}
-		switch action.Region.ID {
-		case regionDeleteShellConfirmDelete:
-			p.deleteShellConfirmButtonHover = 1
-		case regionDeleteShellConfirmCancel:
-			p.deleteShellConfirmButtonHover = 2
-		default:
-			p.deleteShellConfirmButtonHover = 0
 		}
 	case ViewModeRenameShell:
 		// Modal library handles hover state internally
@@ -463,12 +472,6 @@ func (p *Plugin) handleMouseClick(action mouse.MouseAction) tea.Cmd {
 		p.viewMode = ViewModeList
 		p.agentChoiceWorktree = nil
 		p.agentChoiceButtonFocus = 0
-	case regionDeleteShellConfirmDelete:
-		// Click delete button in shell delete modal
-		return p.executeShellDelete()
-	case regionDeleteShellConfirmCancel:
-		// Click cancel button in shell delete modal
-		return p.cancelShellDelete()
 	case regionKanbanCard:
 		// Click on kanban card - select it
 		if data, ok := action.Region.Data.(kanbanCardData); ok {

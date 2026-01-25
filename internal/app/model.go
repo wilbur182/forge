@@ -104,22 +104,25 @@ type Model struct {
 	projectSwitcherFiltered []config.ProjectConfig
 
 	// Project add sub-mode (within project switcher)
-	projectAddMode        bool
-	projectAddNameInput   textinput.Model
-	projectAddPathInput   textinput.Model
-	projectAddFocus       int // 0=name, 1=path, 2=theme, 3=add button, 4=cancel button
-	projectAddButtonHover int // 0=none, 1=add, 2=cancel
-	projectAddError       string
+	projectAddMode         bool
+	projectAddNameInput    textinput.Model
+	projectAddPathInput    textinput.Model
+	projectAddError        string
+	projectAddFocus        int // 0=name, 1=path, 2=theme, 3=add, 4=cancel
+	projectAddButtonHover  int // 0=none, 1=add, 2=cancel
+	projectAddModal        *modal.Modal
+	projectAddModalWidth   int
+	projectAddMouseHandler *mouse.Handler
 
 	// Theme picker within add-project flow
-	projectAddThemeMode       bool            // is theme picker sub-modal open?
+	projectAddThemeMode       bool // is theme picker sub-modal open?
 	projectAddThemeCursor     int
 	projectAddThemeScroll     int
 	projectAddThemeInput      textinput.Model
-	projectAddThemeFiltered   []string        // filtered built-in theme list
-	projectAddThemeSelected   string          // selected theme name (empty = use global)
-	projectAddCommunityMode   bool            // in community sub-browser?
-	projectAddCommunityList   []string        // filtered community scheme names
+	projectAddThemeFiltered   []string // filtered built-in theme list
+	projectAddThemeSelected   string   // selected theme name (empty = use global)
+	projectAddCommunityMode   bool     // in community sub-browser?
+	projectAddCommunityList   []string // filtered community scheme names
 	projectAddCommunityCursor int
 	projectAddCommunityScroll int
 

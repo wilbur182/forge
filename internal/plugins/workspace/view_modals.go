@@ -289,82 +289,87 @@ func (p *Plugin) deleteConfirmRemoteHintSection() modal.Section {
 	}, nil)
 }
 
+const (
+	deleteShellConfirmDeleteID = "delete-shell-confirm-delete"
+	deleteShellConfirmCancelID = "delete-shell-confirm-cancel"
+)
+
 // renderConfirmDeleteShellModal renders the shell delete confirmation modal.
 func (p *Plugin) renderConfirmDeleteShellModal(width, height int) string {
 	// Render the background (list view)
 	background := p.renderListView(width, height)
 
-	if p.deleteConfirmShell == nil {
+	p.ensureConfirmDeleteShellModal()
+	if p.deleteShellModal == nil {
 		return background
 	}
 
-	// Modal dimensions
+	modalContent := p.deleteShellModal.Render(width, height, p.mouseHandler)
+	return ui.OverlayModal(background, modalContent, width, height)
+}
+
+// ensureConfirmDeleteShellModal builds/rebuilds the shell delete confirmation modal.
+func (p *Plugin) ensureConfirmDeleteShellModal() {
+	if p.deleteConfirmShell == nil {
+		return
+	}
+
 	modalW := 50
-	if modalW > width-4 {
-		modalW = width - 4
+	if modalW > p.width-4 {
+		modalW = p.width - 4
+	}
+	if modalW < 20 {
+		modalW = 20
 	}
 
-	shell := p.deleteConfirmShell
-
-	var sb strings.Builder
-	title := "Delete Shell?"
-	sb.WriteString(lipgloss.NewStyle().Bold(true).Foreground(styles.Error).Render(title))
-	sb.WriteString("\n\n")
-
-	// Shell info
-	sb.WriteString(fmt.Sprintf("Name:    %s\n", lipgloss.NewStyle().Bold(true).Render(shell.Name)))
-	sb.WriteString(fmt.Sprintf("Session: %s\n", dimText(shell.TmuxName)))
-	sb.WriteString("\n")
-
-	// Warning text
-	warningStyle := lipgloss.NewStyle().Foreground(styles.Warning)
-	sb.WriteString(warningStyle.Render("This will:"))
-	sb.WriteString("\n")
-	sb.WriteString(dimText("  • Terminate the tmux session"))
-	sb.WriteString("\n")
-	sb.WriteString(dimText("  • Any running processes will be killed"))
-	sb.WriteString("\n\n")
-
-	// Render buttons with focus/hover states
-	deleteStyle := styles.ButtonDanger
-	cancelStyle := styles.Button
-	if p.deleteShellConfirmFocus == 0 {
-		deleteStyle = styles.ButtonDangerFocused
-	} else if p.deleteShellConfirmButtonHover == 1 {
-		deleteStyle = styles.ButtonDangerHover
+	if p.deleteShellModal != nil && p.deleteShellModalWidth == modalW {
+		return
 	}
-	if p.deleteShellConfirmFocus == 1 {
-		cancelStyle = styles.ButtonFocused
-	} else if p.deleteShellConfirmButtonHover == 2 {
-		cancelStyle = styles.ButtonHover
-	}
-	sb.WriteString(deleteStyle.Render(" Delete "))
-	sb.WriteString("  ")
-	sb.WriteString(cancelStyle.Render(" Cancel "))
+	p.deleteShellModalWidth = modalW
 
-	content := sb.String()
-	modal := modalStyle().Width(modalW).Render(content)
+	p.deleteShellModal = modal.New("Delete Shell?",
+		modal.WithWidth(modalW),
+		modal.WithVariant(modal.VariantDanger),
+		modal.WithHints(false),
+	).
+		AddSection(p.deleteShellInfoSection()).
+		AddSection(modal.Spacer()).
+		AddSection(p.deleteShellWarningSection()).
+		AddSection(modal.Spacer()).
+		AddSection(modal.Buttons(
+			modal.Btn(" Delete ", deleteShellConfirmDeleteID, modal.BtnDanger()),
+			modal.Btn(" Cancel ", deleteShellConfirmCancelID),
+		))
+}
 
-	// Calculate modal position for hit regions
-	modalHeight := lipgloss.Height(modal)
-	modalStartX := (width - modalW) / 2
-	modalStartY := (height - modalHeight) / 2
+func (p *Plugin) deleteShellInfoSection() modal.Section {
+	return modal.Custom(func(contentWidth int, focusID, hoverID string) modal.RenderedSection {
+		if p.deleteConfirmShell == nil {
+			return modal.RenderedSection{}
+		}
+		shell := p.deleteConfirmShell
 
-	// Hit regions for buttons
-	// Content structure:
-	// - Title (1) + blank (1) = 2
-	// - Name line (1)
-	// - Session line (1)
-	// - blank (1)
-	// - "This will:" (1) + bullet 1 (1) + bullet 2 (1) + blank (1) = 4
-	// Total lines before buttons: 2 + 1 + 1 + 1 + 4 = 9
-	hitX := modalStartX + 3 // border(1) + padding(2)
-	buttonY := modalStartY + 2 + 9
-	p.mouseHandler.HitMap.AddRect(regionDeleteShellConfirmDelete, hitX, buttonY, 12, 1, nil)
-	cancelX := hitX + 12 + 2
-	p.mouseHandler.HitMap.AddRect(regionDeleteShellConfirmCancel, cancelX, buttonY, 12, 1, nil)
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("Name:    %s\n", lipgloss.NewStyle().Bold(true).Render(shell.Name)))
+		sb.WriteString(fmt.Sprintf("Session: %s", dimText(shell.TmuxName)))
 
-	return ui.OverlayModal(background, modal, width, height)
+		return modal.RenderedSection{Content: sb.String()}
+	}, nil)
+}
+
+func (p *Plugin) deleteShellWarningSection() modal.Section {
+	return modal.Custom(func(contentWidth int, focusID, hoverID string) modal.RenderedSection {
+		warningStyle := lipgloss.NewStyle().Foreground(styles.Warning)
+
+		var sb strings.Builder
+		sb.WriteString(warningStyle.Render("This will:"))
+		sb.WriteString("\n")
+		sb.WriteString(dimText("  • Terminate the tmux session"))
+		sb.WriteString("\n")
+		sb.WriteString(dimText("  • Any running processes will be killed"))
+
+		return modal.RenderedSection{Content: sb.String()}
+	}, nil)
 }
 
 const (

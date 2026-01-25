@@ -372,25 +372,32 @@ func (p *Plugin) clearConfirmDeleteModal() {
 
 // handleConfirmDeleteShellKeys handles keys in the shell delete confirmation modal.
 func (p *Plugin) handleConfirmDeleteShellKeys(msg tea.KeyMsg) tea.Cmd {
+	p.ensureConfirmDeleteShellModal()
+	if p.deleteShellModal == nil {
+		return nil
+	}
+
 	switch msg.String() {
-	case "tab", "j", "down", "l", "right":
-		// Toggle between Delete (0) and Cancel (1)
-		p.deleteShellConfirmFocus = (p.deleteShellConfirmFocus + 1) % 2
-	case "shift+tab", "k", "up", "h", "left":
-		// Toggle between Delete (0) and Cancel (1)
-		p.deleteShellConfirmFocus = (p.deleteShellConfirmFocus + 1) % 2
-	case "enter":
-		if p.deleteShellConfirmFocus == 1 {
-			return p.cancelShellDelete()
-		}
-		return p.executeShellDelete()
 	case "D":
-		// Power user shortcut - immediate confirm
 		return p.executeShellDelete()
 	case "esc", "q":
 		return p.cancelShellDelete()
+	case "j", "down", "l", "right":
+		p.deleteShellModal.HandleKey(tea.KeyMsg{Type: tea.KeyTab})
+		return nil
+	case "k", "up", "h", "left":
+		p.deleteShellModal.HandleKey(tea.KeyMsg{Type: tea.KeyShiftTab})
+		return nil
 	}
-	return nil
+
+	action, cmd := p.deleteShellModal.HandleKey(msg)
+	switch action {
+	case "cancel", deleteShellConfirmCancelID:
+		return p.cancelShellDelete()
+	case deleteShellConfirmDeleteID:
+		return p.executeShellDelete()
+	}
+	return cmd
 }
 
 // executeShellDelete performs the shell deletion.
@@ -405,9 +412,7 @@ func (p *Plugin) executeShellDelete() tea.Cmd {
 
 	// Clear modal state
 	p.viewMode = ViewModeList
-	p.deleteConfirmShell = nil
-	p.deleteShellConfirmFocus = 0
-	p.deleteShellConfirmButtonHover = 0
+	p.clearConfirmDeleteShellModal()
 
 	return p.killShellSessionByName(sessionName)
 }
@@ -415,10 +420,14 @@ func (p *Plugin) executeShellDelete() tea.Cmd {
 // cancelShellDelete closes the shell delete confirmation modal without deleting.
 func (p *Plugin) cancelShellDelete() tea.Cmd {
 	p.viewMode = ViewModeList
-	p.deleteConfirmShell = nil
-	p.deleteShellConfirmFocus = 0
-	p.deleteShellConfirmButtonHover = 0
+	p.clearConfirmDeleteShellModal()
 	return nil
+}
+
+func (p *Plugin) clearConfirmDeleteShellModal() {
+	p.deleteConfirmShell = nil
+	p.deleteShellModal = nil
+	p.deleteShellModalWidth = 0
 }
 
 // handleListKeys handles keys in list view (and kanban view).
@@ -515,8 +524,8 @@ func (p *Plugin) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		if p.shellSelected && p.selectedShellIdx >= 0 && p.selectedShellIdx < len(p.shells) {
 			p.viewMode = ViewModeConfirmDeleteShell
 			p.deleteConfirmShell = p.shells[p.selectedShellIdx]
-			p.deleteShellConfirmFocus = 0       // Focus delete button
-			p.deleteShellConfirmButtonHover = 0 // Clear hover
+			p.deleteShellModal = nil
+			p.deleteShellModalWidth = 0
 			return nil
 		}
 		// Otherwise delete worktree
