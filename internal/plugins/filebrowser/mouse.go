@@ -16,26 +16,11 @@ const (
 	regionPreviewLine = "preview-line" // Individual preview line (Data: line index)
 	regionPreviewTab  = "preview-tab"  // Preview tab (Data: tab index)
 
-	// Project search regions
-	regionSearchToggleRegex = "search-toggle-regex" // Regex toggle button
-	regionSearchToggleCase  = "search-toggle-case"  // Case sensitivity toggle
-	regionSearchToggleWord  = "search-toggle-word"  // Whole word toggle
-	regionSearchInput       = "search-input"        // Search input area
-	regionSearchFile        = "search-file"         // File header (Data: file index)
-	regionSearchMatch       = "search-match"        // Match line (Data: searchMatchData)
-	regionSearchResults     = "search-results"      // Results pane for scrolling
-
 	// File operation modal buttons
 	regionFileOpConfirm    = "file-op-confirm"    // Confirm/Create/Delete/Yes button
 	regionFileOpCancel     = "file-op-cancel"     // Cancel/No button
 	regionFileOpSuggestion = "file-op-suggestion" // Path suggestion item (Data: index)
 )
-
-// searchMatchData holds indices for a search match region.
-type searchMatchData struct {
-	FileIdx  int
-	MatchIdx int
-}
 
 // handleMouse processes mouse events and dispatches to appropriate handlers.
 func (p *Plugin) handleMouse(msg tea.MouseMsg) (*Plugin, tea.Cmd) {
@@ -400,8 +385,14 @@ func (p *Plugin) handleQuickOpenMouse(msg tea.MouseMsg) (*Plugin, tea.Cmd) {
 
 // handleProjectSearchMouse handles mouse events in project search modal.
 func (p *Plugin) handleProjectSearchMouse(msg tea.MouseMsg) (*Plugin, tea.Cmd) {
+	p.ensureProjectSearchModal()
 	state := p.projectSearchState
-	if state == nil {
+	if state == nil || p.projectSearchModal == nil {
+		return p, nil
+	}
+
+	if msg.Action == tea.MouseActionMotion {
+		p.projectSearchModal.HandleMouse(msg, p.mouseHandler)
 		return p, nil
 	}
 
@@ -441,48 +432,38 @@ func (p *Plugin) handleProjectSearchClick(action mouse.MouseAction) (*Plugin, te
 	}
 
 	switch action.Region.ID {
-	case regionSearchToggleRegex:
-		state.UseRegex = !state.UseRegex
-		if state.Query != "" {
-			state.IsSearching = true
-			return p, RunProjectSearch(p.ctx.WorkDir, state)
+	case "modal-backdrop":
+		p.projectSearchMode = false
+		p.projectSearchState = nil
+		p.clearProjectSearchModal()
+		return p, nil
+	case "modal-body":
+		return p, nil
+	}
+
+	p.projectSearchModal.SetFocus(action.Region.ID)
+
+	switch action.Region.ID {
+	case projectSearchToggleRegexID:
+		plug, cmd := p.toggleProjectSearchOption(state, &state.UseRegex)
+		return plug.(*Plugin), cmd
+	case projectSearchToggleCaseID:
+		plug, cmd := p.toggleProjectSearchOption(state, &state.CaseSensitive)
+		return plug.(*Plugin), cmd
+	case projectSearchToggleWordID:
+		plug, cmd := p.toggleProjectSearchOption(state, &state.WholeWord)
+		return plug.(*Plugin), cmd
+	}
+
+	if fileIdx, ok := parseProjectSearchFileID(action.Region.ID); ok {
+		if flatIdx := p.findFlatIndexForFile(fileIdx); flatIdx >= 0 {
+			state.Cursor = flatIdx
 		}
 		return p, nil
-
-	case regionSearchToggleCase:
-		state.CaseSensitive = !state.CaseSensitive
-		if state.Query != "" {
-			state.IsSearching = true
-			return p, RunProjectSearch(p.ctx.WorkDir, state)
-		}
-		return p, nil
-
-	case regionSearchToggleWord:
-		state.WholeWord = !state.WholeWord
-		if state.Query != "" {
-			state.IsSearching = true
-			return p, RunProjectSearch(p.ctx.WorkDir, state)
-		}
-		return p, nil
-
-	case regionSearchFile:
-		// Click on file header - move cursor to it
-		if fileIdx, ok := action.Region.Data.(int); ok {
-			// Find flat index for this file
-			flatIdx := p.findFlatIndexForFile(fileIdx)
-			if flatIdx >= 0 {
-				state.Cursor = flatIdx
-			}
-		}
-		return p, nil
-
-	case regionSearchMatch:
-		// Click on match line - move cursor to it
-		if data, ok := action.Region.Data.(searchMatchData); ok {
-			flatIdx := p.findFlatIndexForMatch(data.FileIdx, data.MatchIdx)
-			if flatIdx >= 0 {
-				state.Cursor = flatIdx
-			}
+	}
+	if fileIdx, matchIdx, ok := parseProjectSearchMatchID(action.Region.ID); ok {
+		if flatIdx := p.findFlatIndexForMatch(fileIdx, matchIdx); flatIdx >= 0 {
+			state.Cursor = flatIdx
 		}
 		return p, nil
 	}
@@ -498,37 +479,32 @@ func (p *Plugin) handleProjectSearchDoubleClick(action mouse.MouseAction) (*Plug
 	}
 
 	switch action.Region.ID {
-	case regionSearchFile:
-		// Double-click on file header - toggle expand/collapse
-		if fileIdx, ok := action.Region.Data.(int); ok {
-			// Move cursor to this file first
-			flatIdx := p.findFlatIndexForFile(fileIdx)
-			if flatIdx >= 0 {
-				state.Cursor = flatIdx
-			}
-			// Toggle collapse
-			if fileIdx >= 0 && fileIdx < len(state.Results) {
-				state.Results[fileIdx].Collapsed = !state.Results[fileIdx].Collapsed
-			}
-		}
+	case "modal-backdrop", "modal-body":
 		return p, nil
+	}
 
-	case regionSearchMatch:
-		// Double-click on match - open in editor
-		if data, ok := action.Region.Data.(searchMatchData); ok {
-			if data.FileIdx >= 0 && data.FileIdx < len(state.Results) {
-				file := state.Results[data.FileIdx]
-				if data.MatchIdx >= 0 && data.MatchIdx < len(file.Matches) {
-					match := file.Matches[data.MatchIdx]
-					// Close project search and open file
-					p.projectSearchMode = false
-					p.projectSearchState = nil
-					cmd := p.openTabAtLine(file.Path, match.LineNo, TabOpenReplace)
-					return p, tea.Batch(cmd, p.openFileAtLine(file.Path, match.LineNo))
-				}
-			}
+	if fileIdx, ok := parseProjectSearchFileID(action.Region.ID); ok {
+		if flatIdx := p.findFlatIndexForFile(fileIdx); flatIdx >= 0 {
+			state.Cursor = flatIdx
+		}
+		if fileIdx >= 0 && fileIdx < len(state.Results) {
+			state.Results[fileIdx].Collapsed = !state.Results[fileIdx].Collapsed
 		}
 		return p, nil
+	}
+
+	if fileIdx, matchIdx, ok := parseProjectSearchMatchID(action.Region.ID); ok {
+		if fileIdx >= 0 && fileIdx < len(state.Results) {
+			file := state.Results[fileIdx]
+			if matchIdx >= 0 && matchIdx < len(file.Matches) {
+				match := file.Matches[matchIdx]
+				p.projectSearchMode = false
+				p.projectSearchState = nil
+				p.clearProjectSearchModal()
+				cmd := p.openTabAtLine(file.Path, match.LineNo, TabOpenReplace)
+				return p, tea.Batch(cmd, p.openFileAtLine(file.Path, match.LineNo))
+			}
+		}
 	}
 
 	return p, nil

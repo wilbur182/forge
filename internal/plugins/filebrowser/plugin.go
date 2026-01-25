@@ -175,8 +175,10 @@ type Plugin struct {
 	quickOpenError   string   // Error message if scan failed/limited
 
 	// Project-wide search state (ctrl+s)
-	projectSearchMode  bool
-	projectSearchState *ProjectSearchState
+	projectSearchMode       bool
+	projectSearchState      *ProjectSearchState
+	projectSearchModal      *modal.Modal
+	projectSearchModalWidth int
 
 	// Info modal state
 	infoMode       bool

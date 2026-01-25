@@ -912,11 +912,58 @@ func (p *Plugin) handleProjectSearchKey(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd)
 	key := msg.String()
 	state := p.projectSearchState
 
+	p.ensureProjectSearchModal()
+	if p.projectSearchModal == nil {
+		p.projectSearchMode = false
+		p.projectSearchState = nil
+		return p, nil
+	}
+
+	if key == "tab" {
+		if state != nil {
+			state.ToggleFileCollapse()
+		}
+		return p, nil
+	}
+
+	action, cmd := p.projectSearchModal.HandleKey(msg)
+	if action == "cancel" {
+		p.projectSearchMode = false
+		p.projectSearchState = nil
+		p.clearProjectSearchModal()
+		return p, nil
+	}
+
+	if action != "" && state != nil {
+		switch action {
+		case projectSearchToggleRegexID:
+			return p.toggleProjectSearchOption(state, &state.UseRegex)
+		case projectSearchToggleCaseID:
+			return p.toggleProjectSearchOption(state, &state.CaseSensitive)
+		case projectSearchToggleWordID:
+			return p.toggleProjectSearchOption(state, &state.WholeWord)
+		}
+
+		if fileIdx, ok := parseProjectSearchFileID(action); ok {
+			if flatIdx := p.findFlatIndexForFile(fileIdx); flatIdx >= 0 {
+				state.Cursor = flatIdx
+			}
+			return p.openProjectSearchResult()
+		}
+		if fileIdx, matchIdx, ok := parseProjectSearchMatchID(action); ok {
+			if flatIdx := p.findFlatIndexForMatch(fileIdx, matchIdx); flatIdx >= 0 {
+				state.Cursor = flatIdx
+			}
+			return p.openProjectSearchResult()
+		}
+	}
+
 	switch key {
 	case "esc":
 		// Close project search
 		p.projectSearchMode = false
 		p.projectSearchState = nil
+		p.clearProjectSearchModal()
 
 	case "enter":
 		// Open selected file/match
@@ -952,6 +999,7 @@ func (p *Plugin) handleProjectSearchKey(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd)
 				// Close project search
 				p.projectSearchMode = false
 				p.projectSearchState = nil
+				p.clearProjectSearchModal()
 				return p, p.openFileAtLine(path, lineNo)
 			}
 		}
@@ -978,41 +1026,17 @@ func (p *Plugin) handleProjectSearchKey(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd)
 			}
 		}
 
-	case "tab":
-		// Toggle file collapse
-		if state != nil {
-			state.ToggleFileCollapse()
-		}
-
 	case "alt+r":
 		// Toggle regex mode
-		if state != nil {
-			state.UseRegex = !state.UseRegex
-			if state.Query != "" {
-				state.IsSearching = true
-				return p, RunProjectSearch(p.ctx.WorkDir, state)
-			}
-		}
+		return p.toggleProjectSearchOption(state, &state.UseRegex)
 
 	case "alt+c":
 		// Toggle case sensitivity
-		if state != nil {
-			state.CaseSensitive = !state.CaseSensitive
-			if state.Query != "" {
-				state.IsSearching = true
-				return p, RunProjectSearch(p.ctx.WorkDir, state)
-			}
-		}
+		return p.toggleProjectSearchOption(state, &state.CaseSensitive)
 
 	case "alt+w":
 		// Toggle whole word
-		if state != nil {
-			state.WholeWord = !state.WholeWord
-			if state.Query != "" {
-				state.IsSearching = true
-				return p, RunProjectSearch(p.ctx.WorkDir, state)
-			}
-		}
+		return p.toggleProjectSearchOption(state, &state.WholeWord)
 
 	case "backspace":
 		if state != nil && len(state.Query) > 0 {
@@ -1036,6 +1060,19 @@ func (p *Plugin) handleProjectSearchKey(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd)
 		}
 	}
 
+	return p, cmd
+}
+
+func (p *Plugin) toggleProjectSearchOption(state *ProjectSearchState, option *bool) (plugin.Plugin, tea.Cmd) {
+	if state == nil || option == nil {
+		return p, nil
+	}
+
+	*option = !*option
+	if state.Query != "" {
+		state.IsSearching = true
+		return p, RunProjectSearch(p.ctx.WorkDir, state)
+	}
 	return p, nil
 }
 

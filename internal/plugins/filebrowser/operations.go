@@ -630,6 +630,7 @@ func (p *Plugin) selectQuickOpenMatch() (plugin.Plugin, tea.Cmd) {
 func (p *Plugin) openProjectSearch() (plugin.Plugin, tea.Cmd) {
 	p.projectSearchMode = true
 	p.projectSearchState = NewProjectSearchState()
+	p.clearProjectSearchModal()
 	return p, nil
 }
 
@@ -651,6 +652,7 @@ func (p *Plugin) openProjectSearchResult() (plugin.Plugin, tea.Cmd) {
 	// Close project search
 	p.projectSearchMode = false
 	p.projectSearchState = nil
+	p.clearProjectSearchModal()
 
 	// Find the file in tree and expand parents
 	var targetNode *FileNode
