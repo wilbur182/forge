@@ -123,8 +123,13 @@ func (s *listSection) Render(contentWidth int, focusID, hoverID string) Rendered
 
 	// Show scroll indicators if needed
 	content := sb.String()
-	if s.scrollOffset > 0 {
+	hasTopIndicator := s.scrollOffset > 0
+	if hasTopIndicator {
 		content = styles.Muted.Render("\u2191 more above") + "\n" + content
+		// Adjust focusable offsets since we prepended a line
+		for i := range focusables {
+			focusables[i].OffsetY++
+		}
 	}
 	if s.scrollOffset+visibleCount < len(s.items) {
 		content = content + "\n" + styles.Muted.Render("\u2193 more below")

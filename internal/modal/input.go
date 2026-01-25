@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/marcus/sidecar/internal/styles"
 )
 
@@ -274,6 +273,3 @@ func (s *textareaSection) Update(msg tea.Msg, focusID string) (string, tea.Cmd) 
 	*s.model, cmd = s.model.Update(msg)
 	return "", cmd
 }
-
-// Ensure ansi import is used
-var _ = ansi.StringWidth

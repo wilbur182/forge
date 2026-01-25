@@ -123,7 +123,6 @@ func (m *Modal) buildLayout(screenW, screenH int, handler *mouse.Handler) string
 		}
 
 		// Register focusable elements with measured positions
-		currentY := 0
 		sectionStartY := 0
 		for i, r := range rendered {
 			if i > 0 {
@@ -146,9 +145,7 @@ func (m *Modal) buildLayout(screenW, screenH int, handler *mouse.Handler) string
 			} else {
 				sectionStartY++ // Spacer = 1 line
 			}
-			currentY = sectionStartY
 		}
-		_ = currentY // Suppress unused warning
 	}
 
 	return styled
