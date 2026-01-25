@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcus/sidecar/internal/adapter"
 	"github.com/marcus/sidecar/internal/app"
+	"github.com/marcus/sidecar/internal/fdmonitor"
 )
 
 // Data loading and file watching methods
@@ -21,6 +22,7 @@ import (
 // Queries sessions from all related worktree paths to show cross-worktree conversations.
 // Sessions from deleted worktrees are marked with "(deleted)" in their worktree name.
 // Caches worktree paths and names to avoid git commands on every refresh (td-e74a4aaa).
+// Serialized to prevent concurrent goroutines from accumulating file descriptors (td-023577).
 func (p *Plugin) loadSessions() tea.Cmd {
 	// Capture current cache state for goroutine (td-0e43c080: avoid race)
 	cachedPaths := p.cachedWorktreePaths
@@ -35,6 +37,22 @@ func (p *Plugin) loadSessions() tea.Cmd {
 	}
 
 	return func() tea.Msg {
+		// Serialize session loading to prevent FD accumulation (td-023577).
+		// Multiple concurrent loadSessions() goroutines each opening session files
+		// caused FD count to grow unbounded. Only allow one at a time.
+		p.loadingMu.Lock()
+		if p.loadingSessions {
+			p.loadingMu.Unlock()
+			return nil // Skip if another load is in progress
+		}
+		p.loadingSessions = true
+		p.loadingMu.Unlock()
+		defer func() {
+			p.loadingMu.Lock()
+			p.loadingSessions = false
+			p.loadingMu.Unlock()
+		}()
+
 		if len(adapters) == 0 {
 			return SessionsLoadedMsg{}
 		}
@@ -160,6 +178,9 @@ func (p *Plugin) loadSessions() tea.Cmd {
 		sort.Slice(sessions, func(i, j int) bool {
 			return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
 		})
+
+		// Check FD count after session loading (td-023577)
+		fdmonitor.Check(nil) // Rate-limited, logs warning if threshold exceeded
 
 		// Return cache data only when updated (td-0e43c080: Update() stores safely)
 		msg := SessionsLoadedMsg{Sessions: sessions}

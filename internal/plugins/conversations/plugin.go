@@ -190,6 +190,10 @@ type Plugin struct {
 	cachedWorktreePaths []string          // cached GetAllRelatedPaths result
 	cachedWorktreeNames map[string]string // cached wtPath -> name mapping
 	worktreeCacheTime   time.Time         // when the cache was last updated
+
+	// Session loading serialization to prevent FD accumulation (td-023577)
+	loadingMu       sync.Mutex // guards loadingSessions
+	loadingSessions bool       // true when loadSessions() goroutine is running
 }
 
 // msgLineRange tracks which screen lines a message occupies (after scroll).

@@ -39,6 +39,9 @@ type Plugin struct {
 
 	// Track StatusMessage changes to surface as sidecar toasts
 	lastStatusMessage string
+
+	// started tracks whether Init() has been called to prevent duplicate poll chains (td-023577)
+	started bool
 }
 
 // New creates a new TD Monitor plugin.
@@ -99,6 +102,8 @@ func (p *Plugin) Start() tea.Cmd {
 		return nil
 	}
 	// Delegate to monitor's Init which starts data fetch and tick
+	// Mark as started to prevent duplicate poll chains on focus (td-023577)
+	p.started = true
 	return p.model.Init()
 }
 
@@ -132,9 +137,11 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		return p, cmd
 	}
 
-	// Refresh data when plugin becomes focused
+	// Skip refresh on focus - the existing poll chain handles periodic updates (td-023577).
+	// Calling model.Init() on every focus created duplicate poll chains, causing
+	// concurrent adapter.Sessions() calls that accumulated file descriptors.
 	if _, ok := msg.(app.PluginFocusedMsg); ok {
-		return p, p.model.Init()
+		return p, nil
 	}
 
 	// Intercept TD's SendTaskToWorktree message and route to workspace plugin
