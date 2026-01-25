@@ -9,7 +9,7 @@ title: Getting Started
 
 Watch your agents work in real-time: see git changes, browse session history, track tasks, and manage parallel workspaces—all from a split-screen terminal UI that complements your agent workflow.
 
-![Sidecar Git Status](../../docs/screenshots/sidecar-git.png)
+![Sidecar Git Status](/img/sidecar-git.png)
 
 ## The Problem
 
@@ -79,7 +79,7 @@ Sidecar's modular architecture provides focused tools for each aspect of your wo
 
 Watch your agent's changes in real-time with syntax-highlighted diffs, stage files with a keypress, and commit without leaving the dashboard. Supports unified and side-by-side diff views, commit history with search, and branch switching.
 
-![Git Status with Diff](../../docs/screenshots/sidecar-git.png)
+![Git Status with Diff](/img/sidecar-git.png)
 
 **Essential shortcuts:**
 
@@ -122,7 +122,7 @@ Create isolated branches, launch agents with custom prompts, and watch their pro
 
 Unified view of sessions across Claude Code, Cursor, Gemini CLI, OpenCode, Codex, and Warp. Search by message content, expand to see full conversations, and track token usage per session. Useful for reviewing what your agents accomplished or resuming previous work.
 
-![Conversations](../../docs/screenshots/sidecar-conversations.png)
+![Conversations](/img/sidecar-conversations.png)
 
 **Essential shortcuts:**
 
@@ -140,7 +140,7 @@ Unified view of sessions across Claude Code, Cursor, Gemini CLI, OpenCode, Codex
 
 Integration with [TD](https://marcus.github.io/td/), a purpose-built task system that helps agents maintain context across sessions. View the current focused task, track activity logs, and submit reviews—all synchronized with your agent's workflow.
 
-![TD Monitor](../../docs/screenshots/sidecar-td.png)
+![TD Monitor](/img/sidecar-td.png)
 
 **Essential shortcuts:**
 
@@ -157,7 +157,7 @@ Integration with [TD](https://marcus.github.io/td/), a purpose-built task system
 
 Collapsible directory tree with live code preview. Browse your codebase while your agent works, open files in your editor, or search by name. Auto-refreshes when files change.
 
-![File Browser](../../docs/screenshots/sidecar-files.png)
+![File Browser](/img/sidecar-files.png)
 
 **Essential shortcuts:**
 

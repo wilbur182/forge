@@ -7,7 +7,7 @@ title: Conversations Plugin
 
 Browse and search your AI coding sessions with turn-based organization, message expansion, and session analytics—see what your agents have been doing across multiple tools.
 
-![Conversations Plugin](../../docs/screenshots/sidecar-conversations.png)
+![Conversations Plugin](/img/sidecar-conversations.png)
 
 ## Supported Agents
 

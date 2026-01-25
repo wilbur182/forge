@@ -11,7 +11,7 @@ When an agent's context ends, its memory ends. TD captures structured work state
 
 **No hallucinated progress. No lost decisions. No repeated work.**
 
-![TD Monitor in Sidecar](../../docs/screenshots/sidecar-td.png)
+![TD Monitor in Sidecar](/img/sidecar-td.png)
 
 ## Why Task Management for AI Agents?
 

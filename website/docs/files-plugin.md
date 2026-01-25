@@ -7,7 +7,7 @@ title: Files Plugin
 
 A full-featured terminal file browser with syntax-highlighted previews, project-wide search powered by ripgrep, markdown rendering, and complete file operations—no leaving the terminal.
 
-![Files Plugin](../../docs/screenshots/sidecar-files.png)
+![Files Plugin](/img/sidecar-files.png)
 
 ## Key Capabilities
 

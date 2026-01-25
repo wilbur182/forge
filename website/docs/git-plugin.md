@@ -7,7 +7,7 @@ title: Git Plugin
 
 A terminal-native git UI with real-time diff preview, syntax highlighting, and intelligent auto-refresh. Watch your agent's changes as they happen—no context switching required.
 
-![Git Status](../../docs/screenshots/sidecar-git.png)
+![Git Status](/img/sidecar-git.png)
 
 ## The Context-Switching Problem
 

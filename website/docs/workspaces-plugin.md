@@ -7,7 +7,7 @@ title: Workspaces Plugin
 
 Parallel development environments with integrated AI agents. Create isolated workspaces, launch Claude Code or Cursor, stream real-time output, and merge when ready—all from one terminal interface.
 
-![Workspaces Plugin](../../docs/screenshots/sidecar-workspaces.png)
+![Workspaces Plugin](/img/sidecar-workspaces.png)
 
 ## What is this?
 
