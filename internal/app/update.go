@@ -875,6 +875,7 @@ func isTextInputContext(ctx string) bool {
 		"file-browser-line-jump",
 		"td-search",
 		"workspace-create", "workspace-task-link", "workspace-rename-shell",
+		"workspace-prompt-picker", "workspace-commit-for-merge", "workspace-type-selector",
 		"theme-switcher":
 		return true
 	default:

@@ -100,6 +100,12 @@ func TestIsTextInputContext(t *testing.T) {
 		{"td-search", true},
 		{"workspace-create", true},
 		{"workspace-task-link", true},
+		{"workspace-rename-shell", true},
+		{"workspace-prompt-picker", true},
+		{"workspace-commit-for-merge", true},
+		{"workspace-type-selector", true},
+		{"file-browser-line-jump", true},
+		{"theme-switcher", true},
 
 		// Non-text-input contexts - allow `, ~, 1-4 for navigation
 		{"global", false},

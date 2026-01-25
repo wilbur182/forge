@@ -242,6 +242,8 @@ func (p *Plugin) FocusContext() string {
 		return "workspace-prompt-picker"
 	case ViewModeRenameShell:
 		return "workspace-rename-shell"
+	case ViewModeTypeSelector:
+		return "workspace-type-selector"
 	case ViewModeFilePicker:
 		return "workspace-file-picker"
 	default:
