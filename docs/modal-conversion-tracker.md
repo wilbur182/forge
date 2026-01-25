@@ -90,7 +90,7 @@ Also see `docs/guides/ui-feature-guide.md` for the modal initialization pattern.
 | Prompt Picker | Selection | ✓ |
 | Agent Choice | Selection | ✓ |
 | Merge Workflow | Multi-step | ✓ |
-| Commit for Merge | Form | ○ |
+| Commit for Merge | Form | ✓ |
 | Type Selector | Selection | ○ |
 
 ---
@@ -128,5 +128,5 @@ Also see `docs/guides/ui-feature-guide.md` for the modal initialization pattern.
 ## Summary
 
 **Total Modals:** 27 (excluding N/A)
-**Converted:** 24 (89%)
-**Remaining:** 3 (11%)
+**Converted:** 25 (93%)
+**Remaining:** 2 (7%)

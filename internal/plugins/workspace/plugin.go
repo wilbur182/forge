@@ -236,6 +236,8 @@ type Plugin struct {
 	// Commit-before-merge state
 	mergeCommitState        *MergeCommitState
 	mergeCommitMessageInput textinput.Model
+	commitForMergeModal     *modal.Modal // Modal instance
+	commitForMergeModalWidth int         // Cached width for rebuild detection
 
 	// Agent choice modal state (attach vs restart)
 	agentChoiceWorktree    *Worktree

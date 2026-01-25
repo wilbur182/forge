@@ -1313,21 +1313,25 @@ func (p *Plugin) handleMergeKeys(msg tea.KeyMsg) tea.Cmd {
 
 // handleCommitForMergeKeys handles keys in the commit-before-merge modal.
 func (p *Plugin) handleCommitForMergeKeys(msg tea.KeyMsg) tea.Cmd {
-	if p.mergeCommitState == nil {
-		p.viewMode = ViewModeList
+	p.ensureCommitForMergeModal()
+	if p.commitForMergeModal == nil {
 		return nil
 	}
 
-	switch msg.String() {
-	case "esc":
-		// Cancel - return to list
+	// Clear error when input is focused and user types
+	if p.commitForMergeModal.FocusedID() == commitForMergeInputID {
+		p.mergeCommitState.Error = ""
+	}
+
+	action, cmd := p.commitForMergeModal.HandleKey(msg)
+	switch action {
+	case "cancel", commitForMergeCancelID:
 		p.mergeCommitState = nil
 		p.mergeCommitMessageInput = textinput.Model{}
+		p.clearCommitForMergeModal()
 		p.viewMode = ViewModeList
 		return nil
-
-	case "enter":
-		// Commit and continue
+	case commitForMergeActionID, commitForMergeCommitID:
 		message := p.mergeCommitMessageInput.Value()
 		if message == "" {
 			p.mergeCommitState.Error = "Commit message cannot be empty"
@@ -1336,11 +1340,6 @@ func (p *Plugin) handleCommitForMergeKeys(msg tea.KeyMsg) tea.Cmd {
 		p.mergeCommitState.Error = ""
 		return p.stageAllAndCommit(p.mergeCommitState.Worktree, message)
 	}
-
-	// Delegate to textinput for all other keys
-	p.mergeCommitState.Error = "" // Clear error when user types
-	var cmd tea.Cmd
-	p.mergeCommitMessageInput, cmd = p.mergeCommitMessageInput.Update(msg)
 	return cmd
 }
 

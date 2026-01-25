@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcus/sidecar/internal/mouse"
 	"github.com/marcus/sidecar/internal/state"
@@ -58,6 +59,10 @@ func (p *Plugin) handleMouse(msg tea.MouseMsg) tea.Cmd {
 
 	if p.viewMode == ViewModeMerge {
 		return p.handleMergeModalMouse(msg)
+	}
+
+	if p.viewMode == ViewModeCommitForMerge {
+		return p.handleCommitForMergeModalMouse(msg)
 	}
 
 	action := p.mouseHandler.HandleMouse(msg)
@@ -296,6 +301,34 @@ func (p *Plugin) handleMergeModalMouse(msg tea.MouseMsg) tea.Cmd {
 	return nil
 }
 
+func (p *Plugin) handleCommitForMergeModalMouse(msg tea.MouseMsg) tea.Cmd {
+	p.ensureCommitForMergeModal()
+	if p.commitForMergeModal == nil {
+		return nil
+	}
+
+	action := p.commitForMergeModal.HandleMouse(msg, p.mouseHandler)
+	switch action {
+	case "":
+		return nil
+	case "cancel", commitForMergeCancelID:
+		p.mergeCommitState = nil
+		p.mergeCommitMessageInput = textinput.Model{}
+		p.clearCommitForMergeModal()
+		p.viewMode = ViewModeList
+		return nil
+	case commitForMergeActionID, commitForMergeCommitID:
+		message := p.mergeCommitMessageInput.Value()
+		if message == "" {
+			p.mergeCommitState.Error = "Commit message cannot be empty"
+			return nil
+		}
+		p.mergeCommitState.Error = ""
+		return p.stageAllAndCommit(p.mergeCommitState.Worktree, message)
+	}
+	return nil
+}
+
 // handleMouseHover handles hover events for visual feedback.
 func (p *Plugin) handleMouseHover(action mouse.MouseAction) tea.Cmd {
 	// Guard: absorb background region hovers when a modal is open (td-f63097).
@@ -329,6 +362,9 @@ func (p *Plugin) handleMouseHover(action mouse.MouseAction) tea.Cmd {
 		// Modal library handles hover state internally
 		return nil
 	case ViewModeMerge:
+		// Modal library handles hover state internally
+		return nil
+	case ViewModeCommitForMerge:
 		// Modal library handles hover state internally
 		return nil
 	case ViewModeTypeSelector:

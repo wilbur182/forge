@@ -798,6 +798,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 				wt := p.mergeCommitState.Worktree
 				p.mergeCommitState = nil
 				p.mergeCommitMessageInput = textinput.Model{}
+				p.clearCommitForMergeModal()
 				cmds = append(cmds, p.proceedToMergeWorkflow(wt))
 			}
 		}
