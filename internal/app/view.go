@@ -89,34 +89,13 @@ func (m Model) renderPaletteOverlay(content string) string {
 
 // renderQuitConfirmOverlay renders the quit confirmation modal.
 func (m Model) renderQuitConfirmOverlay(content string) string {
-	var b strings.Builder
-	b.WriteString(styles.ModalTitle.Render("Quit Sidecar?"))
-	b.WriteString("\n\n")
-	b.WriteString("Are you sure you want to quit?")
-	b.WriteString("\n\n")
-
-	// Render buttons with focus and hover states
-	quitStyle := styles.ButtonDanger
-	cancelStyle := styles.Button
-	if m.quitButtonFocus == 0 {
-		quitStyle = styles.ButtonDangerFocused
-	} else if m.quitButtonHover == 1 {
-		quitStyle = styles.ButtonDangerHover
+	// Lazy init modal if needed
+	if m.quitModal == nil {
+		// This shouldn't happen, but handle gracefully
+		return content
 	}
-	if m.quitButtonFocus == 1 {
-		cancelStyle = styles.ButtonFocused
-	} else if m.quitButtonHover == 2 {
-		cancelStyle = styles.ButtonHover
-	}
-
-	b.WriteString(quitStyle.Render(" Quit "))
-	b.WriteString("  ")
-	b.WriteString(cancelStyle.Render(" Cancel "))
-	b.WriteString("\n\n")
-	b.WriteString(styles.Muted.Render("Tab to switch • Enter to confirm • Esc to cancel"))
-
-	modal := styles.ModalBox.Render(b.String())
-	return ui.OverlayModal(content, modal, m.width, m.height)
+	rendered := m.quitModal.Render(m.width, m.height, m.quitMouseHandler)
+	return ui.OverlayModal(content, rendered, m.width, m.height)
 }
 
 // renderProjectSwitcherOverlay renders the project switcher modal.

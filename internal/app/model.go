@@ -13,6 +13,7 @@ import (
 	"github.com/marcus/sidecar/internal/community"
 	"github.com/marcus/sidecar/internal/config"
 	"github.com/marcus/sidecar/internal/keymap"
+	"github.com/marcus/sidecar/internal/modal"
 	"github.com/marcus/sidecar/internal/mouse"
 	"github.com/marcus/sidecar/internal/palette"
 	"github.com/marcus/sidecar/internal/plugin"
@@ -82,14 +83,14 @@ type Model struct {
 
 	// UI state
 	width, height   int
-	showHelp        bool
-	showDiagnostics bool
-	showFooter      bool
-	showPalette     bool
-	showQuitConfirm bool
-	quitButtonFocus int // 0=quit, 1=cancel
-	quitButtonHover int // 0=none, 1=quit, 2=cancel
-	palette         palette.Model
+	showHelp         bool
+	showDiagnostics  bool
+	showFooter       bool
+	showPalette      bool
+	showQuitConfirm  bool
+	quitModal        *modal.Modal
+	quitMouseHandler *mouse.Handler
+	palette          palette.Model
 
 	// Project switcher modal
 	showProjectSwitcher     bool
@@ -223,6 +224,22 @@ func (m Model) Init() tea.Cmd {
 	}
 
 	return tea.Batch(cmds...)
+}
+
+// initQuitModal initializes the quit confirmation modal.
+func (m *Model) initQuitModal() {
+	m.quitModal = modal.New("Quit Sidecar?",
+		modal.WithWidth(50),
+		modal.WithVariant(modal.VariantDefault),
+		modal.WithPrimaryAction("quit"),
+	).
+		AddSection(modal.Text("Are you sure you want to quit?")).
+		AddSection(modal.Spacer()).
+		AddSection(modal.Buttons(
+			modal.Btn(" Quit ", "quit"),
+			modal.Btn(" Cancel ", "cancel"),
+		))
+	m.quitMouseHandler = mouse.NewHandler()
 }
 
 // ActivePlugin returns the currently active plugin.

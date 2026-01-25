@@ -344,55 +344,20 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.showQuitConfirm {
-		switch msg.Type {
-		case tea.KeyTab:
-			// Cycle focus between Quit (0) and Cancel (1)
-			m.quitButtonFocus = (m.quitButtonFocus + 1) % 2
-			return m, nil
-		case tea.KeyShiftTab:
-			// Reverse cycle focus
-			m.quitButtonFocus = (m.quitButtonFocus + 1) % 2
-			return m, nil
-		case tea.KeyEnter:
-			// Execute focused button
-			if m.quitButtonFocus == 0 {
-				// Quit button focused
-				if activePlugin := m.ActivePlugin(); activePlugin != nil {
-					state.SetActivePlugin(m.ui.WorkDir, activePlugin.ID())
-				}
-				m.registry.Stop()
-				return m, tea.Quit
-			} else {
-				// Cancel button focused
-				m.showQuitConfirm = false
-				m.quitButtonFocus = 0
-				m.quitButtonHover = 0
-				return m, nil
-			}
-		case tea.KeyLeft:
-			m.quitButtonFocus = 0 // Quit button
-			return m, nil
-		case tea.KeyRight:
-			m.quitButtonFocus = 1 // Cancel button
-			return m, nil
-		}
-
-		// Handle y/n shortcuts
-		switch msg.String() {
-		case "y":
+		action, cmd := m.quitModal.HandleKey(msg)
+		switch action {
+		case "quit":
 			// Save active plugin before quitting
 			if activePlugin := m.ActivePlugin(); activePlugin != nil {
 				state.SetActivePlugin(m.ui.WorkDir, activePlugin.ID())
 			}
 			m.registry.Stop()
 			return m, tea.Quit
-		case "n":
+		case "cancel":
 			m.showQuitConfirm = false
-			m.quitButtonFocus = 0
-			m.quitButtonHover = 0
 			return m, nil
 		}
-		return m, nil
+		return m, cmd
 	}
 
 	// Interactive mode: forward ALL keys to plugin including ctrl+c
@@ -419,6 +384,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// ctrl+c shows quit confirmation
 		if msg.String() == "ctrl+c" {
 			if !m.hasModal() {
+				m.initQuitModal()
 				m.showQuitConfirm = true
 			}
 			return m, nil
@@ -440,11 +406,13 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		if !m.hasModal() {
+			m.initQuitModal()
 			m.showQuitConfirm = true
 			return m, nil
 		}
 	case "q":
 		if !m.hasModal() && isRootContext(m.activeContext) {
+			m.initQuitModal()
 			m.showQuitConfirm = true
 			return m, nil
 		}
@@ -1218,87 +1186,19 @@ func (m Model) handleThemeSwitcherMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 // handleQuitConfirmMouse handles mouse events for the quit confirmation modal.
 func (m Model) handleQuitConfirmMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	// Calculate modal dimensions
-	// Modal content: title (1) + blank (1) + message (1) + blank (1) + buttons (1) + blank (1) + help (1) = 7 lines
-	modalContentLines := 7
-	// ModalBox adds padding (1 each side) and border (1 each side) = 4 total
-	modalHeight := modalContentLines + 4
-	modalWidth := 50 // Approximate width
-
-	modalX := (m.width - modalWidth) / 2
-	modalY := (m.height - modalHeight) / 2
-	if modalX < 0 {
-		modalX = 0
-	}
-	if modalY < 0 {
-		modalY = 0
-	}
-
-	// Button positions within modal
-	// Content starts at modalY + 2 (border + padding)
-	// Title: 1 line, blank: 1, message: 1, blank: 1, then buttons
-	buttonY := modalY + 2 + 4 // border/padding + title + blank + message + blank
-
-	// Button X positions (within modal content area)
-	// Modal content starts at modalX + 2 (border + padding)
-	contentStartX := modalX + 2
-	quitButtonX := contentStartX
-	quitButtonWidth := 6                               // " Quit "
-	cancelButtonX := quitButtonX + quitButtonWidth + 2 // 2 spaces between buttons
-	cancelButtonWidth := 8                             // " Cancel "
-
-	// Check if click is inside modal
-	if msg.X >= modalX && msg.X < modalX+modalWidth &&
-		msg.Y >= modalY && msg.Y < modalY+modalHeight {
-
-		switch msg.Action {
-		case tea.MouseActionPress:
-			if msg.Button == tea.MouseButtonLeft {
-				// Check Quit button
-				if msg.Y == buttonY && msg.X >= quitButtonX && msg.X < quitButtonX+quitButtonWidth {
-					// Quit button clicked
-					m.registry.Stop()
-					return m, tea.Quit
-				}
-				// Check Cancel button
-				if msg.Y == buttonY && msg.X >= cancelButtonX && msg.X < cancelButtonX+cancelButtonWidth {
-					m.showQuitConfirm = false
-					m.quitButtonFocus = 0
-					m.quitButtonHover = 0
-					return m, nil
-				}
-			}
-
-		case tea.MouseActionMotion:
-			// Handle hover
-			if msg.Y == buttonY {
-				if msg.X >= quitButtonX && msg.X < quitButtonX+quitButtonWidth {
-					m.quitButtonHover = 1 // Quit button
-				} else if msg.X >= cancelButtonX && msg.X < cancelButtonX+cancelButtonWidth {
-					m.quitButtonHover = 2 // Cancel button
-				} else {
-					m.quitButtonHover = 0
-				}
-			} else {
-				m.quitButtonHover = 0
-			}
+	action := m.quitModal.HandleMouse(msg, m.quitMouseHandler)
+	switch action {
+	case "quit":
+		// Save active plugin before quitting
+		if activePlugin := m.ActivePlugin(); activePlugin != nil {
+			state.SetActivePlugin(m.ui.WorkDir, activePlugin.ID())
 		}
-		return m, nil
-	}
-
-	// Click outside modal - close it
-	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+		m.registry.Stop()
+		return m, tea.Quit
+	case "cancel":
 		m.showQuitConfirm = false
-		m.quitButtonFocus = 0
-		m.quitButtonHover = 0
 		return m, nil
 	}
-
-	// Clear hover when outside modal
-	if msg.Action == tea.MouseActionMotion {
-		m.quitButtonHover = 0
-	}
-
 	return m, nil
 }
 
