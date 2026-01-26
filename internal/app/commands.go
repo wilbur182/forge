@@ -159,3 +159,17 @@ func updateSpinnerTick() tea.Cmd {
 		return UpdateSpinnerTickMsg{}
 	})
 }
+
+// SwitchToMainWorktreeMsg requests switching to the main worktree.
+// Sent when the current WorkDir (a worktree) has been deleted and sidecar
+// should gracefully switch to the main repository.
+type SwitchToMainWorktreeMsg struct {
+	MainWorktreePath string // Path to the main worktree to switch to
+}
+
+// SwitchToMainWorktree returns a command that requests switching to the main worktree.
+func SwitchToMainWorktree(mainPath string) tea.Cmd {
+	return func() tea.Msg {
+		return SwitchToMainWorktreeMsg{MainWorktreePath: mainPath}
+	}
+}

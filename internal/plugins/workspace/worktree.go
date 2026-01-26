@@ -14,12 +14,64 @@ import (
 	"github.com/marcus/sidecar/internal/app"
 )
 
+// WorkDirDeletedMsg signals that the current working directory was deleted.
+// This happens when sidecar is running inside a worktree that gets deleted.
+type WorkDirDeletedMsg struct {
+	MainWorktreePath string
+}
+
 // refreshWorktrees returns a command to refresh the worktree list.
 func (p *Plugin) refreshWorktrees() tea.Cmd {
+	workDir := p.ctx.WorkDir
 	return func() tea.Msg {
+		// Check if current WorkDir still exists (may have been a deleted worktree)
+		if _, err := os.Stat(workDir); os.IsNotExist(err) {
+			// WorkDir was deleted - find main worktree to switch to
+			// We need to find the main worktree from a parent directory
+			mainPath := findMainWorktreeFromDeleted(workDir)
+			if mainPath != "" {
+				return WorkDirDeletedMsg{MainWorktreePath: mainPath}
+			}
+		}
+
 		worktrees, err := p.listWorktrees()
 		return RefreshDoneMsg{Worktrees: worktrees, Err: err}
 	}
+}
+
+// findMainWorktreeFromDeleted finds the main worktree path when the current
+// directory has been deleted. It searches parent directories for a git repo
+// and then finds its main worktree.
+func findMainWorktreeFromDeleted(deletedPath string) string {
+	// Try parent directory first - worktrees are typically siblings of main repo
+	parentDir := filepath.Dir(deletedPath)
+	if parentDir == deletedPath {
+		return "" // reached root
+	}
+
+	// Look for directories in parent that are git repos
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		candidatePath := filepath.Join(parentDir, entry.Name())
+		// Skip the deleted directory
+		if candidatePath == deletedPath {
+			continue
+		}
+		// Check if this is a git repo
+		mainPath := app.GetMainWorktreePath(candidatePath)
+		if mainPath != "" {
+			return mainPath
+		}
+	}
+
+	return ""
 }
 
 // listWorktrees parses git worktree list --porcelain output.

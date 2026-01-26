@@ -210,11 +210,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.switchWorktree(msg.WorktreePath)
 
 	case WorktreeDeletedMsg:
-		// Current worktree was deleted - switch to main
+		// Current worktree was deleted (detected by periodic check) - switch to main
 		return m, tea.Batch(
 			m.switchWorktree(msg.MainPath),
 			ShowToast("Worktree deleted, switched to main", 3*time.Second),
 		)
+
+	case SwitchToMainWorktreeMsg:
+		// Current worktree was deleted (detected by workspace plugin) - switch to main
+		if msg.MainWorktreePath != "" && msg.MainWorktreePath != m.ui.WorkDir {
+			return m, tea.Batch(
+				m.switchProject(msg.MainWorktreePath),
+				func() tea.Msg {
+					return ToastMsg{
+						Message:  "Worktree deleted, switched to main repo",
+						Duration: 3 * time.Second,
+					}
+				},
+			)
+		}
+		return m, nil
 
 	case plugin.OpenFileMsg:
 		// Open file in editor using tea.ExecProcess

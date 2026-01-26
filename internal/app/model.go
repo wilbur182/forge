@@ -586,19 +586,39 @@ func (m *Model) previewProjectTheme() {
 }
 
 // currentProjectConfig returns the ProjectConfig for the current workdir, or nil.
+// If the current workdir is a worktree, it also checks if the main worktree path
+// matches a registered project (so theme scope selector works from worktrees).
 func (m *Model) currentProjectConfig() *config.ProjectConfig {
+	// First, check direct match
 	for i := range m.cfg.Projects.List {
 		if m.cfg.Projects.List[i].Path == m.ui.WorkDir {
 			return &m.cfg.Projects.List[i]
 		}
 	}
+
+	// If not found, check if we're in a worktree and the main repo is registered
+	mainPath := GetMainWorktreePath(m.ui.WorkDir)
+	if mainPath != "" && mainPath != m.ui.WorkDir {
+		for i := range m.cfg.Projects.List {
+			if m.cfg.Projects.List[i].Path == mainPath {
+				return &m.cfg.Projects.List[i]
+			}
+		}
+	}
+
 	return nil
 }
 
 // saveThemeForScope saves a ThemeConfig based on the current scope setting.
+// When saving to project scope from a worktree, uses the main repo path.
 func (m *Model) saveThemeForScope(tc config.ThemeConfig) error {
 	if m.themeSwitcherScope == "project" {
-		return config.SaveProjectTheme(m.ui.WorkDir, &tc)
+		// Use the project path, which may be the main worktree if we're in a worktree
+		projectPath := m.ui.WorkDir
+		if pc := m.currentProjectConfig(); pc != nil {
+			projectPath = pc.Path
+		}
+		return config.SaveProjectTheme(projectPath, &tc)
 	}
 	return config.SaveGlobalTheme(tc)
 }

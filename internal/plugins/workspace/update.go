@@ -43,6 +43,14 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			cmds = append(cmds, p.refreshWorktrees())
 		}
 
+	case WorkDirDeletedMsg:
+		// Current working directory (a worktree) was deleted - request switch to main repo
+		p.refreshing = false
+		if msg.MainWorktreePath != "" {
+			return p, app.SwitchToMainWorktree(msg.MainWorktreePath)
+		}
+		return p, nil
+
 	case RefreshDoneMsg:
 		p.refreshing = false
 		p.lastRefresh = time.Now()
