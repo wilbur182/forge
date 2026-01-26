@@ -301,6 +301,10 @@ type Plugin struct {
 	typeSelectorSkipPerms  bool      // Whether skip permissions is checked
 	typeSelectorFocusField int       // Focus: 0=name, 1=agent, 2=skipPerms, 3=buttons
 
+// Resume conversation state (td-aa4136)
+	pendingResumeCmd      string // Resume command to inject after shell creation
+	pendingResumeWorktree string // Worktree name to enter interactive mode after agent starts
+
 	// Shell manifest for persistence and cross-instance sync (td-f88fdd)
 	shellManifest *ShellManifest
 	shellWatcher  *ShellWatcher
