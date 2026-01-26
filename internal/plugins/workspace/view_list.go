@@ -468,7 +468,10 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 
 	// Build second line parts (plain text)
 	var parts []string
-	if wt.Agent != nil {
+	if wt.IsMain {
+		// For root workspace, show branch name instead of agent
+		parts = append(parts, wt.Branch)
+	} else if wt.Agent != nil {
 		parts = append(parts, string(wt.Agent.Type))
 	} else if wt.ChosenAgentType != "" && wt.ChosenAgentType != AgentNone {
 		parts = append(parts, string(wt.ChosenAgentType))
@@ -560,7 +563,10 @@ func (p *Plugin) renderWorktreeItem(wt *Worktree, selected bool, width int) stri
 
 	// For non-selected, style parts individually
 	var styledParts []string
-	if wt.Agent != nil {
+	if wt.IsMain {
+		// For root workspace, show branch name instead of agent
+		styledParts = append(styledParts, wt.Branch)
+	} else if wt.Agent != nil {
 		styledParts = append(styledParts, string(wt.Agent.Type))
 	} else if wt.ChosenAgentType != "" && wt.ChosenAgentType != AgentNone {
 		styledParts = append(styledParts, dimText(string(wt.ChosenAgentType)))
