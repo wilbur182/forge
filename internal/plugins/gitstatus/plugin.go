@@ -158,9 +158,8 @@ type Plugin struct {
 	discardModal      *modal.Modal // Modal instance for discard confirmation
 
 	// Stash pop confirm state
-	stashPopItem        *Stash // Stash being confirmed for pop
-	stashPopButtonFocus int    // 0=none, 1=confirm, 2=cancel
-	stashPopButtonHover int    // 0=none, 1=confirm, 2=cancel
+	stashPopItem  *Stash       // Stash being confirmed for pop
+	stashPopModal *modal.Modal // Modal instance for stash pop confirmation
 
 	// Syntax highlighting
 	syntaxHighlighter     *SyntaxHighlighter // Cached highlighter for current file
@@ -357,6 +356,8 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			return p.handlePullConflictMouse(msg)
 		case ViewModeConfirmDiscard:
 			return p.handleDiscardMouse(msg)
+		case ViewModeConfirmStashPop:
+			return p.handleStashPopMouse(msg)
 		case ViewModeError:
 			return p.handleErrorModalMouse(msg)
 		}
@@ -700,6 +701,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	case StashPopConfirmMsg:
 		// Show stash pop confirmation modal
 		p.stashPopItem = msg.Stash
+		p.stashPopModal = nil // Force rebuild with new stash item
 		p.viewMode = ViewModeConfirmStashPop
 		return p, nil
 
@@ -867,6 +869,9 @@ func (p *Plugin) Commands() []plugin.Command {
 		// git-error context (error modal)
 		{ID: "dismiss", Name: "Dismiss", Description: "Dismiss error", Category: plugin.CategoryNavigation, Context: "git-error", Priority: 1},
 		{ID: "yank-error", Name: "Yank", Description: "Copy error to clipboard", Category: plugin.CategoryActions, Context: "git-error", Priority: 2},
+		// git-stash-pop context (stash pop confirmation modal)
+		{ID: "confirm-pop", Name: "Pop", Description: "Confirm stash pop", Category: plugin.CategoryGit, Context: "git-stash-pop", Priority: 1},
+		{ID: "dismiss", Name: "Cancel", Description: "Cancel stash pop", Category: plugin.CategoryNavigation, Context: "git-stash-pop", Priority: 2},
 	}
 }
 
@@ -885,6 +890,8 @@ func (p *Plugin) FocusContext() string {
 		return "git-pull-conflict"
 	case ViewModeError:
 		return "git-error"
+	case ViewModeConfirmStashPop:
+		return "git-stash-pop"
 	default:
 		if p.activePane == PaneDiff {
 			// Commit preview pane has different context than file diff pane

@@ -965,67 +965,6 @@ func (p *Plugin) executePushMenuAction(idx int) (plugin.Plugin, tea.Cmd) {
 	return p, nil
 }
 
-// handleConfirmKey handles common key input for confirm dialogs with button pairs.
-// focusPtr points to the button focus state (1=confirm, 2=cancel).
-// onConfirm is called when the user confirms (enter on confirm, y/Y).
-// onCancel is called when the user cancels (enter on cancel, esc/n/N/q).
-func (p *Plugin) handleConfirmKey(msg tea.KeyMsg, focusPtr *int, onConfirm, onCancel func()) (bool, tea.Cmd) {
-	switch msg.String() {
-	case "tab":
-		if *focusPtr == 1 {
-			*focusPtr = 2
-		} else {
-			*focusPtr = 1
-		}
-		return true, nil
-	case "shift+tab":
-		if *focusPtr == 2 {
-			*focusPtr = 1
-		} else {
-			*focusPtr = 2
-		}
-		return true, nil
-	case "enter":
-		if *focusPtr == 2 {
-			onCancel()
-			return true, nil
-		}
-		onConfirm()
-		return true, nil
-	case "y", "Y":
-		onConfirm()
-		return true, nil
-	case "esc", "n", "N", "q":
-		onCancel()
-		return true, nil
-	}
-	return false, nil
-}
-
-func (p *Plugin) updateConfirmStashPop(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {
-	var cmd tea.Cmd
-	handled, _ := p.handleConfirmKey(msg, &p.stashPopButtonFocus,
-		func() {
-			// Confirm
-			if p.stashPopItem != nil {
-				cmd = p.doStashPop()
-			}
-			p.viewMode = ViewModeStatus
-			p.stashPopItem = nil
-			p.stashPopButtonFocus = 1
-		},
-		func() {
-			// Cancel
-			p.viewMode = ViewModeStatus
-			p.stashPopItem = nil
-			p.stashPopButtonFocus = 1
-		},
-	)
-	if handled {
-		return p, cmd
-	}
-	return p, nil
-}
 
 // updateConfirmDiscard handles key events in the confirm discard modal.
 func (p *Plugin) updateConfirmDiscard(msg tea.KeyMsg) (plugin.Plugin, tea.Cmd) {

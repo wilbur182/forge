@@ -149,6 +149,10 @@ func DefaultBindings() []Binding {
 		{Key: "a", Command: "abort-pull", Context: "git-pull-conflict"},
 		{Key: "esc", Command: "dismiss", Context: "git-pull-conflict"},
 
+		// Git stash pop context
+		{Key: "y", Command: "confirm-pop", Context: "git-stash-pop"},
+		{Key: "esc", Command: "dismiss", Context: "git-stash-pop"},
+
 		// Git commit context
 		{Key: "ctrl+s", Command: "execute-commit", Context: "git-commit"},
 		{Key: "ctrl+enter", Command: "execute-commit", Context: "git-commit"},
