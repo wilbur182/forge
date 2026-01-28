@@ -457,7 +457,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			p.exitInlineEditMode()
 			// Refresh preview to show updated file
 			if editedFile != "" {
-				return p, LoadPreview(p.ctx.WorkDir, editedFile)
+				return p, LoadPreview(p.ctx.WorkDir, editedFile, p.ctx.Epoch)
 			}
 			return p, p.refresh()
 		}
@@ -574,13 +574,17 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 			p.previewFile = p.tabs[p.activeTab].Path
 			p.previewScroll = p.tabs[p.activeTab].Scroll
 			p.updateWatchedFile()
-			return p, LoadPreview(p.ctx.WorkDir, p.previewFile)
+			return p, LoadPreview(p.ctx.WorkDir, p.previewFile, p.ctx.Epoch)
 		}
 
 		p.previewFile = ""
 		p.previewScroll = 0
 
 	case PreviewLoadedMsg:
+		// Check for stale message from previous project context
+		if plugin.IsStale(p.ctx, msg) {
+			return p, nil
+		}
 		if msg.Path == p.previewFile {
 			p.applyPreviewResult(msg.Result)
 			p.updateActiveTabResult(msg.Result)
@@ -608,7 +612,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		// Watched file changed - reload preview (watcher only watches the previewed file)
 		cmds := []tea.Cmd{p.listenForWatchEvents()}
 		if p.previewFile != "" {
-			cmds = append(cmds, LoadPreview(p.ctx.WorkDir, p.previewFile))
+			cmds = append(cmds, LoadPreview(p.ctx.WorkDir, p.previewFile, p.ctx.Epoch))
 		}
 		return p, tea.Batch(cmds...)
 
@@ -653,6 +657,10 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		return p, nil
 
 	case BlameLoadedMsg:
+		// Check for stale message from previous project context
+		if plugin.IsStale(p.ctx, msg) {
+			return p, nil
+		}
 		if p.blameState != nil {
 			p.blameState.IsLoading = false
 			if msg.Error != nil {
@@ -666,11 +674,15 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	case projectSearchDebounceMsg:
 		// Only run search if debounce version matches (no newer keystrokes)
 		if p.projectSearchState != nil && p.projectSearchState.DebounceVersion == msg.Version {
-			return p, RunProjectSearch(p.ctx.WorkDir, p.projectSearchState)
+			return p, RunProjectSearch(p.ctx.WorkDir, p.projectSearchState, p.ctx.Epoch)
 		}
 		return p, nil
 
 	case ProjectSearchResultsMsg:
+		// Check for stale message from previous project context
+		if plugin.IsStale(p.ctx, msg) {
+			return p, nil
+		}
 		if p.projectSearchState != nil {
 			p.projectSearchState.IsSearching = false
 			if msg.Error != nil {
@@ -695,7 +707,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		}
 		// Normal exit - refresh preview after editing
 		if msg.FilePath != "" {
-			return p, LoadPreview(p.ctx.WorkDir, msg.FilePath)
+			return p, LoadPreview(p.ctx.WorkDir, msg.FilePath, p.ctx.Epoch)
 		}
 
 	case tea.KeyMsg:
