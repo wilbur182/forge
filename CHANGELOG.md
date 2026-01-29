@@ -2,6 +2,32 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.55.0] - 2026-01-29
+
+### Features
+
+- td issue search anywhere: search, preview, and manage issues from any plugin via shortcut
+- Scrollable search results with status tags, type icons, and priority display
+- Ctrl+x toggle to show/hide closed issues in search
+- Markdown rendering in issue preview modal with vim scrolling
+- Back navigation and yank shortcuts in issue modals
+- Line wrapping toggle (w shortcut) for diff and file preview
+- Better UX for merge diffs
+- Improved workspaces sidebar layout
+
+### Bug Fixes
+
+- Fix issue input modal interactivity and add recency-sorted search
+- Fix markdown scrolling edge cases
+- Fix git diff wrapping
+- Reset changelog scroll offset on Esc
+- Migrate confirm_stash_pop to modal library with mouse support
+- Fix pointer receivers and UI improvements
+
+### Dependencies
+
+- Update td dependency
+
 ## [v0.54.0] - 2026-01-28
 
 ### Dependencies
