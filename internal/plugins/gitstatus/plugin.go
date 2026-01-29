@@ -77,8 +77,9 @@ type Plugin struct {
 	moreCommitsAvailable bool      // Whether more commits are available to load
 
 	// Inline diff state (for three-pane view)
-	selectedDiffFile    string       // File being previewed in diff pane
-	diffPaneScroll      int          // Vertical scroll for inline diff
+	selectedDiffFile     string       // File being previewed in diff pane
+	forceNextDiffReload  bool         // Bypass dedup on next autoLoadDiff call
+	diffPaneScroll       int          // Vertical scroll for inline diff
 	diffPaneHorizScroll int          // Horizontal scroll for inline diff
 	diffPaneParsedDiff  *ParsedDiff  // Parsed diff for inline view
 	diffPaneViewMode    DiffViewMode // Unified or side-by-side for inline diff
@@ -434,7 +435,17 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 		// Only update if this is still the selected file
 		if msg.File == p.selectedDiffFile {
 			p.diffPaneParsedDiff = msg.Parsed
-			p.diffPaneScroll = 0
+			// Clamp scroll to new content length (diff may have shrunk after stage/unstage)
+			if p.diffPaneParsedDiff != nil {
+				lines := countParsedDiffLines(p.diffPaneParsedDiff)
+				maxScroll := lines - (p.height - 6)
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				if p.diffPaneScroll > maxScroll {
+					p.diffPaneScroll = maxScroll
+				}
+			}
 		}
 		return p, nil
 

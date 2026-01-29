@@ -173,11 +173,12 @@ type Engine struct {
 }
 
 type Config struct {
-    Provider       string   // "claude", "codex", "gemini"
-    MaxIterations  int      // rejection loop limit (default: 3)
-    ValidatorCount int      // number of validators (default: 2)
-    Workspace      string   // "worktree" (default), "direct", "docker"
-    AutoMerge      bool     // auto-merge worktree on success
+    Provider       string         // "claude", "codex", "gemini"
+    MaxIterations  int            // rejection loop limit (default: 3)
+    ValidatorCount int            // number of validators (default: 2)
+    Workspace      string         // "worktree" (default), "direct", "docker"
+    AutoMerge      bool           // auto-merge worktree on success
+    AgentTimeout   time.Duration  // kill agent if no output (default: 10m)
 }
 ```
 
@@ -371,6 +372,141 @@ const (
     EventFailed
 )
 ```
+
+#### Heartbeat & Stuck Agent Detection
+
+CLI agents can hang, crash, or loop indefinitely. The orchestrator monitors agent liveness by watching for output activity:
+
+- The agent runner tracks the timestamp of the last stdout/stderr output from the agent process.
+- Every `AgentTimeout` (default 10 minutes), the engine checks if the agent has produced any output.
+- If no output for `AgentTimeout`, the engine kills the process and logs the timeout to td.
+
+This is simpler than a database heartbeat column. The runner already captures stdout/stderr - it just needs a timer alongside it.
+
+```go
+// In the agent runner's Stream() implementation
+select {
+case event := <-agentOutput:
+    lastActivity = time.Now()
+    events <- event
+case <-time.After(config.AgentTimeout):
+    process.Kill()
+    taskEngine.LogBlocker(taskID, fmt.Sprintf(
+        "%s agent timed out after %v with no output", role, config.AgentTimeout))
+    events <- Event{Type: EventFailed, Data: TimeoutError{Role: role}}
+}
+```
+
+The TUI shows the time since last agent output in the progress view, so users can see if an agent appears stuck before the timeout fires.
+
+#### Run State & Crash Recovery
+
+Orchestration runs need to survive sidecar restarts. Instead of maintaining a separate state file, the orchestrator stores run state in td itself using structured logs. td is already the single source of truth for task lifecycle - run state is part of that lifecycle.
+
+**How it works:**
+
+The orchestrator logs phase transitions to td with a structured prefix that can be parsed on recovery:
+
+```
+td log --type orchestration "phase:plan provider:claude worktree:/path/to/wt validators:2 max_iterations:3"
+td log --type orchestration "phase:implement iteration:1"
+td log --type orchestration "phase:validate iteration:1 validators_started:2"
+td log --type orchestration "phase:validate iteration:1 validator:1 approved:true"
+td log --type orchestration "phase:validate iteration:1 validator:2 approved:false"
+td log --type orchestration "phase:iterate iteration:2"
+td log --type orchestration "phase:complete"
+```
+
+On sidecar startup, the orchestrator plugin checks td for any task that is `in_progress` and has orchestration logs but no `phase:complete` or `phase:failed` entry. This means the run was interrupted.
+
+**Recovery logic:**
+
+```go
+func (e *Engine) RecoverIfNeeded(taskID string) (*RecoveryState, error) {
+    // Read orchestration logs from td
+    logs := e.taskEngine.GetOrchestrationLogs(taskID)
+    if logs == nil {
+        return nil, nil // no active run
+    }
+
+    lastPhase := logs.LastPhase()
+    switch lastPhase {
+    case "plan":
+        // Planner was running or plan wasn't accepted yet
+        // Offer: resume planning or start over
+        return &RecoveryState{Phase: "plan", Action: AskUser}, nil
+
+    case "implement":
+        // Implementer was running - worktree may have partial changes
+        // Offer: resume implementation (agent reads td context for where it left off)
+        // or abandon and start fresh
+        return &RecoveryState{
+            Phase:      "implement",
+            Iteration:  logs.LastIteration(),
+            Worktree:   logs.WorktreePath(),
+            Action:     AskUser,
+        }, nil
+
+    case "validate":
+        // Some validators may have finished
+        completed := logs.CompletedValidators()
+        if len(completed) == logs.ValidatorCount() {
+            // All validators finished but orchestrator died before processing results
+            // Can resume directly: check results and proceed
+            return &RecoveryState{Phase: "validate", Action: AutoResume}, nil
+        }
+        // Some validators still pending - restart just those
+        return &RecoveryState{
+            Phase:     "validate",
+            Remaining: logs.ValidatorCount() - len(completed),
+            Action:    AutoResume,
+        }, nil
+
+    case "iterate":
+        // Same as implement - worktree has partial changes
+        return &RecoveryState{
+            Phase:     "iterate",
+            Iteration: logs.LastIteration(),
+            Worktree:  logs.WorktreePath(),
+            Action:    AskUser,
+        }, nil
+    }
+    return nil, nil
+}
+```
+
+**Why td instead of a local state file:**
+
+1. **Single source of truth.** The task's td logs already capture everything that happened. Adding orchestration phase logs to the same stream means there's one place to look, not two.
+
+2. **Survives worktree deletion.** If the user deletes a worktree or cleans up `.sidecar-*` files, the run state is still in td.
+
+3. **Portable.** If someone resumes a task on a different machine (or a different sidecar instance), the run state travels with the task. The user does need to remember which task to restart, but `td list --status in_progress` shows them.
+
+4. **Auditable.** The orchestration log entries are visible in `td context`, so humans and future agents can see exactly what phases ran and what happened.
+
+**What td needs for this:**
+
+A new log type: `orchestration`. td already supports typed logs (`progress`, `blocker`, `decision`, `hypothesis`, `tried`, `result`, `security`). Adding `orchestration` is a one-line change to the enum. The TaskEngineAdapter encapsulates this:
+
+```go
+type TaskEngineAdapter interface {
+    // ... existing methods ...
+
+    // Run state (stored as structured logs in the task engine)
+    LogOrchestrationEvent(taskID string, event string) error
+    GetOrchestrationLogs(taskID string) ([]OrchestrationLog, error)
+}
+```
+
+For non-td backends (Jira, Linear), orchestration logs could map to:
+- Jira: Custom field or structured comment with a `[orchestration]` prefix
+- Linear: Comment with metadata
+- GitHub Issues: Comment with a parseable format
+
+The adapter parses whatever format the backend uses. The orchestrator only sees typed `OrchestrationLog` structs.
+
+**The one thing a local file does better:** Reading run state from td requires a subprocess call (`td` CLI), which takes ~50ms. A file read takes microseconds. On sidecar startup, checking "are there any interrupted runs?" is slower via td. This is acceptable - it happens once at startup, and `td list --status in_progress` is fast enough. If it becomes a problem, we can add a lightweight cache file that's purely a performance optimization, not a source of truth.
 
 ### TUI Plugin Design
 
@@ -593,10 +729,13 @@ The orchestrator calls td directly for lifecycle transitions that require coordi
 |-------|------------|----------------------------|
 | Run starts | `td start <id>` | Must happen before any agent spawns |
 | Session creation | `TD_SESSION` env var per agent | Agents need isolated sessions |
+| Phase transition | `td log --type orchestration "phase:..."` | Run state for crash recovery |
+| Agent timeout | `td log --blocker "agent timed out"` | Orchestrator monitors liveness |
 | Validation pass | `td review <id>` | Orchestrator knows all validators passed |
 | Iteration start | `td log --blocker "findings..."` | Routes validator output to td before next implementer |
-| Run complete | `td approve <id>` (or user approves) | Orchestrator knows the lifecycle is done |
-| Run failed | `td log --blocker "Failed after N iterations"` | Orchestrator decides when to stop |
+| Run complete | `td log --type orchestration "phase:complete"` | Marks run state as finished |
+| Task complete | `td approve <id>` (or user approves) | Orchestrator knows the lifecycle is done |
+| Run failed | `td log --type orchestration "phase:failed"` | Marks run state for recovery |
 | Handoff | `td handoff <id> --done "..." --remaining "..."` | Captures final state for future sessions |
 
 #### Agent-side (self-directed)
@@ -677,9 +816,11 @@ Build the orchestration engine as a standalone package (`internal/orchestrator/`
 
 - Engine lifecycle (plan → build → validate → iterate)
 - Agent runner interface + Claude runner implementation
-- Task engine adapter interface + td implementation
+- Task engine adapter interface + td implementation (including orchestration log type)
 - Workspace management (worktree creation, cleanup)
 - Event emission
+- Heartbeat timeout (agent liveness monitoring)
+- Crash recovery (read orchestration logs from td, reconstruct run state)
 - Unit tests with mock agent runner
 
 ### Phase 2: TUI Plugin
@@ -733,6 +874,18 @@ Three reasons:
 
 The tradeoff: agents need tool access to run shell commands. CLI agents (Claude Code, Codex, Gemini CLI) already have this. API-only agents without tool use would need a different integration path.
 
+### Why store run state in td instead of a local file?
+
+A local `.sidecar-orchestration/run.json` file would be faster to read (~microseconds vs ~50ms for a td CLI call) and wouldn't require parsing log messages. But it creates a second source of truth. If the file says "phase: validate" but td's logs show the last event was implementation, which do you trust? The answer is always "td" - so just use td.
+
+Storing orchestration state as td logs means:
+- One place to look for everything about a task's lifecycle
+- State survives worktree deletion and machine switches
+- `td context` shows orchestration events alongside progress logs and decisions
+- The TaskEngineAdapter pattern keeps this pluggable - other backends store run state however they need to
+
+td needs one small addition: an `orchestration` log type. This is a one-line enum change. The structured content (`phase:validate iteration:2 validator:1 approved:true`) is just the log message string, parsed by the adapter on recovery.
+
 ### Why keep blind validation?
 
 When validators see the implementer's reasoning, they unconsciously defer to it. Blind validation catches real bugs that sighted review misses. Worth the extra agent invocations.
@@ -753,4 +906,6 @@ If demand emerges, this can be added later as an optional feature without changi
 
 4. **Worktree naming convention** - `agent/<task-id>-<slug>`? `orchestrator/<task-id>`? Should this match the workspace plugin's conventions?
 
-5. **Failure escalation** - After max iterations, should the orchestrator offer to hand off to the user (open the worktree in their editor) or just report failure?
+5. **Failure escalation** - After max iterations, the orchestrator logs a handoff to td and marks the run as failed. Should it also offer to open the worktree in the user's editor for manual intervention? The worktree still exists with the agent's partial work.
+
+6. **Orchestration log format** - The structured `phase:X key:value` format is simple but ad-hoc. Should we use JSON log messages for machine parseability, or keep the human-readable format and accept some parsing fragility?

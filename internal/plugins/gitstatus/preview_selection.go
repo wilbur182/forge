@@ -58,13 +58,17 @@ func (p *Plugin) autoLoadDiff() tea.Cmd {
 	}
 
 	entry := entries[p.cursor]
-	if entry.Path == p.selectedDiffFile {
+	isNewFile := entry.Path != p.selectedDiffFile
+	if !isNewFile && !p.forceNextDiffReload {
 		return nil // Already loaded
 	}
 
 	p.selectedDiffFile = entry.Path
-	// Keep old diff visible until new one loads (prevents flashing)
-	p.diffPaneScroll = 0
+	p.forceNextDiffReload = false
+	if isNewFile {
+		// Only reset scroll when switching to a different file
+		p.diffPaneScroll = 0
+	}
 	// Clear commit preview when switching to file
 	p.previewCommit = nil
 
@@ -106,12 +110,12 @@ func (p *Plugin) autoLoadCommitPreview() tea.Cmd {
 }
 
 // autoLoadPreview loads the appropriate preview for the current cursor position.
-// When forceReload is true, clears file diff dedup state so the load always fires
+// When forceReload is true, bypasses diff dedup so the load always fires
 // (use after operations that change the file list like stage/unstage/discard/commit).
 // Commit previews are not force-reloaded since commits are immutable.
 func (p *Plugin) autoLoadPreview(forceReload bool) tea.Cmd {
 	if forceReload {
-		p.selectedDiffFile = ""
+		p.forceNextDiffReload = true
 	}
 	if p.cursorOnCommit() {
 		return p.autoLoadCommitPreview()
