@@ -2,6 +2,12 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.58.0] - 2026-01-30
+
+### Dependencies
+
+- Updated td to latest version with installer process support
+
 ## [v0.56.1] - 2026-01-29
 
 ### Dependencies
