@@ -391,6 +391,32 @@ renderHintLineTruncated(hints, availableWidth)
 - Footer hints are short and high priority actions use Priority 1 or 2.
 - Verify q behavior with `isRootContext()`.
 
+### Text input contexts (critical for modals with inputs)
+
+When a plugin view contains a text input (commit message, search box, modal with text field), the plugin's `FocusContext()` must return a context registered in `isTextInputContext()` (`internal/app/update.go`). Without this, the app intercepts character keys (like `i`, `r`, `q`) for global shortcuts instead of forwarding them to the plugin for typing.
+
+**To add a text input context:**
+1. Return a unique context string from `FocusContext()` when the text input is active.
+2. Add that context to `isTextInputContext()` in `internal/app/update.go`.
+
+```go
+// Plugin side
+func (p *Plugin) FocusContext() string {
+    if p.showMyModal {
+        return "my-plugin-input"  // Text input active
+    }
+    return "my-plugin"
+}
+```
+
+```go
+// isTextInputContext in internal/app/update.go
+case "my-plugin-input":
+    return true
+```
+
+The app forwards all keys (except `ctrl+c`) to the plugin in text input contexts, bypassing global shortcuts like `i` (open issue), `r` (refresh), backtick (next plugin), etc.
+
 ### Common mistakes
 | Symptom | Fix |
 |---------|-----|
