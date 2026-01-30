@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -105,6 +106,7 @@ func Save(cfg *Config) error {
 	var raw map[string]json.RawMessage
 	if existing, err := os.ReadFile(path); err == nil {
 		if jsonErr := json.Unmarshal(existing, &raw); jsonErr != nil {
+			slog.Warn("config: invalid JSON, unmanaged keys will be lost", "error", jsonErr)
 			raw = make(map[string]json.RawMessage)
 		}
 	} else {
