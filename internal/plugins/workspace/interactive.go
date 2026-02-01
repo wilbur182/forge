@@ -808,11 +808,32 @@ func (p *Plugin) handleInteractiveKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 
-	// Time-gate bare "[" after ESC to catch split CSI from mouse motion.
-	// A split-read CSI "[" arrives within microseconds of its ESC; a human
-	// typing "[" after ESC takes 50ms+. 5ms threshold is safe.
-	if msg.Type == tea.KeyRunes && string(msg.Runes) == "[" && p.interactiveState.EscapePressed {
-		if time.Since(p.interactiveState.EscapeTime) < 5*time.Millisecond {
+	// Suppress bare "[" that leaks from split SGR mouse sequences.
+	//
+	// With tea.WithMouseAllMotion(), the terminal sends an SGR mouse sequence
+	// (ESC [ < params M/m) for every mouse movement. Bubble Tea's input reader
+	// can split these sequences across read boundaries:
+	//
+	//   Read 1: ESC        → delivered as tea.KeyEscape (or consumed internally)
+	//   Read 2: [          → delivered as tea.KeyRunes{'['}  ← the leak
+	//   Read 3: <35;10;20M → delivered as tea.KeyRunes or parsed as mouse
+	//
+	// The ESC-time-gate catches case where ESC was delivered as a keypress
+	// (setting EscapePressed). But sometimes Bubble Tea's parser consumes the
+	// ESC internally while still emitting "[" as a leftover rune — EscapePressed
+	// is never set, so the ESC gate doesn't fire.
+	//
+	// The mouse-proximity gate catches this: if ANY mouse event was delivered
+	// within the last 10ms, a bare "[" is almost certainly a CSI fragment, not
+	// a real keypress. Real "[" typing doesn't coincide with mouse activity at
+	// sub-10ms granularity. This works because successfully-parsed mouse events
+	// (tea.MouseMsg) and the leaked "[" originate from the same burst of terminal
+	// output — they arrive within microseconds of each other.
+	if msg.Type == tea.KeyRunes && string(msg.Runes) == "[" {
+		escGate := p.interactiveState.EscapePressed &&
+			time.Since(p.interactiveState.EscapeTime) < 5*time.Millisecond
+		mouseGate := time.Since(p.lastMouseEventTime) < 10*time.Millisecond
+		if escGate || mouseGate {
 			p.interactiveState.EscapePressed = false
 			return nil
 		}

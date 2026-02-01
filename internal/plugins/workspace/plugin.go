@@ -280,6 +280,7 @@ type Plugin struct {
 	// Interactive mode state (feature-gated behind tmux_interactive_input)
 	interactiveState   *InteractiveState
 	lastScrollTime     time.Time // For scroll debouncing (td-e2ce50)
+	lastMouseEventTime time.Time // For suppressing split-CSI "[" near mouse activity
 	scrollBurstCount   int       // Consecutive scroll events for burst detection
 	scrollBurstStarted time.Time // When current burst started
 

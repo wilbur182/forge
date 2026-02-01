@@ -55,6 +55,10 @@ type State struct {
 	EscapeTime         time.Time
 	EscapeTimerPending bool
 
+	// LastMouseEventTime tracks when the last tea.MouseMsg was received,
+	// used to suppress split-CSI "[" that leaks from mouse sequences.
+	LastMouseEventTime time.Time
+
 	// Cursor state (updated asynchronously via CaptureResultMsg)
 	CursorRow     int
 	CursorCol     int
@@ -300,11 +304,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 
-	// Time-gate bare "[" after ESC to catch split CSI from mouse motion.
-	// A split-read CSI "[" arrives within microseconds of its ESC; a human
-	// typing "[" after ESC takes 50ms+. 5ms threshold is safe.
-	if msg.Type == tea.KeyRunes && string(msg.Runes) == "[" && m.State.EscapePressed {
-		if time.Since(m.State.EscapeTime) < 5*time.Millisecond {
+	// Suppress bare "[" that leaks from split SGR mouse sequences.
+	// See the detailed comment in workspace/interactive.go handleInteractiveKeys
+	// for the full explanation. Two gates:
+	//   1. ESC gate: EscapePressed && <5ms since ESC — the ESC was delivered as
+	//      a separate keypress and "[" is its CSI continuation.
+	//   2. Mouse gate: <10ms since last tea.MouseMsg — Bubble Tea consumed the
+	//      ESC internally but "[" leaked as a rune. Successfully-parsed mouse
+	//      events and the leaked "[" come from the same terminal output burst.
+	if msg.Type == tea.KeyRunes && string(msg.Runes) == "[" {
+		escGate := m.State.EscapePressed &&
+			time.Since(m.State.EscapeTime) < 5*time.Millisecond
+		mouseGate := time.Since(m.State.LastMouseEventTime) < 10*time.Millisecond
+		if escGate || mouseGate {
 			m.State.EscapePressed = false
 			return nil
 		}
@@ -382,6 +394,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 // handleMouse processes mouse input in interactive mode.
 func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
+	// Record every mouse event (including motion) for split-CSI suppression.
+	// See the "[" gate comment in handleKey.
+	m.State.LastMouseEventTime = time.Now()
+
 	if !m.IsActive() || !m.State.MouseReportingEnabled {
 		return nil
 	}

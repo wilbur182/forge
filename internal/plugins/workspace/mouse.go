@@ -35,6 +35,11 @@ func isBackgroundRegion(regionID string) bool {
 
 // handleMouse processes mouse input.
 func (p *Plugin) handleMouse(msg tea.MouseMsg) tea.Cmd {
+	// Record the time of every mouse event, including motion. This is used by
+	// handleInteractiveKeys to suppress bare "[" runes that arrive shortly after
+	// mouse activity — see the split-CSI comment in handleInteractiveKeys.
+	p.lastMouseEventTime = time.Now()
+
 	if p.viewMode == ViewModeCreate {
 		return p.handleCreateModalMouse(msg)
 	}
