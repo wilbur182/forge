@@ -478,7 +478,11 @@ func filterBranches(query string, allBranches []string) []string {
 // This allows td commands in the worktree to use the main repo's database.
 func (p *Plugin) setupTDRoot(worktreePath string) error {
 	tdRootPath := filepath.Join(worktreePath, ".td-root")
-	return os.WriteFile(tdRootPath, []byte(p.ctx.WorkDir+"\n"), 0644)
+	mainPath := app.GetMainWorktreePath(p.ctx.WorkDir)
+	if mainPath == "" {
+		mainPath = p.ctx.WorkDir
+	}
+	return os.WriteFile(tdRootPath, []byte(mainPath+"\n"), 0644)
 }
 
 const sidecarTaskFile = ".sidecar-task"
