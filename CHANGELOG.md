@@ -2,6 +2,42 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.62.0] - 2026-02-02
+
+### Features
+
+- Stream session results per-adapter for incremental loading
+- Client-side session pagination
+- Animated braille spinner for adapter loading indicator
+- Loading indicator while adapter batches are still arriving
+- Scrollbar component (RenderScrollbar) with dedicated theme keys
+- Scrollbars in file browser, git status, conversations, workspace sidebar, and modal viewport
+- Auto-scroll modal viewport to focused element on Tab
+- Target branch selector for merge workflow
+- Fetch remote PR as workspace (F key)
+
+### Bug Fixes
+
+- Improved drag handle between panes
+- Parallelize adapter loading and fix scroll-to-load-more
+- Fix conversation and viewport line backgrounds
+- Fix modal background color and scrollbar characters
+- Scroll to focused element on SetFocus in modal
+- Persist worktree base branch to .sidecar-base file
+- Resolve main worktree path for .td-root
+- Handle enter key on orphaned worktrees
+- Dynamic dimensions for inline editor session
+- Save/restore terminal state around editor/tmux launch
+- Guard against non-terminal stdout at startup
+- Tmux resize and dimension fixes
+- Fix update preview modal not rendering for td-only updates
+- Scrollbar resizing fix
+- Various bug fixes from review session
+
+### Dependencies
+
+- Updated td to v0.29.0
+
 ## [v0.61.0] - 2026-01-31
 
 ### Features
