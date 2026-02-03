@@ -2,6 +2,25 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.64.0] - 2026-02-03
+
+### Features
+
+- Tiered file watching for FD reduction (reduces open file descriptors)
+- Click worktree indicator in header to open worktree switcher
+- Alt+C copy shortcut in file preview mode and inline edit
+- Show copy hint on first text selection in file preview
+
+### Bug Fixes
+
+- Replace adapter Watch() with tiered watcher for FD reduction
+- Return ToastMsg directly instead of ShowToast cmd
+
+### Internal
+
+- Unify ToastMsg types into msg package
+- Add FD reduction patterns to adapter-creator-guide
+
 ## [v0.63.0] - 2026-02-02
 
 ### Features
