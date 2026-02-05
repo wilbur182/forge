@@ -1,4 +1,3 @@
-// Package features provides a feature flag system for gating experimental functionality.
 package features
 
 import (

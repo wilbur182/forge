@@ -1,5 +1,3 @@
-// Package fdmonitor provides file descriptor monitoring utilities.
-// Used to detect FD leaks early (td-023577).
 package fdmonitor
 
 import (

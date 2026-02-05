@@ -1,4 +1,3 @@
-// Package cache provides generic caching utilities for adapters.
 package cache
 
 import (

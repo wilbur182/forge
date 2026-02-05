@@ -1,7 +1,3 @@
-// Package tieredwatcher implements tiered file watching to reduce file descriptor count.
-// HOT tier: recently active sessions use real-time fsnotify
-// COLD tier: All other sessions use periodic polling (every 30s)
-// Reduces FD count from ~9K to <500 (td-dca6fe).
 package tieredwatcher
 
 import (

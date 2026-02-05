@@ -1,4 +1,3 @@
-// Package testutil provides utilities for adapter testing and benchmarking.
 package testutil
 
 import (
