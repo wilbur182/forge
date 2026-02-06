@@ -1,831 +1,279 @@
 # Adapter Creator Guide
 
-This guide describes how to add a new AI session adapter to Sidecar.
+This guide defines the implementation and review standard for new Sidecar adapters.
 
-## Overview
+If you are adding an adapter for a new agent, treat this document as the contract.
+If you are reviewing an adapter PR, use the checklist section as the approval gate.
 
-Adapters live in `internal/adapter/<name>` and implement the `adapter.Adapter` interface:
+## Why This Matters
+
+Adapters are the largest performance risk in Sidecar.
+
+Conversations refresh on watch events, and that hot path can run continuously during active sessions:
+
+`watch event -> coalescer -> session refresh -> adapter.Sessions() -> metadata parsing`
+
+If an adapter does full directory scans and full-file reparses on every change, CPU and FD usage spike quickly.
+
+## Reference Adapters
+
+Use these as implementation references:
+
+- `internal/adapter/claudecode` (incremental JSONL parsing, targeted refresh)
+- `internal/adapter/codex` (directory cache, two-pass metadata parsing, global watch scope)
+- `internal/adapter/cursor` (SQLite/WAL-aware cache invalidation, FD-safe DB access)
+
+## Required Adapter Contract
+
+All adapters implement `adapter.Adapter`:
 
 ```go
-// internal/adapter/adapter.go
-
 type Adapter interface {
-	ID() string
-	Name() string
-	Icon() string
-	Detect(projectRoot string) (bool, error)
-	Capabilities() CapabilitySet
-	Sessions(projectRoot string) ([]Session, error)
-	Messages(sessionID string) ([]Message, error)
-	Usage(sessionID string) (*UsageStats, error)
-	Watch(projectRoot string) (<-chan Event, io.Closer, error)
+    ID() string
+    Name() string
+    Icon() string
+    Detect(projectRoot string) (bool, error)
+    Capabilities() CapabilitySet
+    Sessions(projectRoot string) ([]Session, error)
+    Messages(sessionID string) ([]Message, error)
+    Usage(sessionID string) (*UsageStats, error)
+    Watch(projectRoot string) (<-chan Event, io.Closer, error)
 }
 ```
 
-Sidecar discovers adapters via `adapter.RegisterFactory` and `adapter.DetectAdapters`.
+### Required Session fields
 
-## File Layout
+Every session returned from `Sessions()` must set:
 
-```
-internal/adapter/<name>/
-  adapter.go       // main implementation
-  types.go         // JSONL payload types
-  watcher.go       // fsnotify watcher (if supported)
-  register.go      // init() registers factory
-  *_test.go        // unit tests + fixture parsing
-```
+- `ID`
+- `Name`
+- `AdapterID`, `AdapterName`, `AdapterIcon`
+- `CreatedAt`, `UpdatedAt`
+- `MessageCount`
+- `FileSize`
 
-## Required Fields
+`FileSize` is used for dynamic debounce and huge-session auto-reload protection.
 
-When building sessions, populate adapter identity:
+### `Path` and watch strategy
+
+Set `Session.Path` only when Sidecar should use tiered file watching for that adapter.
+
+- File-based append-only adapters (JSONL/log files): set `Path` to absolute file path.
+- DB/WAL adapters (like Cursor): prefer adapter-specific `Watch()` and WAL-aware invalidation; do not set `Path` unless tiered watching fully covers your write surface.
+
+## Performance Standards
+
+### 1) Cache metadata and messages aggressively
+
+At minimum:
+
+- Metadata cache key: `path + size + modTime`
+- Message cache key: `path + size + modTime`
+- For SQLite/WAL: include WAL size+mtime in the key
+
+Avoid unbounded caches. Use bounded LRU behavior and prune stale paths.
+
+### 2) Incremental parsing for append-only formats
+
+For JSONL/event-log adapters, implement incremental parse from byte offset when file grows.
+
+- Cache the last parsed offset.
+- Parse only appended bytes.
+- Fall back to full parse on shrink/rotation/corruption.
+- Preserve immutable head metadata from prior parse.
+
+### 3) Two-pass metadata strategy for large files
+
+If incremental metadata parse is not practical, use head+tail parsing for large files:
+
+- Head pass: ID/CWD/first user message/first timestamp
+- Tail pass: latest timestamp/token totals
+- Skip middle of large files
+
+### 4) Avoid repeated expensive path work
+
+Resolve project path once per `Sessions()` call (`Abs`/`EvalSymlinks`) and reuse it for all matches.
+
+### 5) Return defensive copies from caches
+
+Do not return cache-owned slices/maps directly. Return copied message/session structures to avoid mutation bugs.
+
+### 6) Keep DB access FD-safe
+
+For SQLite adapters:
+
+- open read-only (`mode=ro`)
+- set pool limits (`SetMaxOpenConns(1)`, `SetMaxIdleConns(0)`)
+- close rows and DB handles promptly
+- avoid opening multiple DB connections per `Messages()` call
+
+## Watching and FD Management Standards
+
+### 1) Prefer directory-level watches
+
+Do not watch per-session files when directory-level watch gives equivalent signals.
+
+### 2) Implement watch scope correctly
+
+If the adapter watches a global path (same location regardless of worktree), implement:
 
 ```go
-adapter.Session{
-	ID:          meta.SessionID,
-	Name:        shortID(meta.SessionID),
-	Slug:        meta.SessionID, // optional: short display slug if you have one
-	AdapterID:   "<your-id>",
-	AdapterName: "<Your Name>",
-	AdapterIcon: a.Icon(),
-	FileSize:    info.Size(),  // Required for size-aware performance optimizations
-	Path:        sessionPath,  // Required for tiered watching (absolute path to session file)
-	// ... timestamps, tokens, counts
-}
-```
-
-These are used for badges, filtering, and resume commands in the conversations UI.
-
-**Important:** Always populate `FileSize` from the session file's `os.FileInfo.Size()`. This enables:
-- Dynamic debounce scaling (larger files get longer coalesce windows)
-- Automatic auto-reload disable for huge sessions (>500MB)
-- UI warnings for large sessions
-
-**Important:** Always populate `Path` with the absolute path to the session file. This enables:
-- Tiered watching (HOT/COLD tier management)
-- Session promotion when user selects a conversation
-- Efficient file change detection without directory scans
-
-## Step-by-step
-
-### 1) Define adapter constants
-
-```go
-const (
-	adapterID   = "my-adapter"
-	adapterName = "My Adapter"
-)
-```
-
-Pick a stable `adapterID` (it becomes part of persisted UI state like filters). Use hyphens for multi-word IDs (e.g., `gemini-cli`, `claude-code`, not `geminicli`).
-
-### 2) Define adapter icon
-
-Choose a unique single-character icon for your adapter:
-
-```go
-func (a *Adapter) Icon() string { return "◆" }
-```
-
-Icon guidelines:
-- Use non-emoji Unicode symbols (◆ ▶ ★ ◇ ▲ ■ etc.)
-- Avoid emojis: some terminals render them with double width, breaking column alignment. Use Unicode symbols that render as single-width.
-- Pick something visually distinct from existing adapters
-- Icon appears in conversation list badges
-
-Existing icons:
-
-| Adapter     | Icon |
-|-------------|------|
-| claude-code | ◆    |
-| codex       | ▶    |
-| gemini-cli  | ★    |
-| cursor-cli  | ▌    |
-| warp        | »    |
-| opencode    | ◇    |
-
-### 3) Implement Detect
-
-Detect should return `true` only when sessions for `projectRoot` exist. Prefer:
-- `filepath.Abs` + `filepath.Rel` for stable path matching
-- `filepath.EvalSymlinks` to avoid false negatives
-- graceful handling when data directories do not exist
-
-### 4) Implement Sessions
-
-Parse all session files, extract:
-- `SessionID`
-- `FirstMsg` and `LastMsg`
-- `MsgCount` (user + assistant messages)
-- `TotalTokens` (if available)
-
-Sort by `UpdatedAt` descending.
-
-### 5) Implement Messages
-
-Return ordered `adapter.Message` values with:
-- `Role`: user or assistant
-- `Content`: concatenated content blocks
-- `ToolUses`: tool calls and outputs
-- `ThinkingBlocks`: reasoning summaries (if present)
-- `TokenUsage`: map token_count events to the next assistant message
-- `Model`: from your session metadata. If the session format doesn't include model info, use the adapter's default model or an empty string.
-
-### 6) Implement Usage
-
-Aggregate per-message token usage, and optionally fall back to totals from a session summary record.
-
-### 7) Implement Watch (optional but recommended)
-
-Use `fsnotify` and:
-- add watchers for nested directories (fsnotify is non-recursive)
-- debounce rapid writes
-- map file events to `adapter.Event` types
-
-### 8) Register the adapter
-
-Add a `register.go` with an init hook:
-
-```go
-package myadapter
-
-import "github.com/marcus/sidecar/internal/adapter"
-
-func init() {
-	adapter.RegisterFactory(func() adapter.Adapter {
-		return New()
-	})
-}
-```
-
-And ensure the package is imported (blank import) in `cmd/sidecar/main.go`:
-
-```go
-import (
-	_ "github.com/marcus/sidecar/internal/adapter/myadapter"
-)
-```
-
-### 9) Error handling patterns
-
-Follow these conventions for graceful degradation:
-
-- **Detect()**: Return `(false, nil)` if the data directory doesn't exist. Only return an error for unexpected I/O failures.
-- **Sessions()**: Return an empty slice if the directory is inaccessible or empty. Only return an error for data corruption or parse failures that indicate a broken state.
-- **Messages()**: Return `nil` if the session file is missing (session may have been deleted). Only return an error on parse failures.
-- **Watch()**: Return `(nil, nil, error)` if filesystem operations fail. The caller handles nil channels gracefully.
-
-```go
-func (a *Adapter) Detect(projectRoot string) (bool, error) {
-    dataDir := filepath.Join(homeDir, ".myai", "sessions")
-    if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-        return false, nil // no data dir = not detected, not an error
-    } else if err != nil {
-        return false, err // unexpected I/O error
-    }
-    // ... check for project-specific sessions
-}
-```
-
-## UI Integration Notes
-
-- Conversations view shows adapter badges using `AdapterIcon` + abbreviation.
-- `resumeCommand()` is adapter-specific; add a mapping in `internal/plugins/conversations/view.go` if your tool supports resuming sessions.
-- `modelShortName()` should be extended if your models are non-Claude.
-
-## Conversation Flow View (Primary)
-
-The conversations plugin has two view modes:
-
-1. **Conversation Flow** (default) - Content-focused chat thread like Claude Code web UI
-2. **Turn View** - Metadata-focused aggregated turns (accessible via `v` shortcut)
-
-Conversation flow is the primary view. To support it well, adapters should populate `ContentBlocks` on messages.
-
-### ContentBlocks Structure
-
-```go
-type ContentBlock struct {
-    Type       string // "text", "tool_use", "tool_result", "thinking"
-    Text       string // For text/thinking blocks
-    ToolUseID  string // For tool_use and tool_result linking
-    ToolName   string // For tool_use
-    ToolInput  string // For tool_use (JSON string)
-    ToolOutput string // For tool_result
-    IsError    bool   // For tool_result errors
-    TokenCount int    // For thinking blocks
-}
-```
-
-### Populating ContentBlocks
-
-When implementing `Messages()`, parse your source format into ContentBlocks:
-
-```go
-func buildContentBlocks(rawBlocks []YourContentBlock) []adapter.ContentBlock {
-    var blocks []adapter.ContentBlock
-    for _, b := range rawBlocks {
-        switch b.Type {
-        case "text":
-            blocks = append(blocks, adapter.ContentBlock{
-                Type: "text",
-                Text: b.Text,
-            })
-        case "tool_use":
-            inputJSON, _ := json.Marshal(b.Input)
-            blocks = append(blocks, adapter.ContentBlock{
-                Type:      "tool_use",
-                ToolUseID: b.ID,
-                ToolName:  b.Name,
-                ToolInput: string(inputJSON),
-            })
-        case "tool_result":
-            blocks = append(blocks, adapter.ContentBlock{
-                Type:       "tool_result",
-                ToolUseID:  b.ToolUseID,
-                ToolOutput: b.Content,
-                IsError:    b.IsError,
-            })
-        case "thinking":
-            blocks = append(blocks, adapter.ContentBlock{
-                Type:       "thinking",
-                Text:       b.Thinking,
-                TokenCount: b.TokenCount,
-            })
-        }
-    }
-    return blocks
-}
-```
-
-### Tool Result Linking
-
-The conversation view uses a two-pass approach to link tool calls with their results:
-
-1. **First pass**: Collect all `tool_result` blocks by `ToolUseID`
-2. **Second pass**: When rendering `tool_use` blocks, look up and inline the result
-
-This means adapters should:
-- Always populate `ToolUseID` on both `tool_use` and `tool_result` blocks
-- Use consistent IDs that match between the tool call and its result
-- Include `tool_result` blocks even though they're not rendered separately
-
-### Example: Tool Use Flow
-
-```
-Assistant message with ContentBlocks:
-  [0] type=text, text="I'll read the file..."
-  [1] type=tool_use, id="tu_123", name="Read", input={"path": "foo.go"}
-
-User message with ContentBlocks:
-  [0] type=tool_result, tool_use_id="tu_123", output="package main..."
-```
-
-The conversation view will render this as:
-```
-[14:30] assistant
-    I'll read the file...
-    ▶ Read foo.go
-      package main...
-```
-
-### Fallback Rendering
-
-If `ContentBlocks` is empty, the view falls back to:
-1. `Message.Content` string (rendered as markdown)
-2. `Message.ToolUses` array (legacy format)
-3. `Message.ThinkingBlocks` array (legacy format)
-
-Populating `ContentBlocks` provides the richest display but isn't required.
-
-### View Mode Behavior
-
-| Feature | Conversation Flow | Turn View |
-|---------|------------------|-----------|
-| Shows actual message content | ✓ | Preview only |
-| Inline tool results | ✓ | Count only |
-| Expandable thinking | ✓ | Token count |
-| Message-level cursor | ✓ | Turn-level |
-| Keyboard shortcut | Default | `v` to toggle |
-
-Adapters don't need to do anything special for turn view—it's computed from messages automatically.
-
-## Testing Checklist
-
-### Basic Functionality
-- Detect() matches both absolute and relative project roots
-- Sessions() includes AdapterIcon from Icon()
-- Sessions() sorts by UpdatedAt
-- Sessions() populates FileSize for all sessions
-- Messages() attaches tool uses and token usage correctly
-- Messages() populates ContentBlocks with proper types and linking
-- ContentBlocks tool_use and tool_result share matching ToolUseID
-- Usage() matches message totals
-- Watch() emits create/write events (if supported)
-- Watch() events include SessionID (not empty string)
-- Conversation flow view renders messages with inline tool results
-
-### Performance & Caching
-- Messages() returns cached results when file unchanged (cache hit)
-- Messages() incrementally parses when file grows (no full re-parse)
-- Metadata cache hits for unchanged files (no re-parse)
-- Active session file growth does NOT trigger full re-parse
-- Sessions() with 50+ files completes in <50ms (benchmark)
-- Messages() full parse (1MB) completes in <50ms (benchmark)
-- Messages() incremental parse (append to large file) completes in <10ms (benchmark)
-- Cache hit returns results in <1ms (benchmark)
-
-### File Descriptor Management
-- Sessions() populates Path field for all sessions (enables tiered watching)
-- Benchmark FD count with `lsof -c sidecar | wc -l` (target: <500 total)
-- Verify watcher cleanup on plugin Stop() (no leaked FDs)
-- Global-scoped adapters implement WatchScopeProvider interface
-- Watch() events emitted even for COLD tier sessions (via polling)
-
-## Performance Best Practices
-
-The `Sessions()` method is called frequently (on every watch event). Poorly optimized adapters can cause CPU spikes during active AI sessions. During an active session the hot path fires every ~350ms:
-
-```
-Watch event (100-200ms debounce) → Coalescer (250ms window) → loadSessions()
-  → adapter.Sessions(wtPath) × N worktrees
-    → sessionMetadata(path) × N sessions
-      → full file parse on cache miss
-```
-
-### Metadata Cache Invalidation on Active Sessions
-
-The metadata cache keys on `(path, size, modTime)`. For append-only formats (JSONL), the active session file grows on every message write, so the cache **always misses**. This is the primary cause of CPU spikes.
-
-**Design your session format with cache behavior in mind:**
-
-| Format | Cache behavior | Mitigation |
-|--------|---------------|-------------|
-| JSONL (append) | Always misses for active session | Incremental parsing (seek to offset) |
-| Atomic JSON rewrite | Misses only on actual update | Usually fine as-is |
-| SQLite | Misses on every WAL write | Query only changed rows |
-| Separate files per message | Session metadata file rarely changes | Count message files without parsing them |
-
-### Incremental Parsing for Append-Only Formats
-
-If your format appends data (like JSONL), avoid re-parsing from byte 0 on every cache miss. Cache the byte offset where you stopped and resume from there:
-
-```go
-type metaCacheEntry struct {
-    meta       *SessionMetadata
-    size       int64
-    modTime    time.Time
-    byteOffset int64  // resume point for incremental parse
-}
-
-func (a *Adapter) sessionMetadata(path string, info os.FileInfo) (*SessionMetadata, error) {
-    if entry, ok := a.cache[path]; ok {
-        if entry.size == info.Size() && entry.modTime.Equal(info.ModTime()) {
-            return entry.meta, nil // exact hit
-        }
-        if info.Size() > entry.size {
-            // File grew — parse only new bytes
-            return a.parseIncremental(path, entry.meta, entry.byteOffset)
-        }
-    }
-    // Full parse (new file or file shrank)
-    return a.parseFull(path)
-}
-```
-
-**Key insight:** Head metadata (SessionID, FirstMsg, FirstUserMessage, CWD) is set-once from early messages and never changes. Only tail metadata (LastMsg, MsgCount, TotalTokens) updates as the file grows. Avoid re-deriving immutable fields.
-
-### Two-Pass Parsing for Large Files
-
-If incremental parsing isn't feasible, use a two-pass approach: read the head for immutable metadata, seek to the tail for mutable metadata, and skip the middle entirely:
-
-```go
-const (
-    headLines     = 100   // first N lines for session identity
-    tailBytes     = 8192  // last N bytes for recent timestamps/tokens
-    smallFileSize = 16384 // below this, just parse the whole thing
-)
-
-func (a *Adapter) parseMetadata(path string) (*SessionMetadata, error) {
-    stat, _ := os.Stat(path)
-    if stat.Size() < smallFileSize {
-        return a.parseFull(path)
-    }
-    // Pass 1: head — SessionID, CWD, FirstMsg, FirstUserMessage
-    // Pass 2: tail — LastMsg, TotalTokens, MsgCount (approximate)
-    return a.parseTwoPasses(path, stat.Size())
-}
-```
-
-### Targeted Refresh Support
-
-The conversations plugin's coalescer provides specific `SessionID`s that changed. Adapters that support single-session lookup avoid the full `Sessions()` directory scan on every write:
-
-```go
-// Optional interface — implement to enable targeted refresh
-type TargetedRefresher interface {
-    SessionByID(sessionID string) (*adapter.Session, error)
-}
-```
-
-When implemented, the plugin updates only the changed session in-place rather than re-listing and re-parsing all sessions. This reduces the hot path from O(N sessions) to O(1).
-
-### Lazy-Load Expensive Metadata
-
-Not all metadata needs to be computed during `Sessions()`. Fields like `FirstUserMessage`, `TotalTokens`, and `EstCost` can be deferred:
-
-```go
-// GOOD: Populate expensive fields only when needed
-func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
-    // Only extract: SessionID, FirstMsg, LastMsg, MsgCount
-    // Skip: FirstUserMessage content parsing, token aggregation, cost calculation
-}
-```
-
-This is especially important for adapters with many session files. If the UI only displays timestamps and message counts in the list view, don't parse message content just to extract a title.
-
-### Cache within Sessions()
-
-Avoid parsing the same data multiple times within a single `Sessions()` call:
-
-```go
-// BAD: Parses messages twice per session
-func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
-    for _, entry := range entries {
-        msgCount := a.countMessages(path)      // parses all messages
-        firstMsg := a.getFirstUserMessage(path) // parses again!
-    }
-}
-
-// GOOD: Parse once, extract multiple values
-func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
-    for _, entry := range entries {
-        messages, _ := a.parseMessages(path)
-        msgCount := len(messages)
-        firstMsg := extractFirstUserMessage(messages)
-    }
-}
-```
-
-### Pre-resolve Paths Outside Loops
-
-Path resolution (`filepath.Abs`, `filepath.EvalSymlinks`) is expensive. Resolve once before iterating sessions:
-
-```go
-// BAD: Resolves on every iteration
-for _, meta := range sessions {
-    abs, _ := filepath.Abs(projectRoot)      // called N times
-    sym, _ := filepath.EvalSymlinks(abs)     // called N times
-    if sym == meta.CWD { ... }
-}
-
-// GOOD: Resolve once
-resolved, _ := filepath.Abs(projectRoot)
-resolved, _ = filepath.EvalSymlinks(resolved)
-for _, meta := range sessions {
-    if resolved == meta.CWD { ... }
-}
-```
-
-### Thread Safety
-
-Adapter instances are singletons. Protect shared mutable state with mutexes. The cache package is thread-safe; use it for hot paths.
-
-```go
-type Adapter struct {
-    mu        sync.RWMutex
-    pathIndex map[string]string  // mutable state needs protection
-    metaCache *cache.Cache[SessionMetadata]  // cache package is thread-safe
-}
-
-func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
-    a.mu.RLock()
-    // ... read from pathIndex
-    a.mu.RUnlock()
-    // ... use metaCache without mutex (it's thread-safe)
-}
-```
-
-### Pre-compile Regexes
-
-Regex compilation is expensive. For any regex used in rendering or message parsing, compile once at package level:
-
-```go
-// BAD: Compiles on every call
-func stripTags(s string) string {
-    re := regexp.MustCompile(`<[^>]+>`)
-    return re.ReplaceAllString(s, "")
-}
-
-// GOOD: Compile once at package level
-var tagRegex = regexp.MustCompile(`<[^>]+>`)
-
-func stripTags(s string) string {
-    return tagRegex.ReplaceAllString(s, "")
-}
-```
-
-### Watch Event Efficiency
-
-When implementing `Watch()`:
-1. Always include `SessionID` in emitted events — this enables targeted refresh
-2. Use adequate debounce (100-200ms) to coalesce rapid writes
-3. Consider file modification time checks to avoid spurious events
-
-```go
-// Emit events with SessionID for targeted refresh
-events <- adapter.Event{
-    Type:      adapter.EventMessageAdded,
-    SessionID: sessionID,  // enables smart refresh
-}
-```
-
-Without `SessionID`, the plugin falls back to a full `loadSessions()` call on every event.
-
-### File Descriptor Management
-
-Recursive fsnotify watchers can easily consume thousands of file descriptors (FDs). A naive implementation watching all session files across multiple adapters and worktrees can hit ~9K FDs, exhausting system limits and causing watch failures.
-
-**The Tiered Watcher Solution**
-
-Sidecar uses a tiered watching system (`internal/adapter/tieredwatcher`) that dramatically reduces FD usage:
-
-| Tier | Method | Capacity | Latency |
-|------|--------|----------|---------|
-| HOT | fsnotify | Max 3 sessions | Real-time (~100ms) |
-| COLD | Polling | Unlimited | 30 seconds |
-
-**Tier Behavior:**
-- **Auto-promotion**: Most recently modified sessions start in HOT tier
-- **User promotion**: When a user selects a session, it's promoted to HOT
-- **Demotion**: Sessions demote to COLD after 5 minutes of inactivity
-- **Target FD count**: <500 total (vs. ~9K with naive watching)
-
-**Adapter Integration:**
-
-File-based adapters (JSONL, JSON files) use the tiered watcher automatically when they populate `Session.Path`. The tiered watcher handles fsnotify setup, polling, and tier management.
-
-Database adapters (SQLite, etc.) continue to use their own `Watch()` implementation since they typically watch a single database file rather than many session files.
-
-**WatchScopeProvider Interface:**
-
-Adapters that watch global paths (not project-specific) should implement `WatchScopeProvider` to prevent duplicate watchers when the plugin iterates over multiple worktree paths:
-
-```go
-// Optional interface for adapters with global watch scope
-type WatchScopeProvider interface {
-    WatchScope() WatchScope
-}
-
-// In your adapter:
 func (a *Adapter) WatchScope() adapter.WatchScope {
-    // Return Global if your adapter watches ~/.myai/sessions/ regardless of project
     return adapter.WatchScopeGlobal
-    // Return Project (default) if your adapter watches project-specific paths
-    // return adapter.WatchScopeProject
 }
 ```
 
-Examples:
-- **Global scope**: Codex (watches `~/.codex/sessions/`), Warp (watches global SQLite DB)
-- **Project scope**: Claude Code (watches `.claude/projects/<hash>/` per project)
+This prevents duplicate watchers across worktrees.
 
-**Note on Path Encoding:** Some AI tools (like Claude Code) encode project paths by replacing special characters with dashes. For example, Claude Code replaces `/`, `.`, and `_` with `-`, so `/Users/foo/github.com/my_project` becomes `-Users-foo-github-com-my-project`. When implementing `Detect()` or `Sessions()` for such tools, match the exact encoding scheme used by the tool. See [anthropics/claude-code#19972](https://github.com/anthropics/claude-code/issues/19972) for known encoding issues.
+### 3) Always emit `SessionID` when known
 
-### Directory Listing Cache
+`Watch()` events should include session ID whenever possible. This enables targeted refresh and avoids full reloads.
 
-If your session files are spread across a directory tree (e.g., `YYYY/MM/DD/session.jsonl`), cache the directory walk result with a short TTL:
+### 4) Debounce and non-blocking event sends
+
+- Debounce bursty write events.
+- Use buffered channels.
+- Use non-blocking sends (`select { case ch <- evt: default: }`) so watchers do not deadlock UI updates.
+
+### 5) Ensure cleanup
+
+All watcher paths must close cleanly on plugin stop. No goroutine or FD leaks.
+
+## Message and Content Rendering Standards
+
+Conversation Flow is the default UI. Adapters must provide rich structured content.
+
+### Required message mapping
+
+Map source records to:
+
+- `Message.Role`
+- `Message.Content`
+- `Message.ContentBlocks`
+- `Message.ToolUses` (legacy compatibility)
+- `Message.ThinkingBlocks` (if available)
+- `Message.Model` when available
+
+### Tool linking rule
+
+Use consistent `ToolUseID` for `tool_use` and `tool_result` blocks.
+
+If incremental parsing is used, preserve pending tool-link state across cache updates so newly appended `tool_result` blocks can link to previously parsed `tool_use` blocks.
+
+## Optional Interfaces You Should Usually Implement
+
+### `TargetedRefresher`
 
 ```go
-type dirCacheEntry struct {
-    files     []sessionFileEntry
-    expiresAt time.Time
-}
-
-const dirCacheTTL = 500 * time.Millisecond
-
-func (a *Adapter) sessionFiles() ([]sessionFileEntry, error) {
-    if c := a.dirCache; c != nil && time.Now().Before(c.expiresAt) {
-        return c.files, nil // cache hit
-    }
-    // Walk directory tree, cache result
-    files := walkSessionDir(a.rootDir)
-    a.dirCache = &dirCacheEntry{files: files, expiresAt: time.Now().Add(dirCacheTTL)}
-    return files, nil
+type TargetedRefresher interface {
+    SessionByID(sessionID string) (*Session, error)
 }
 ```
 
-### Avoid Blocking I/O in Hot Paths
+Implement this for adapters that can resolve a session directly. It reduces refresh from O(N sessions) to O(1).
 
-The `Messages()` method may be called frequently when a session is selected:
-- Consider caching parsed messages with TTL or invalidation on watch events
-- Use read-only SQLite mode (`?mode=ro`) to avoid lock contention
-- Avoid repeated directory scans; cache session-to-path mappings
+### `ProjectDiscoverer`
 
-## Using the Shared Cache Package
+Implement when the source format allows discovery of related/deleted worktree sessions beyond current git worktrees.
 
-Sidecar provides a generic caching utility in `internal/adapter/cache` that handles file-based invalidation and LRU eviction. Use it for both metadata and message caching.
+## Error Handling Rules
 
-### Basic Cache Setup
+- `Detect()`: return `(false, nil)` for missing data directories.
+- `Sessions()`: skip corrupt/unreadable entries and continue; only hard-fail on systemic errors.
+- `Messages()`: return `nil, nil` for missing session files; fail on parse errors.
+- `Watch()`: return `(nil, nil, err)` when watch setup fails.
 
-```go
-import "github.com/marcus/sidecar/internal/adapter/cache"
+## Testing and Benchmark Expectations
 
-type Adapter struct {
-    metaCache *cache.Cache[SessionMetadata]
-    msgCache  *cache.Cache[messageCacheEntry]
-}
+Each new adapter PR must include tests for correctness + performance behavior.
 
-func New() *Adapter {
-    return &Adapter{
-        metaCache: cache.New[SessionMetadata](1024),   // 1024 sessions max
-        msgCache:  cache.New[messageCacheEntry](100),  // 100 message sets max
-    }
-}
-```
+### Required tests
 
-### Cache with File Validation
+- relative vs absolute project path behavior in `Detect()`/`Sessions()`
+- `Sessions()` sorted by `UpdatedAt desc`
+- required session fields populated (`Adapter*`, `FileSize`, and `Path` when applicable)
+- cache hit behavior (no reparsing on unchanged files)
+- file growth behavior (incremental parse path)
+- file shrink/rotation behavior (fallback full parse)
+- tool use/result linking (including incremental append cases)
+- watcher event emission includes `SessionID`
+- watcher cleanup (no leaked closers)
 
-The cache automatically invalidates when file size or modification time changes:
+### Benchmark targets (new adapters should be in this range)
 
-```go
-func (a *Adapter) sessionMetadata(path string, info os.FileInfo) (*SessionMetadata, error) {
-    // Check cache — validates against size and modTime
-    if meta, ok := a.metaCache.Get(path, info.Size(), info.ModTime()); ok {
-        return &meta, nil // cache hit
-    }
+- `Messages()` full parse (~1MB): target under 50ms
+- `Messages()` incremental append: target under 10ms
+- `Messages()` cache hit: target under 1ms
+- `Sessions()` on 50 session files: target under 50ms
 
-    // Cache miss — parse file
-    meta, err := a.parseMetadata(path)
-    if err != nil {
-        return nil, err
-    }
+These are practical targets derived from mature adapter behavior (especially Claude/Codex paths).
 
-    // Store in cache
-    a.metaCache.Set(path, *meta, info.Size(), info.ModTime(), 0)
-    return meta, nil
-}
-```
+## PR Compliance Checklist
 
-### Incremental Parsing with Offset Tracking
+Use this list directly in PR review.
 
-For append-only formats (JSONL), use `GetWithOffset` to resume parsing from where you left off:
+### A) Correctness
 
-```go
-type messageCacheEntry struct {
-    messages   []adapter.Message
-    byteOffset int64  // resume point
-}
+- [ ] Adapter implements full `adapter.Adapter` contract
+- [ ] `Sessions()` sets required identity and timestamp fields
+- [ ] `FileSize` is populated for every session
+- [ ] `Path` strategy is explicit and correct for adapter type
+- [ ] Message role/content mapping is correct
+- [ ] `ContentBlocks` include text/tool/thinking data where available
+- [ ] Tool result linking is correct (`ToolUseID` parity)
 
-func (a *Adapter) Messages(sessionID string) ([]adapter.Message, error) {
-    path := a.sessionFilePath(sessionID)
-    info, _ := os.Stat(path)
+### B) Performance
 
-    // Check cache with offset support
-    cached, offset, cachedSize, cachedModTime, ok := a.msgCache.GetWithOffset(path)
+- [ ] Metadata cache implemented and bounded
+- [ ] Message cache implemented and bounded
+- [ ] Incremental parse or two-pass large-file strategy implemented
+- [ ] No repeated `Abs/EvalSymlinks` work inside per-session loops
+- [ ] No duplicate parsing for data that can be extracted in one pass
+- [ ] Benchmarks added with realistic fixture sizes
 
-    if ok {
-        // Check if file changed
-        changed, grew, _, _ := cache.FileChanged(path, cachedSize, cachedModTime)
+### C) FD / Watching
 
-        if !changed {
-            return cached.messages, nil // exact cache hit
-        }
+- [ ] Watch strategy avoids per-file watchers when possible
+- [ ] Global adapters implement `WatchScopeProvider`
+- [ ] Watch events include `SessionID` when possible
+- [ ] Debounce + buffered + non-blocking event send pattern used
+- [ ] DB adapters account for WAL changes in invalidation and watch logic
+- [ ] Watchers and goroutines close cleanly
 
-        if grew {
-            // File grew — incremental parse from offset
-            return a.parseIncremental(path, cached, offset, info)
-        }
-    }
+### D) Integration
 
-    // Full parse (new file, file shrank, or no cache)
-    return a.parseFull(path, info)
-}
+- [ ] Adapter registered via `register.go` and main import
+- [ ] Search (if supported) uses adapter `Messages()` path
+- [ ] Large-session behavior validated (`FileSize`-driven)
+- [ ] Docs include format assumptions and known limitations
 
-func (a *Adapter) parseIncremental(path string, cached messageCacheEntry, offset int64, info os.FileInfo) ([]adapter.Message, error) {
-    // Use shared IncrementalReader utility
-    reader, err := cache.NewIncrementalReader(path, offset)
-    if err != nil {
-        return nil, err
-    }
-    defer reader.Close()
+## Reviewer Command Pack
 
-    messages := append([]adapter.Message{}, cached.messages...) // copy
-
-    for {
-        line, err := reader.Next()
-        if err == io.EOF {
-            break
-        }
-        if err != nil {
-            return nil, err
-        }
-
-        msg, err := a.parseLine(line)
-        if err != nil {
-            continue
-        }
-        messages = append(messages, msg)
-    }
-
-    a.msgCache.Set(path, messageCacheEntry{
-        messages:   messages,
-        byteOffset: reader.Offset(),
-    }, info.Size(), info.ModTime(), reader.Offset())
-
-    return messages, nil
-}
-```
-
-### Cache Utility Functions
-
-The cache package provides helper functions:
-
-```go
-// Check if a file changed since cached
-changed, grew, info, err := cache.FileChanged(path, cachedSize, cachedModTime)
-
-// Delete specific entries
-a.msgCache.Delete(path)
-
-// Delete entries matching a condition
-a.msgCache.DeleteIf(func(key string, entry cache.Entry[T]) bool {
-    return time.Since(entry.LastAccess) > time.Hour
-})
-```
-
-## Writing Performance Benchmarks
-
-Use the test utilities in `internal/adapter/testutil` to generate realistic fixtures for benchmarking.
-
-### Generating Test Fixtures
-
-```go
-import "github.com/marcus/sidecar/internal/adapter/testutil"
-
-func BenchmarkMessages(b *testing.B) {
-    tmpDir := b.TempDir()
-    sessionFile := filepath.Join(tmpDir, "session.jsonl")
-
-    // Generate a ~1MB session file with 500 message pairs
-    messageCount := testutil.ApproximateMessageCount(1*1024*1024, 1024)
-    if err := testutil.GenerateClaudeCodeSessionFile(sessionFile, messageCount, 1024); err != nil {
-        b.Fatalf("failed to generate test file: %v", err)
-    }
-
-    a := New()
-    // ... setup adapter
-
-    b.ReportAllocs()
-    b.ResetTimer()
-
-    for i := 0; i < b.N; i++ {
-        _, _ = a.Messages("session-id")
-    }
-}
-```
-
-### Benchmark Scenarios
-
-Create benchmarks for these scenarios:
-
-| Scenario | Target | Description |
-|----------|--------|-------------|
-| Full parse (1MB) | <50ms | Parse complete small file |
-| Full parse (10MB) | <500ms | Parse medium file |
-| Cache hit | <1ms | Return cached messages |
-| Incremental parse | <10ms | Parse 1KB append to large file |
-| Sessions (50 files) | <50ms | List all sessions |
-
-### Running Benchmarks
+Run these during adapter review (adjust `<adapter>`):
 
 ```bash
-# Run all benchmarks with memory stats
-go test -bench=. -benchmem ./internal/adapter/myadapter/
-
-# Compare before/after changes
-go test -bench=. -count=5 ./internal/adapter/myadapter/ > old.txt
-# ... make changes ...
-go test -bench=. -count=5 ./internal/adapter/myadapter/ > new.txt
-benchstat old.txt new.txt
+go test ./internal/adapter/<adapter> -run .
+go test ./internal/adapter/<adapter> -bench . -benchmem
 ```
 
-## Minimal Skeleton
+For FD observation during manual runs:
 
-```go
-package myadapter
-
-type Adapter struct {
-	// data dir, indexes, etc.
-}
-
-func New() *Adapter { /* ... */ }
-func (a *Adapter) ID() string { return adapterID }
-func (a *Adapter) Name() string { return adapterName }
-func (a *Adapter) Icon() string { return "●" } // choose unique icon
-func (a *Adapter) Detect(projectRoot string) (bool, error) { /* ... */ }
-func (a *Adapter) Capabilities() adapter.CapabilitySet { /* ... */ }
-func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) { /* ... */ }
-func (a *Adapter) Messages(sessionID string) ([]adapter.Message, error) { /* ... */ }
-func (a *Adapter) Usage(sessionID string) (*adapter.UsageStats, error) { /* ... */ }
-func (a *Adapter) Watch(projectRoot string) (<-chan adapter.Event, io.Closer, error) { /* ... */ }
+```bash
+# macOS/Linux process FD count
+lsof -p "$(pgrep -x sidecar | head -n1)" | wc -l
 ```
+
+## Template: Writing an Adapter-Specific Guide
+
+When adding a new adapter, include a short companion guide with these sections:
+
+1. Storage layout and file/db schema assumptions
+2. Project detection and path normalization rules
+3. Session extraction strategy (including naming/title heuristics)
+4. Message parsing model and ContentBlocks mapping
+5. Cache keys and invalidation rules
+6. Watch strategy (scope, debounce, event mapping, cleanup)
+7. Performance characteristics and benchmark output
+8. Known limitations and fallback behavior
+
+That document should make it possible for a reviewer to reason about performance and correctness without reading every line of adapter code.
