@@ -284,11 +284,11 @@ function ConversationsPane() {
           </div>
           <div className="sc-item">
             <span className="sc-bullet sc-bulletBlue" />
-            <span>api-docs <span className="sc-lineYellow" style={{ fontSize: 9 }}>Claude</span></span>
+            <span>api-docs <span className="sc-lineGreen" style={{ fontSize: 9 }}>Amp</span></span>
           </div>
           <div className="sc-item">
             <span className="sc-bullet sc-bulletGreen" />
-            <span>docs-refactor <span className="sc-lineYellow" style={{ fontSize: 9 }}>Claude</span></span>
+            <span>docs-refactor <span className="sc-lineBlue" style={{ fontSize: 9 }}>Kiro</span></span>
           </div>
         </div>
       </div>
@@ -1016,7 +1016,7 @@ export default function Home() {
                 isHighlighted={activeTab === 'conversations'}
                 onClick={() => handleCardClick('conversations')}
               >
-                All your agents in one timeline—Claude, Cursor, Gemini, and more. Search across sessions, pick up where any agent left off.
+                All your agents in one timeline—Claude, Cursor, Gemini, Amp, Kiro, and more. Search across sessions, pick up where any agent left off.
               </FeatureCard>
 
               <FeatureCard
@@ -1096,7 +1096,7 @@ export default function Home() {
               MockupComponent={ConversationsMockup}
               features={[
                 'Chronological view across all coding agents',
-                'Claude, Cursor, Gemini, Codex, Opencode in one list',
+                'Claude, Cursor, Gemini, Codex, Amp, Kiro, Opencode, and Warp in one list',
                 'Search across all adapters at once',
                 'Filter by agent, date, or content',
                 'Expand messages and view tool calls',
@@ -1163,7 +1163,7 @@ export default function Home() {
                 icon="layers"
                 title="Multi-Agent Support"
                 color="orange"
-                description="Works with Claude Code, Codex, Gemini CLI, Opencode, and Cursor's cursor-agent."
+                description="Works with Claude Code, Codex, Gemini CLI, Opencode, Cursor, Amp Code, Kiro, and Warp."
               />
               <FeatureListItem
                 icon="git-branch"
@@ -1305,6 +1305,45 @@ export default function Home() {
                 <div className="sc-agentInfo">
                   <h3 className="sc-agentName">Cursor</h3>
                   <p className="sc-agentDesc">AI-first code editor (cursor-agent)</p>
+                </div>
+              </div>
+
+              <div className="sc-agentCard">
+                <div className="sc-agentLogo">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="32" height="32" rx="6" fill="#1A1A2E" />
+                    <path d="M10 22V10l6 6 6-6v12" stroke="#E94560" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="sc-agentInfo">
+                  <h3 className="sc-agentName">Amp Code</h3>
+                  <p className="sc-agentDesc">Amp's AI coding assistant</p>
+                </div>
+              </div>
+
+              <div className="sc-agentCard">
+                <div className="sc-agentLogo">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="32" height="32" rx="6" fill="#0F172A" />
+                    <text x="16" y="21" textAnchor="middle" fill="#38BDF8" fontSize="16" fontFamily="serif" fontStyle="italic">k</text>
+                  </svg>
+                </div>
+                <div className="sc-agentInfo">
+                  <h3 className="sc-agentName">Kiro</h3>
+                  <p className="sc-agentDesc">Amazon's AI coding assistant</p>
+                </div>
+              </div>
+
+              <div className="sc-agentCard">
+                <div className="sc-agentLogo">
+                  <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="32" height="32" rx="6" fill="#01A4FF" />
+                    <path d="M8 16h5l3-6 3 12 3-6h2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="sc-agentInfo">
+                  <h3 className="sc-agentName">Warp</h3>
+                  <p className="sc-agentDesc">Warp terminal AI assistant</p>
                 </div>
               </div>
             </div>

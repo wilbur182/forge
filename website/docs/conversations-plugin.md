@@ -15,10 +15,12 @@ The Conversations plugin automatically detects and displays sessions from:
 
 | Agent | Icon | Description |
 |-------|------|-------------|
+| Amp Code | ⚡ | Amp's AI coding assistant |
 | Claude Code | ◆ | Anthropic's CLI coding agent |
 | Codex | ▶ | OpenAI's CLI coding agent |
 | Cursor CLI | ▌ | Cursor's background agent |
 | Gemini CLI | ★ | Google's CLI coding agent |
+| Kiro | κ | Amazon's AI coding assistant |
 | OpenCode | ◇ | Open-source coding agent |
 | Warp | » | Warp terminal AI |
 
