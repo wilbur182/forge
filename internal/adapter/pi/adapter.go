@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -532,13 +533,9 @@ func (a *Adapter) parseSessionMetadataIncremental(path string, base *SessionMeta
 	}
 
 	modelCounts := make(map[string]int, len(baseModelCounts))
-	for k, v := range baseModelCounts {
-		modelCounts[k] = v
-	}
+	maps.Copy(modelCounts, baseModelCounts)
 	modelTokens := make(map[string]modelTokenEntry, len(baseModelTokens))
-	for k, v := range baseModelTokens {
-		modelTokens[k] = v
-	}
+	maps.Copy(modelTokens, baseModelTokens)
 
 	scanner := bufio.NewScanner(file)
 	buf := cache.GetScannerBuffer()
@@ -677,7 +674,7 @@ func (a *Adapter) enforceSessionMetaCacheLimitLocked() {
 		return entries[i].lastAccess.Before(entries[j].lastAccess)
 	})
 
-	for i := 0; i < excess; i++ {
+	for i := range excess {
 		delete(a.metaCache, entries[i].path)
 	}
 }
@@ -1052,9 +1049,7 @@ func copyToolUseRefs(refs map[string]toolUseRef) map[string]toolUseRef {
 		return make(map[string]toolUseRef)
 	}
 	cp := make(map[string]toolUseRef, len(refs))
-	for k, v := range refs {
-		cp[k] = v
-	}
+	maps.Copy(cp, refs)
 	return cp
 }
 
