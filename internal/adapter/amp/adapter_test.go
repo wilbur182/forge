@@ -1716,6 +1716,88 @@ func TestSessionIndex_UpdatedBySessions(t *testing.T) {
 // Multiple sessions ordering
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Path resolution: ampThreadsDirCandidates / findAmpThreadsDir
+// ---------------------------------------------------------------------------
+
+func TestAmpThreadsDirCandidates(t *testing.T) {
+	home := "/Users/testuser"
+
+	t.Run("default candidates", func(t *testing.T) {
+		// Unset env vars for clean test
+		t.Setenv("AMP_DATA_HOME", "")
+		t.Setenv("XDG_DATA_HOME", "")
+
+		candidates := ampThreadsDirCandidates(home)
+
+		// Should always include default path
+		found := false
+		for _, c := range candidates {
+			if strings.Contains(c, filepath.Join(".local", "share", "amp", "threads")) {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("candidates should include default ~/.local/share/amp/threads path")
+		}
+	})
+
+	t.Run("AMP_DATA_HOME override", func(t *testing.T) {
+		t.Setenv("AMP_DATA_HOME", "/custom/amp/data")
+		t.Setenv("XDG_DATA_HOME", "")
+
+		candidates := ampThreadsDirCandidates(home)
+
+		if candidates[0] != filepath.Join("/custom/amp/data", "amp", "threads") {
+			t.Errorf("first candidate should use AMP_DATA_HOME, got %s", candidates[0])
+		}
+	})
+}
+
+func TestFindAmpThreadsDir(t *testing.T) {
+	t.Run("finds existing directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("AMP_DATA_HOME", "")
+		t.Setenv("XDG_DATA_HOME", "")
+
+		// Create the default directory structure
+		threadsDir := filepath.Join(tmpDir, ".local", "share", "amp", "threads")
+		os.MkdirAll(threadsDir, 0755)
+
+		result := findAmpThreadsDir(tmpDir)
+		if result != threadsDir {
+			t.Errorf("expected %s, got %s", threadsDir, result)
+		}
+	})
+
+	t.Run("prefers AMP_DATA_HOME", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		customDir := filepath.Join(tmpDir, "custom")
+		threadsDir := filepath.Join(customDir, "amp", "threads")
+		os.MkdirAll(threadsDir, 0755)
+
+		t.Setenv("AMP_DATA_HOME", customDir)
+
+		result := findAmpThreadsDir(tmpDir)
+		if result != threadsDir {
+			t.Errorf("expected AMP_DATA_HOME path %s, got %s", threadsDir, result)
+		}
+	})
+
+	t.Run("falls back when no dir exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		t.Setenv("AMP_DATA_HOME", "")
+		t.Setenv("XDG_DATA_HOME", "")
+
+		result := findAmpThreadsDir(tmpDir)
+		// Should return first candidate (default path) even though it doesn't exist
+		expected := filepath.Join(tmpDir, ".local", "share", "amp", "threads")
+		if result != expected {
+			t.Errorf("expected fallback %s, got %s", expected, result)
+		}
+	})
+}
+
 func TestSessions_OrderedByUpdateTime(t *testing.T) {
 	projectDir := t.TempDir()
 	threadsDir := t.TempDir()
