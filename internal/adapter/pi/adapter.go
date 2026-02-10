@@ -185,7 +185,9 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
 		}
 
 		name := ""
-		if meta.FirstUserMessage != "" {
+		if meta.SessionCategory == adapter.SessionCategoryCron && meta.CronJobName != "" {
+			name = meta.CronJobName
+		} else if meta.FirstUserMessage != "" {
 			name = truncateTitle(meta.FirstUserMessage, 120)
 		}
 		if name == "" {
@@ -210,6 +212,8 @@ func (a *Adapter) Sessions(projectRoot string) ([]adapter.Session, error) {
 			FileSize:        f.info.Size(),
 			Path:            f.path,
 			SessionCategory: meta.SessionCategory,
+			CronJobName:     meta.CronJobName,
+			SourceChannel:   meta.SourceChannel,
 		})
 	}
 
@@ -532,6 +536,8 @@ func (a *Adapter) parseSessionMetadataIncremental(path string, base *SessionMeta
 		PrimaryModel:     base.PrimaryModel,
 		FirstUserMessage: base.FirstUserMessage,
 		SessionCategory:  base.SessionCategory,
+		CronJobName:      base.CronJobName,
+		SourceChannel:    base.SourceChannel,
 	}
 
 	modelCounts := make(map[string]int, len(baseModelCounts))
@@ -606,7 +612,10 @@ func (a *Adapter) processMetadataLine(line []byte, meta *SessionMetadata, modelC
 			content := extractTextContent(raw.Message.Content)
 			if content != "" {
 				meta.FirstUserMessage = content
-				meta.SessionCategory = classifySession(content)
+				cat, cronName, srcChannel := extractSessionMetadata(content)
+				meta.SessionCategory = cat
+				meta.CronJobName = cronName
+				meta.SourceChannel = srcChannel
 			}
 		}
 
@@ -1121,14 +1130,54 @@ func truncateTitle(s string, maxLen int) string {
 
 // classifySession determines the session category from the first user message.
 func classifySession(firstUserMessage string) string {
+	cat, _, _ := extractSessionMetadata(firstUserMessage)
+	return cat
+}
+
+// extractSessionMetadata parses the first user message to determine category,
+// cron job name, and source channel.
+func extractSessionMetadata(firstUserMessage string) (category, cronJobName, sourceChannel string) {
 	if strings.HasPrefix(firstUserMessage, "[cron:") {
-		return adapter.SessionCategoryCron
+		category = adapter.SessionCategoryCron
+		cronJobName = extractCronJobName(firstUserMessage)
+		return
 	}
 	if strings.HasPrefix(firstUserMessage, "System:") {
-		return adapter.SessionCategorySystem
+		category = adapter.SessionCategorySystem
+		// Check for WhatsApp gateway in system messages
+		if strings.Contains(firstUserMessage, "WhatsApp gateway") {
+			sourceChannel = "whatsapp"
+		}
+		return
 	}
-	if strings.HasPrefix(firstUserMessage, "[Telegram") || strings.HasPrefix(firstUserMessage, "[WhatsApp") {
-		return adapter.SessionCategoryInteractive
+	category = adapter.SessionCategoryInteractive
+	sourceChannel = detectSourceChannel(firstUserMessage)
+	return
+}
+
+// extractCronJobName parses "[cron:UUID job-name]" prefix and returns the job name.
+func extractCronJobName(msg string) string {
+	// Expected format: "[cron:UUID job-name] ..."
+	closeBracket := strings.Index(msg, "]")
+	if closeBracket < 0 {
+		return ""
 	}
-	return adapter.SessionCategoryInteractive
+	inner := msg[len("[cron:"):closeBracket] // "UUID job-name"
+	// Find the first space after the UUID
+	spaceIdx := strings.Index(inner, " ")
+	if spaceIdx < 0 {
+		return ""
+	}
+	return strings.TrimSpace(inner[spaceIdx+1:])
+}
+
+// detectSourceChannel determines the messaging source from the first user message.
+func detectSourceChannel(msg string) string {
+	if strings.HasPrefix(msg, "[Telegram") {
+		return "telegram"
+	}
+	if strings.HasPrefix(msg, "[WhatsApp") {
+		return "whatsapp"
+	}
+	return "direct"
 }

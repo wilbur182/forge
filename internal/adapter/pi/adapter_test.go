@@ -690,6 +690,151 @@ func TestSessionCategoryInSessions(t *testing.T) {
 	}
 }
 
+func TestExtractCronJobName(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  string
+		want string
+	}{
+		{"standard cron", "[cron:9ed048b3-6de7-49f4-8042-7106d14c0fb7 GitHub Issues Check (Sidecar + td)] Check for new open issues", "GitHub Issues Check (Sidecar + td)"},
+		{"short cron", "[cron:abc123 daily-backup] Run backup", "daily-backup"},
+		{"no closing bracket", "[cron:abc123 daily-backup Run backup", ""},
+		{"no space after UUID", "[cron:abc123] Run backup", ""},
+		{"empty job name", "[cron:abc123 ] Run backup", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractCronJobName(tt.msg)
+			if got != tt.want {
+				t.Errorf("extractCronJobName(%q) = %q, want %q", tt.msg, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectSourceChannel(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  string
+		want string
+	}{
+		{"telegram", "[Telegram Marcus Vorwaller (@theinfinitecool) id:6776951004 +1m] hello", "telegram"},
+		{"whatsapp", "[WhatsApp user456] Hi", "whatsapp"},
+		{"direct plain", "Hello, what files are here?", "direct"},
+		{"direct empty", "", "direct"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := detectSourceChannel(tt.msg)
+			if got != tt.want {
+				t.Errorf("detectSourceChannel(%q) = %q, want %q", tt.msg, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractSessionMetadata(t *testing.T) {
+	tests := []struct {
+		name          string
+		msg           string
+		wantCat       string
+		wantCron      string
+		wantChannel   string
+	}{
+		{
+			"cron session",
+			"[cron:9ed048b3 GitHub Issues Check (Sidecar + td)] Check for new issues",
+			adapter.SessionCategoryCron, "GitHub Issues Check (Sidecar + td)", "",
+		},
+		{
+			"whatsapp system",
+			"System: [2026-02-01 14:02:05 PST] WhatsApp gateway connected.",
+			adapter.SessionCategorySystem, "", "whatsapp",
+		},
+		{
+			"system non-whatsapp",
+			"System: check disk usage",
+			adapter.SessionCategorySystem, "", "",
+		},
+		{
+			"telegram interactive",
+			"[Telegram Marcus (@cool) id:123] hello",
+			adapter.SessionCategoryInteractive, "", "telegram",
+		},
+		{
+			"direct interactive",
+			"Hello there",
+			adapter.SessionCategoryInteractive, "", "direct",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cat, cronName, srcChannel := extractSessionMetadata(tt.msg)
+			if cat != tt.wantCat {
+				t.Errorf("category = %q, want %q", cat, tt.wantCat)
+			}
+			if cronName != tt.wantCron {
+				t.Errorf("cronJobName = %q, want %q", cronName, tt.wantCron)
+			}
+			if srcChannel != tt.wantChannel {
+				t.Errorf("sourceChannel = %q, want %q", srcChannel, tt.wantChannel)
+			}
+		})
+	}
+}
+
+func TestCronSessionName(t *testing.T) {
+	a := newTestAdapter(t, "cron-session.jsonl")
+
+	sessions, err := a.Sessions("/test/project")
+	if err != nil {
+		t.Fatalf("Sessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	// Cron session name should be the job name, not the raw message
+	if sessions[0].Name != "daily-backup" {
+		t.Errorf("Name = %q, want %q", sessions[0].Name, "daily-backup")
+	}
+	if sessions[0].CronJobName != "daily-backup" {
+		t.Errorf("CronJobName = %q, want %q", sessions[0].CronJobName, "daily-backup")
+	}
+}
+
+func TestWhatsAppSessionMetadata(t *testing.T) {
+	a := newTestAdapter(t, "whatsapp-session.jsonl")
+
+	sessions, err := a.Sessions("/test/project")
+	if err != nil {
+		t.Fatalf("Sessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].SourceChannel != "whatsapp" {
+		t.Errorf("SourceChannel = %q, want %q", sessions[0].SourceChannel, "whatsapp")
+	}
+	if sessions[0].SessionCategory != adapter.SessionCategorySystem {
+		t.Errorf("SessionCategory = %q, want %q", sessions[0].SessionCategory, adapter.SessionCategorySystem)
+	}
+}
+
+func TestDirectSessionMetadata(t *testing.T) {
+	a := newTestAdapter(t, "basic-session.jsonl")
+
+	sessions, err := a.Sessions("/test/project")
+	if err != nil {
+		t.Fatalf("Sessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].SourceChannel != "direct" {
+		t.Errorf("SourceChannel = %q, want %q", sessions[0].SourceChannel, "direct")
+	}
+}
+
 func TestSessionCategoryInteractiveDefault(t *testing.T) {
 	a := newTestAdapter(t, "basic-session.jsonl")
 

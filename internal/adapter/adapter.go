@@ -109,6 +109,10 @@ type Session struct {
 
 	SessionCategory string `json:"sessionCategory,omitempty"` // "interactive", "cron", "system", ""
 
+	// Rich metadata (adapter-specific, optional)
+	CronJobName   string `json:"cronJobName,omitempty"`   // For cron sessions
+	SourceChannel string `json:"sourceChannel,omitempty"` // "telegram", "whatsapp", "direct"
+
 	// Worktree fields - populated when session is from a different worktree
 	WorktreeName string // Branch name or directory name of the worktree (empty if main or non-worktree)
 	WorktreePath string // Absolute path to the worktree (empty if same as current workdir)

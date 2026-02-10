@@ -93,4 +93,6 @@ type SessionMetadata struct {
 	PrimaryModel     string    // most-used model in session
 	FirstUserMessage string    // content of first user message (used as title)
 	SessionCategory  string    // "interactive", "cron", "system"
+	CronJobName      string    // extracted job name from "[cron:UUID name]" prefix
+	SourceChannel    string    // "telegram", "whatsapp", "direct"
 }
