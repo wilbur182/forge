@@ -2,6 +2,12 @@
 
 All notable changes to sidecar are documented here.
 
+## [v0.72.0] - 2026-02-14
+
+### Dependencies
+
+- Updated td dependency to v0.35.0 — adds GTD-style deferral (td defer, td due, temporal list filters, monitor modal display)
+
 ## [v0.71.1] - 2026-02-10
 
 ### Bug Fixes
