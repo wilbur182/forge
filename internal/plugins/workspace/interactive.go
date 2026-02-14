@@ -954,6 +954,32 @@ func (p *Plugin) handleInteractiveKeys(msg tea.KeyMsg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// handleUnknownSequence forwards unrecognized CSI sequences to tmux in
+// interactive mode. BubbleTea v1 doesn't parse CSI u (kitty keyboard protocol)
+// or modifyOtherKeys sequences, so modified keys like shift+enter arrive as
+// unknownCSISequenceMsg. We normalize them to CSI u format and forward to tmux.
+func (p *Plugin) handleUnknownSequence(msg tea.Msg) tea.Cmd {
+	if p.viewMode != ViewModeInteractive {
+		return nil
+	}
+	if p.interactiveState == nil || !p.interactiveState.Active {
+		return nil
+	}
+
+	raw := tty.ExtractUnknownCSIBytes(msg)
+	if raw == nil {
+		return nil
+	}
+
+	csiu := tty.NormalizeToCSIu(raw)
+	if csiu == "" {
+		return nil
+	}
+
+	sessionName := p.interactiveState.TargetSession
+	return sendInteractiveKeysCmd(sessionName, keySpec{csiu, true})
+}
+
 // handleEscapeTimer processes the escape delay timer firing.
 // If a single Escape is still pending (no second Escape arrived), forward it to tmux.
 func (p *Plugin) handleEscapeTimer() tea.Cmd {
