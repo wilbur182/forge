@@ -110,13 +110,13 @@ func (p *Plugin) fetchAndCreateWorktree(pr PRListItem) tea.Cmd {
 			return FetchPRDoneMsg{Err: fmt.Errorf("git worktree add: %s", outStr)}
 		}
 
-		// Write .sidecar-pr file with PR URL (non-fatal)
+		// Write .forge-pr file with PR URL (non-fatal)
 		_ = savePRURL(wtPath, pr.URL)
 
 		// Detect base branch for diff
 		baseBranch := detectDefaultBranch(workDir)
 
-		// Persist base branch to .sidecar-base file (non-fatal)
+		// Persist base branch to .forge-base file (non-fatal)
 		_ = saveBaseBranch(wtPath, baseBranch)
 
 		wt := &Worktree{

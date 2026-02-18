@@ -27,7 +27,7 @@ func cachePath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "sidecar", cacheFile)
+	return filepath.Join(home, ".config", "forge", cacheFile)
 }
 
 // LoadCache reads cached version check result from disk.
@@ -87,7 +87,7 @@ func tdCachePath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "sidecar", tdCacheFile)
+	return filepath.Join(home, ".config", "forge", tdCacheFile)
 }
 
 // LoadTdCache reads cached td version check result from disk.

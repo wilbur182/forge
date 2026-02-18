@@ -39,8 +39,8 @@ func LoadPrompts(globalConfigDir, projectDir string) []Prompt {
 	// Load from global config
 	globalPrompts := loadPromptsFromDir(globalConfigDir, "global")
 
-	// Load from project config (.sidecar/ directory)
-	projectConfigDir := filepath.Join(projectDir, ".sidecar")
+	// Load from project config (.forge/ directory)
+	projectConfigDir := filepath.Join(projectDir, ".forge")
 	projectPrompts := loadPromptsFromDir(projectConfigDir, "project")
 
 	// If no prompts found, try to create defaults

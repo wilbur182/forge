@@ -92,7 +92,7 @@ func toSaveConfig(cfg *Config) saveConfig {
 	}
 }
 
-// Save writes the config to ~/.config/sidecar/config.json, preserving
+// Save writes the config to ~/.config/forge/config.json, preserving
 // any keys it doesn't manage (e.g. "prompts").
 func Save(cfg *Config) error {
 	path := ConfigPath()

@@ -60,7 +60,7 @@ func (c RGB) toLipgloss() lipgloss.Color {
 }
 
 func NewIntroModel(repoName string) IntroModel {
-	text := "Sidecar"
+	text := "Forge"
 	letters := make([]*IntroLetter, len(text))
 
 	// Get theme colors for the animation

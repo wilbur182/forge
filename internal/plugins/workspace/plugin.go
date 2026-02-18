@@ -398,7 +398,7 @@ func (p *Plugin) Init(ctx *plugin.Context) error {
 	p.stateRestored = false
 
 	// Load shell manifest for persistence (td-f88fdd)
-	manifestPath := filepath.Join(ctx.WorkDir, ".sidecar", "shells.json")
+	manifestPath := filepath.Join(ctx.WorkDir, ".forge", "shells.json")
 	p.shellManifest, _ = LoadShellManifest(manifestPath)
 
 	// Stop any previous watcher (important for project switching)
@@ -538,7 +538,7 @@ func (p *Plugin) saveSelectionState() {
 		}
 	}
 
-	// td-f88fdd: Shell display names now persisted in .sidecar/shells.json manifest
+	// td-f88fdd: Shell display names now persisted in .forge/shells.json manifest
 	// Only save selection state (which worktree/shell is selected)
 	if wtState.WorkspaceName != "" || wtState.ShellTmuxName != "" {
 		_ = state.SetWorkspaceState(p.ctx.ProjectRoot, wtState)
@@ -779,7 +779,7 @@ func (p *Plugin) initCreateModalBase() {
 
 	// Load prompts from global and project config
 	home, _ := os.UserHomeDir()
-	configDir := filepath.Join(home, ".config", "sidecar")
+	configDir := filepath.Join(home, ".config", "forge")
 	p.createPrompts = LoadPrompts(configDir, p.ctx.WorkDir)
 	p.createPromptIdx = -1
 	p.promptPicker = nil

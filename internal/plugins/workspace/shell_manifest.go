@@ -13,7 +13,7 @@ import (
 )
 
 // ShellManifest stores persistent shell definitions for cross-instance sync
-// and reboot survival. Stored in {project}/.sidecar/shells.json.
+// and reboot survival. Stored in {project}/.forge/shells.json.
 type ShellManifest struct {
 	Version int               `json:"version"`
 	Shells  []ShellDefinition `json:"shells"`
@@ -78,7 +78,7 @@ func (m *ShellManifest) Save() error {
 
 // saveLocked writes the manifest to disk. Caller must hold m.mu.
 func (m *ShellManifest) saveLocked() error {
-	// Ensure .sidecar directory exists
+	// Ensure .forge directory exists
 	dir := filepath.Dir(m.path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err

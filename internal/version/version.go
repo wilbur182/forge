@@ -10,7 +10,7 @@ import (
 
 const (
 	repoOwner   = "marcus"
-	repoName    = "sidecar"
+	repoName    = "forge"
 	tdRepoOwner = "marcus"
 	tdRepoName  = "td"
 	apiURL      = "https://api.github.com/repos/%s/%s/releases/latest"

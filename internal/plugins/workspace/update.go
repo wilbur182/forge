@@ -104,13 +104,13 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 					continue // Skip metadata for worktrees with missing directories
 				}
 				cmds = append(cmds, p.loadStats(wt.Path))
-				// Load linked task ID from .sidecar-task file
+				// Load linked task ID from .forge-task file
 				wt.TaskID = loadTaskLink(wt.Path)
-				// Load chosen agent type from .sidecar-agent file
+				// Load chosen agent type from .forge-agent file
 				wt.ChosenAgentType = loadAgentType(wt.Path)
-				// Load PR URL from .sidecar-pr file
+				// Load PR URL from .forge-pr file
 				wt.PRURL = loadPRURL(wt.Path)
-				// Load base branch from .sidecar-base file
+				// Load base branch from .forge-base file
 				wt.BaseBranch = loadBaseBranch(wt.Path)
 			}
 			// Detect conflicts across worktrees
@@ -1259,7 +1259,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 
 	case reconnectedAgentsMsg:
 		// After reconnecting to existing sessions, detect orphaned worktrees
-		// (worktrees with .sidecar-agent file but no tmux session)
+		// (worktrees with .forge-agent file but no tmux session)
 		p.detectOrphanedWorktrees()
 		// Start periodic session validation to prevent memory leaks (td-41695b)
 		pollingCmds := append(msg.Cmds, p.scheduleSessionValidation(60*time.Second))

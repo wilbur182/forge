@@ -466,7 +466,7 @@ func (p *Plugin) buildAgentCommand(agentType AgentType, wt *Worktree, skipPerms 
 // Returns the command to execute the launcher. This avoids shell escaping issues
 // with complex markdown content (backticks, newlines, quotes, etc).
 func (p *Plugin) writeAgentLauncher(worktreePath string, agentType AgentType, baseCmd, prompt string) (string, error) {
-	launcherFile := filepath.Join(worktreePath, ".sidecar-start.sh")
+	launcherFile := filepath.Join(worktreePath, ".forge-start.sh")
 
 	// Build shell profile sourcing command.
 	// This ensures tools like claude (installed via nvm) are in PATH.
@@ -1369,9 +1369,9 @@ func (p *Plugin) detectOrphanedWorktrees() {
 		// Skip main worktree - can't attach agents to it anyway
 		if wt.IsMain {
 			wt.IsOrphaned = false
-			// Clean up any stale .sidecar-agent file from main worktree
+			// Clean up any stale .forge-agent file from main worktree
 			if wt.ChosenAgentType != "" && wt.ChosenAgentType != AgentNone {
-				_ = os.Remove(filepath.Join(wt.Path, sidecarAgentFile))
+				_ = os.Remove(filepath.Join(wt.Path, forgeAgentFile))
 				wt.ChosenAgentType = ""
 			}
 			continue

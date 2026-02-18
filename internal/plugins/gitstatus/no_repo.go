@@ -14,7 +14,7 @@ import (
 
 var initRepoGitignoreEntries = []string{
 	".todos/",
-	".sidecar/",
+	".forge/",
 }
 
 // RepoDetectedMsg is sent after probing for a repository in the current workdir.

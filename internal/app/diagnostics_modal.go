@@ -28,7 +28,7 @@ func (m *Model) ensureDiagnosticsModal() {
 	}
 	m.diagnosticsModalWidth = modalW
 
-	m.diagnosticsModal = modal.New("Sidecar",
+	m.diagnosticsModal = modal.New("Forge",
 		modal.WithWidth(modalW),
 		modal.WithHints(false),
 	).

@@ -47,19 +47,19 @@ type Store struct {
 }
 
 // NewStore creates a new Store with the given database path and session ID.
-// If sessionID is empty, it checks TD_SESSION_ID env var, then falls back to "sidecar".
+// If sessionID is empty, it checks TD_SESSION_ID env var, then falls back to "forge".
 func NewStore(dbPath, sessionID string) (*Store, error) {
 	db, err := sql.Open("sqlite3", dbPath+"?_busy_timeout=5000&_journal_mode=WAL")
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	// Resolve session ID: param > TD_SESSION_ID env > "sidecar" default
+	// Resolve session ID: param > TD_SESSION_ID env > "forge" default
 	if sessionID == "" {
 		sessionID = os.Getenv("TD_SESSION_ID")
 	}
 	if sessionID == "" {
-		sessionID = "sidecar"
+		sessionID = "forge"
 	}
 
 	store := &Store{
@@ -459,7 +459,7 @@ func splitFirst(s, sep string) []string {
 
 // logAction writes an entry to the action_log table for sync.
 // Uses td's action_log schema (TEXT PRIMARY KEY with "al-" prefix IDs).
-// Session ID is resolved via: explicit param > TD_SESSION_ID env > "sidecar" default.
+// Session ID is resolved via: explicit param > TD_SESSION_ID env > "forge" default.
 func (s *Store) logAction(actionType ActionType, entityID string, prev, new interface{}) error {
 	var prevData, newData string
 

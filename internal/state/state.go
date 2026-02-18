@@ -76,7 +76,7 @@ func Init() error {
 	if err != nil {
 		return err
 	}
-	return InitWithDir(filepath.Join(home, ".config", "sidecar"))
+	return InitWithDir(filepath.Join(home, ".config", "forge"))
 }
 
 // InitWithDir loads state from a specified directory.

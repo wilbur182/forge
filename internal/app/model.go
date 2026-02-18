@@ -308,7 +308,7 @@ func (m Model) Init() tea.Cmd {
 
 // initQuitModal initializes the quit confirmation modal.
 func (m *Model) initQuitModal() {
-	m.quitModal = modal.New("Quit Sidecar?",
+	m.quitModal = modal.New("Quit Forge?",
 		modal.WithWidth(50),
 		modal.WithVariant(modal.VariantDefault),
 		modal.WithPrimaryAction("quit"),
@@ -491,14 +491,14 @@ func (m *Model) runInstallPhase() tea.Cmd {
 		if sidecarUpdate != nil {
 			switch method {
 			case version.InstallMethodHomebrew:
-				cmd := exec.Command("brew", "upgrade", "sidecar")
+				cmd := exec.Command("brew", "upgrade", "forge")
 				output, err := cmd.CombinedOutput()
 				if err != nil {
-					return UpdateErrorMsg{Step: "sidecar", Err: fmt.Errorf("%v: %s", err, output)}
+					return UpdateErrorMsg{Step: "forge", Err: fmt.Errorf("%v: %s", err, output)}
 				}
 				outLower := strings.ToLower(string(output))
 				if strings.Contains(outLower, "already installed") || strings.Contains(outLower, "already up-to-date") {
-					return UpdateErrorMsg{Step: "sidecar", Err: fmt.Errorf("brew reports sidecar is already at latest version — tap may be out of date. Try: brew update && brew upgrade sidecar")}
+					return UpdateErrorMsg{Step: "forge", Err: fmt.Errorf("brew reports forge is already at latest version — tap may be out of date. Try: brew update && brew upgrade forge")}
 				}
 				sidecarUpdated = true
 				newSidecarVersion = sidecarUpdate.LatestVersion
@@ -513,7 +513,7 @@ func (m *Model) runInstallPhase() tea.Cmd {
 				}
 				cmd := exec.Command("go", args...)
 				if output, err := cmd.CombinedOutput(); err != nil {
-					return UpdateErrorMsg{Step: "sidecar", Err: fmt.Errorf("%v: %s", err, output)}
+					return UpdateErrorMsg{Step: "forge", Err: fmt.Errorf("%v: %s", err, output)}
 				}
 				sidecarUpdated = true
 				newSidecarVersion = sidecarUpdate.LatestVersion
@@ -558,7 +558,7 @@ func (m *Model) runVerifyPhase(installResult UpdateInstallDoneMsg) tea.Cmd {
 	return func() tea.Msg {
 		// Verify sidecar binary if it was updated
 		if installResult.SidecarUpdated {
-			sidecarPath, err := exec.LookPath("sidecar")
+			sidecarPath, err := exec.LookPath("forge")
 			if err != nil {
 				return UpdateErrorMsg{Step: "verify", Err: fmt.Errorf("sidecar not found in PATH after install")}
 			}
@@ -566,7 +566,7 @@ func (m *Model) runVerifyPhase(installResult UpdateInstallDoneMsg) tea.Cmd {
 			cmd := exec.Command(sidecarPath, "--version")
 			output, err := cmd.Output()
 			if err != nil {
-				return UpdateErrorMsg{Step: "verify", Err: fmt.Errorf("sidecar binary not executable: %v", err)}
+				return UpdateErrorMsg{Step: "verify", Err: fmt.Errorf("forge binary not executable: %v", err)}
 			}
 			// Compare installed version against expected version
 			if installResult.NewSidecarVersion != "" {
@@ -852,9 +852,9 @@ func (m *Model) saveTheme(tc config.ThemeConfig, scope string) error {
 
 // copyProjectSetupPrompt copies an LLM-friendly prompt for configuring projects.
 func (m *Model) copyProjectSetupPrompt() tea.Cmd {
-	prompt := `Configure sidecar projects for me.
+	prompt := `Configure forge projects for me.
 
-Add my code projects to ~/.config/sidecar/config.json using this format:
+Add my code projects to ~/.config/forge/config.json using this format:
 
 {
   "projects": {

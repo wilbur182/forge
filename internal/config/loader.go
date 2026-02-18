@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	configDir  = ".config/sidecar"
+	configDir  = ".config/forge"
 	configFile = "config.json"
 )
 
@@ -93,7 +93,7 @@ func Load() (*Config, error) {
 }
 
 // LoadFrom loads configuration from a specific path.
-// If path is empty, uses ~/.config/sidecar/config.json
+// If path is empty, uses ~/.config/forge/config.json
 func LoadFrom(path string) (*Config, error) {
 	cfg := Default()
 

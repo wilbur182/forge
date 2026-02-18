@@ -16,12 +16,12 @@ const (
 
 // Sidecar files that should be in .gitignore
 var sidecarGitignoreEntries = []string{
-	".sidecar/",
-	".sidecar-agent",
-	".sidecar-task",
-	".sidecar-pr",
-	".sidecar-start.sh",
-	".sidecar-base",
+	".forge/",
+	".forge-agent",
+	".forge-task",
+	".forge-pr",
+	".forge-start.sh",
+	".forge-base",
 	".td-root",
 }
 
@@ -227,7 +227,7 @@ func (p *Plugin) runSetupScript(worktreePath, branchName string) error {
 }
 
 // ensureSidecarGitignore ensures sidecar worktree files are in .gitignore.
-// This prevents .sidecar-agent, .sidecar-task, and .td-root from being
+// This prevents .forge-agent, .forge-task, and .td-root from being
 // accidentally committed when using the worktree commit workflow.
 func (p *Plugin) ensureSidecarGitignore() error {
 	gitignorePath := filepath.Join(p.ctx.WorkDir, ".gitignore")
