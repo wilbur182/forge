@@ -1,4 +1,4 @@
-.PHONY: build install install-dev test test-v clean check-clean tag goreleaser-snapshot fmt fmt-check fmt-check-all lint lint-all
+.PHONY: build build-sidecar install install-sidecar install-dev test test-v clean check-clean tag goreleaser-snapshot fmt fmt-check fmt-check-all lint lint-all build-all
 
 # Default target
 all: build
@@ -7,17 +7,25 @@ LINT_BASE ?= main
 
 # Build the binary
 build:
+	go build -o bin/forge ./cmd/forge
+
+# Build the sidecar binary (kept for backward compatibility)
+build-sidecar:
 	go build -o bin/sidecar ./cmd/sidecar
 
 # Install to GOBIN
 install:
+	go install ./cmd/forge
+
+# Install sidecar to GOBIN (kept for backward compatibility)
+install-sidecar:
 	go install ./cmd/sidecar
 
 # Install with version info from git
 install-dev:
 	$(eval VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev"))
-	@echo "Installing sidecar with Version=$(VERSION)"
-	go install -ldflags "-X main.Version=$(VERSION)" ./cmd/sidecar
+	@echo "Installing forge with Version=$(VERSION)"
+	go install -ldflags "-X main.Version=$(VERSION)" ./cmd/forge
 
 # Run tests
 test:
@@ -95,10 +103,10 @@ lint-all:
 
 # Build for multiple platforms (local testing only — GoReleaser handles release builds)
 build-all:
-	GOOS=darwin GOARCH=amd64 go build -o bin/sidecar-darwin-amd64 ./cmd/sidecar
-	GOOS=darwin GOARCH=arm64 go build -o bin/sidecar-darwin-arm64 ./cmd/sidecar
-	GOOS=linux GOARCH=amd64 go build -o bin/sidecar-linux-amd64 ./cmd/sidecar
-	GOOS=linux GOARCH=arm64 go build -o bin/sidecar-linux-arm64 ./cmd/sidecar
+	GOOS=darwin GOARCH=amd64 go build -o bin/forge-darwin-amd64 ./cmd/forge
+	GOOS=darwin GOARCH=arm64 go build -o bin/forge-darwin-arm64 ./cmd/forge
+	GOOS=linux GOARCH=amd64 go build -o bin/forge-linux-amd64 ./cmd/forge
+	GOOS=linux GOARCH=arm64 go build -o bin/forge-linux-arm64 ./cmd/forge
 
 # Test GoReleaser locally (creates snapshot build without publishing)
 goreleaser-snapshot:
