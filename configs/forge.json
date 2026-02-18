@@ -3,50 +3,29 @@
     "version": "0.1.0",
     "description": "Unified TUI combining Sidecar and OpenCode agent"
   },
-  "agent": {
-    "enabled": true,
-    "defaultProvider": "claude",
-    "providers": {
-      "claude": {
-        "model": "claude-opus-4.5"
-      },
-      "openai": {
-        "model": "gpt-4"
-      },
-      "gemini": {
-        "model": "gemini-2-pro"
-      }
-    }
-  },
+  "binary": "forge",
+  "configDir": "~/.config/forge",
   "plugins": {
-    "git-status": {
+    "conversations": {
+      "enabled": true
+    },
+    "gitstatus": {
       "enabled": true,
       "refreshInterval": "1s"
     },
-    "file-browser": {
+    "filebrowser": {
       "enabled": true
     },
-    "td-monitor": {
-      "enabled": true,
-      "refreshInterval": "2s",
-      "dbPath": ".todos/issues.db"
-    },
-    "workspaces": {
+    "workspace": {
       "enabled": true
     },
-    "agent": {
-      "enabled": true,
-      "wasmRuntimePath": "./dist/agent.wasm"
+    "notes": {
+      "enabled": true
     }
   },
   "ui": {
     "layout": "tabs",
     "theme": "default",
     "showClock": true
-  },
-  "wasm": {
-    "runtimePath": "./packages/agent-wasm/dist/agent.wasm",
-    "memoryPages": 256,
-    "stackSize": 65536
   }
 }
