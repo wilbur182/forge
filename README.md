@@ -1,16 +1,18 @@
-# Sidecar
+# Forge
 
-You might never open your editor again.
+One window. All workflows.
 
-**Status: Ready for daily use.** Please [report any issues](https://github.com/marcus/sidecar/issues) you encounter.
+**Status: Monorepo structure initialized.** Forge is a unified TUI combining [Sidecar](https://github.com/marcus/sidecar) (companion tools) and [OpenCode](https://github.com/code-yeongyu/oh-my-opencode) (AI agent) into a single development environment.
 
-[Documentation](https://marcus.github.io/sidecar/) · [Getting Started](https://marcus.github.io/sidecar/docs/intro)
+[Architecture](./FORGE.md) · [Development Setup](#development-setup)
 
-![Git Status](docs/screenshots/sidecar-git.png)
+![Forge: Unified TUI](docs/screenshots/sidecar-git.png)
 
 ## Overview
 
-Sidecar puts your entire development workflow in one shell: plan tasks with [td](https://github.com/marcus/td), chat with AI agents, review diffs, stage commits, review past conversations, and manage workspaces—all without leaving Sidecar.
+Forge puts your entire development workflow in one window: plan tasks with [td](https://github.com/marcus/td), chat with an integrated AI agent, review diffs, stage commits, browse code, and manage workspaces—all without context switching.
+
+**This is a fork of [Sidecar](https://github.com/marcus/sidecar) with integrated OpenCode agent support via WASM.**
 
 ## Quick Install
 
@@ -289,7 +291,50 @@ make lint-all     # Lint entire codebase (includes legacy debt)
 
 ## Privacy
 
-Sidecar runs locally and makes no telemetry, analytics, or tracking requests. The only network calls are GitHub API version checks on startup (cached for 3 hours) and user-initiated changelog fetches. See [PRIVACY.md](PRIVACY.md) for full details on data access, file reads/writes, and network behavior.
+Forge inherits Sidecar's local-first architecture: runs locally with no telemetry, analytics, or tracking requests. The only network calls are GitHub API version checks on startup (cached for 3 hours) and user-initiated changelog fetches. Agent interactions with LLM providers use your configured API keys. See [PRIVACY.md](PRIVACY.md) for full details on data access, file reads/writes, and network behavior.
+
+## Development Setup
+
+### Architecture
+
+Forge is a monorepo combining:
+
+- **Sidecar** (Go): TUI framework, plugins (git, files, tasks, workspaces)
+- **OpenCode Agent** (WASM): Integrated AI agent with tool execution
+- **Bridge** (Go/WASM): Integration layer for agent ↔ host communication
+
+See [FORGE.md](./FORGE.md) for detailed architecture and migration strategy.
+
+### Building
+
+```bash
+# Build Forge core
+make build
+
+# Build WASM agent (phase 2)
+make build-wasm
+
+# Run tests
+make test
+
+# Run Forge
+./bin/forge
+```
+
+### Status: Phase 1 - Foundation
+
+- [x] Fork repositories
+- [x] Create monorepo structure
+- [ ] Set up WASM build pipeline
+- [ ] Port OpenCode agent to WASM
+- [ ] Implement Go WASM runtime
+- [ ] Unify plugin system
+
+## Attribution
+
+**Forge** is a fork of [Sidecar](https://github.com/marcus/sidecar) by [Marcus](https://github.com/marcus).
+
+Built with [OpenCode](https://github.com/code-yeongyu/oh-my-opencode) by the Sisyphus project.
 
 ## License
 
