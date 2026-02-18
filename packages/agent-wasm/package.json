@@ -1,0 +1,23 @@
+{
+  "name": "@forge/agent-wasm",
+  "version": "0.1.0",
+  "description": "OpenCode agent compiled to WASM for Forge TUI",
+  "main": "dist/agent.wasm",
+  "scripts": {
+    "build": "node build/build.js",
+    "build:debug": "node build/build.js --debug",
+    "clean": "rm -rf dist/*",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.27.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "forge",
+    "wasm",
+    "ai-agent",
+    "opencode"
+  ],
+  "license": "MIT"
+}
