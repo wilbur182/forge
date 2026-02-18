@@ -239,7 +239,7 @@ func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 				return app.ToastMsg{Message: "Cannot determine home directory", Duration: 3 * time.Second, IsError: true}
 			}
 		}
-		configDir := filepath.Join(home, ".config", "sidecar")
+		configDir := filepath.Join(home, ".config", "forge")
 		if WriteDefaultPromptsToConfig(configDir) {
 			p.createPrompts = LoadPrompts(configDir, p.ctx.WorkDir)
 			p.promptPicker = NewPromptPicker(p.createPrompts, p.width, p.height)
