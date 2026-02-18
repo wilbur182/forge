@@ -55,7 +55,7 @@ In workspace directories, sidecar may create:
 - `.sidecar/config.json` — per-project configuration (prompts, theme overrides)
 - `.sidecar/shells.json` — shell display names and metadata
 - `.sidecar-task`, `.sidecar-agent`, `.sidecar-pr`, `.sidecar-base` — workspace state files
-- `.sidecar-start.sh` — temporary agent launcher script
+- `.forge-start.sh` — temporary agent launcher script
 - `.sidecar-rename-tmp` — temporary file for rename operations
 - `.td-root` — links worktrees to a shared td database root
 - `.worktree-env` — environment variable overrides for worktree isolation (read on worktree creation; format: `KEY=VALUE` pairs)

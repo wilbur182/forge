@@ -308,7 +308,6 @@ func TestExtractPrompt(t *testing.T) {
 	}
 }
 
-
 func TestDetectStatusPriorityOrder(t *testing.T) {
 	// Waiting should take priority over error when both patterns present
 	output := "Error occurred\nRetry? [y/n]"
@@ -468,12 +467,12 @@ func TestShouldShowSkipPermissions(t *testing.T) {
 
 func TestBuildAgentCommand(t *testing.T) {
 	tests := []struct {
-		name      string
-		agentType AgentType
-		skipPerms bool
-		taskID    string
-		wantFlag  string   // Expected skip-perms flag in output
-		wantPrompt bool    // Whether prompt should be included
+		name       string
+		agentType  AgentType
+		skipPerms  bool
+		taskID     string
+		wantFlag   string // Expected skip-perms flag in output
+		wantPrompt bool   // Whether prompt should be included
 	}{
 		// Claude tests
 		{
@@ -851,21 +850,21 @@ func TestWriteAgentLauncher(t *testing.T) {
 			agentType: AgentClaude,
 			baseCmd:   "claude",
 			prompt:    "Task: fix bug",
-			wantCmd:   "bash '" + tmpDir + "/.sidecar-start.sh'",
+			wantCmd:   "bash '" + tmpDir + "/.forge-start.sh'",
 		},
 		{
 			name:      "claude with complex markdown",
 			agentType: AgentClaude,
 			baseCmd:   "claude",
 			prompt:    "Task: implement feature\n\n```go\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n```\n\nDon't break the user's code!",
-			wantCmd:   "bash '" + tmpDir + "/.sidecar-start.sh'",
+			wantCmd:   "bash '" + tmpDir + "/.forge-start.sh'",
 		},
 		{
 			name:      "aider uses --message flag",
 			agentType: AgentAider,
 			baseCmd:   "aider --yes",
 			prompt:    "Task: fix bug",
-			wantCmd:   "bash '" + tmpDir + "/.sidecar-start.sh'",
+			wantCmd:   "bash '" + tmpDir + "/.forge-start.sh'",
 		},
 	}
 
@@ -881,7 +880,7 @@ func TestWriteAgentLauncher(t *testing.T) {
 			}
 
 			// Verify launcher script exists and is executable
-			launcherInfo, err := os.Stat(tmpDir + "/.sidecar-start.sh")
+			launcherInfo, err := os.Stat(tmpDir + "/.forge-start.sh")
 			if err != nil {
 				t.Fatalf("launcher script not created: %v", err)
 			}
@@ -890,7 +889,7 @@ func TestWriteAgentLauncher(t *testing.T) {
 			}
 
 			// Verify the script contains the prompt embedded in a heredoc
-			scriptContent, err := os.ReadFile(tmpDir + "/.sidecar-start.sh")
+			scriptContent, err := os.ReadFile(tmpDir + "/.forge-start.sh")
 			if err != nil {
 				t.Fatalf("failed to read launcher script: %v", err)
 			}
@@ -912,7 +911,7 @@ func TestWriteAgentLauncher(t *testing.T) {
 			}
 
 			// Cleanup for next test
-			_ = os.Remove(tmpDir + "/.sidecar-start.sh")
+			_ = os.Remove(tmpDir + "/.forge-start.sh")
 		})
 	}
 }

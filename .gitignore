@@ -1,5 +1,6 @@
 # Binaries
 /sidecar
+/forge
 /termdiff
 *.exe
 *.exe~
@@ -46,11 +47,14 @@ config.local.json
 .todos/
 
 # Worktree state files
+.forge-agent
+.forge-task
 .sidecar-agent
 .sidecar-task
 .td-root
 
-# Sidecar workspace state files
+# Forge workspace state files
+.forge-pr
 .sidecar-pr
 
 # Docusaurus
@@ -58,14 +62,17 @@ website/node_modules/
 website/.docusaurus/
 website/build/
 
-# Sidecar workspace state files
+# Forge workspace state files
+.forge-start.sh
 .sidecar-start.sh
 screenshots/
 
-# Sidecar worktree state files
+# Forge worktree state files
+.forge/
 .sidecar/
 
-# Sidecar worktree state files
+# Forge worktree state files
+.forge-base
 .sidecar-base
 
 # Benchmarks

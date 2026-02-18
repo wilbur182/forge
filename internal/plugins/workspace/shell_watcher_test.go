@@ -9,9 +9,9 @@ import (
 
 func TestShellWatcher_DetectsFileChange(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	manifestPath := filepath.Join(sidecarDir, "shells.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	manifestPath := filepath.Join(forgeDir, "shells.json")
 
 	// Create initial file
 	_ = os.WriteFile(manifestPath, []byte(`{"version":1,"shells":[]}`), 0644)
@@ -41,9 +41,9 @@ func TestShellWatcher_DetectsFileChange(t *testing.T) {
 
 func TestShellWatcher_DebounceRapidChanges(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	manifestPath := filepath.Join(sidecarDir, "shells.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	manifestPath := filepath.Join(forgeDir, "shells.json")
 
 	// Create initial file
 	_ = os.WriteFile(manifestPath, []byte(`{"version":1}`), 0644)
@@ -87,7 +87,7 @@ done:
 
 func TestShellWatcher_Stop(t *testing.T) {
 	dir := t.TempDir()
-	manifestPath := filepath.Join(dir, ".sidecar", "shells.json")
+	manifestPath := filepath.Join(dir, ".forge", "shells.json")
 
 	w, err := NewShellWatcher(manifestPath)
 	if err != nil {
@@ -114,9 +114,9 @@ func TestShellWatcher_Stop(t *testing.T) {
 // TestShellWatcher_DetectsFileCreation tests watcher detects new file creation (td-d2d819)
 func TestShellWatcher_DetectsFileCreation(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	manifestPath := filepath.Join(sidecarDir, "shells.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	manifestPath := filepath.Join(forgeDir, "shells.json")
 
 	// File does NOT exist initially
 	w, err := NewShellWatcher(manifestPath)
@@ -145,9 +145,9 @@ func TestShellWatcher_DetectsFileCreation(t *testing.T) {
 // TestShellWatcher_DetectsRename tests watcher detects file rename/atomic writes (td-d2d819)
 func TestShellWatcher_DetectsRename(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	manifestPath := filepath.Join(sidecarDir, "shells.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	manifestPath := filepath.Join(forgeDir, "shells.json")
 
 	// Create initial file
 	_ = os.WriteFile(manifestPath, []byte(`{"version":1,"shells":[]}`), 0644)
@@ -180,10 +180,10 @@ func TestShellWatcher_DetectsRename(t *testing.T) {
 // TestShellWatcher_IgnoresOtherFiles tests watcher ignores non-manifest files (td-d2d819)
 func TestShellWatcher_IgnoresOtherFiles(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	manifestPath := filepath.Join(sidecarDir, "shells.json")
-	otherPath := filepath.Join(sidecarDir, "other.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	manifestPath := filepath.Join(forgeDir, "shells.json")
+	otherPath := filepath.Join(forgeDir, "other.json")
 
 	// Create initial file
 	_ = os.WriteFile(manifestPath, []byte(`{"version":1}`), 0644)

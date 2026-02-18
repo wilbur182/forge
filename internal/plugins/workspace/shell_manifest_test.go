@@ -11,7 +11,7 @@ import (
 
 func TestShellManifest_LoadMissing(t *testing.T) {
 	// Load from non-existent file should return empty manifest
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, err := LoadShellManifest(path)
 	if err != nil {
 		t.Fatalf("LoadShellManifest() error = %v", err)
@@ -26,7 +26,7 @@ func TestShellManifest_LoadMissing(t *testing.T) {
 
 func TestShellManifest_SaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".sidecar", "shells.json")
+	path := filepath.Join(dir, ".forge", "shells.json")
 
 	// Create and save manifest
 	m := &ShellManifest{
@@ -70,7 +70,7 @@ func TestShellManifest_SaveAndLoad(t *testing.T) {
 }
 
 func TestShellManifest_AddRemove(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	// Add two shells
@@ -95,7 +95,7 @@ func TestShellManifest_AddRemove(t *testing.T) {
 }
 
 func TestShellManifest_FindShell(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	_ = m.AddShell(ShellDefinition{TmuxName: "shell-1", DisplayName: "Shell 1"})
@@ -116,7 +116,7 @@ func TestShellManifest_FindShell(t *testing.T) {
 }
 
 func TestShellManifest_UpdateShell(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	_ = m.AddShell(ShellDefinition{TmuxName: "shell-1", DisplayName: "Original"})
@@ -134,9 +134,9 @@ func TestShellManifest_UpdateShell(t *testing.T) {
 
 func TestShellManifest_CorruptedFile(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	path := filepath.Join(sidecarDir, "shells.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	path := filepath.Join(forgeDir, "shells.json")
 
 	// Write corrupted JSON
 	_ = os.WriteFile(path, []byte("{invalid json"), 0644)
@@ -152,7 +152,7 @@ func TestShellManifest_CorruptedFile(t *testing.T) {
 }
 
 func TestShellManifest_AddDuplicate(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	_ = m.AddShell(ShellDefinition{TmuxName: "shell-1", DisplayName: "Original"})
@@ -169,7 +169,7 @@ func TestShellManifest_AddDuplicate(t *testing.T) {
 
 // TestShellManifest_ConcurrentAdd tests concurrent AddShell calls (td-6db032)
 func TestShellManifest_ConcurrentAdd(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	const numGoroutines = 10
@@ -198,7 +198,7 @@ func TestShellManifest_ConcurrentAdd(t *testing.T) {
 
 // TestShellManifest_ConcurrentAddRemove tests concurrent Add and Remove (td-6db032)
 func TestShellManifest_ConcurrentAddRemove(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	// Add initial shells
@@ -234,7 +234,7 @@ func TestShellManifest_ConcurrentAddRemove(t *testing.T) {
 
 // TestShellManifest_ConcurrentUpdate tests concurrent UpdateShell calls (td-6db032)
 func TestShellManifest_ConcurrentUpdate(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	_ = m.AddShell(ShellDefinition{TmuxName: "shell-1", DisplayName: "Original"})
@@ -263,7 +263,7 @@ func TestShellManifest_ConcurrentUpdate(t *testing.T) {
 
 // TestShellManifest_ConcurrentFind tests concurrent FindShell with modifications (td-6db032)
 func TestShellManifest_ConcurrentFind(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 	m, _ := LoadShellManifest(path)
 
 	_ = m.AddShell(ShellDefinition{TmuxName: "shell-1", DisplayName: "Test"})
@@ -295,7 +295,7 @@ func TestShellManifest_ConcurrentFind(t *testing.T) {
 
 // TestShellManifest_MigrationFromEmptyManifest tests migrating display names to new manifest (td-e1b7ef)
 func TestShellManifest_MigrationFromEmptyManifest(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 
 	// Simulate migration: manifest exists but has no display name, need to update it
 	m, _ := LoadShellManifest(path)
@@ -343,7 +343,7 @@ func TestShellManifest_MigrationFromEmptyManifest(t *testing.T) {
 
 // TestShellManifest_MigrationPreservesExisting tests migration doesn't overwrite existing manifest data (td-e1b7ef)
 func TestShellManifest_MigrationPreservesExisting(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 
 	// Create manifest with existing data
 	m, _ := LoadShellManifest(path)
@@ -383,7 +383,7 @@ func TestShellManifest_MigrationPreservesExisting(t *testing.T) {
 
 // TestShellManifest_MigrationNewShell tests migration handles shells not yet in manifest (td-e1b7ef)
 func TestShellManifest_MigrationNewShell(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidecar", "shells.json")
+	path := filepath.Join(t.TempDir(), ".forge", "shells.json")
 
 	// Empty manifest
 	m, _ := LoadShellManifest(path)
@@ -417,9 +417,9 @@ func TestShellManifest_MigrationNewShell(t *testing.T) {
 // TestShellManifest_LockAcquisitionNonBlocking tests that lock acquisition uses non-blocking retry (td-984ead)
 func TestShellManifest_LockAcquisitionNonBlocking(t *testing.T) {
 	dir := t.TempDir()
-	sidecarDir := filepath.Join(dir, ".sidecar")
-	_ = os.MkdirAll(sidecarDir, 0755)
-	path := filepath.Join(sidecarDir, "shells.json")
+	forgeDir := filepath.Join(dir, ".forge")
+	_ = os.MkdirAll(forgeDir, 0755)
+	path := filepath.Join(forgeDir, "shells.json")
 
 	// Create initial manifest
 	m, _ := LoadShellManifest(path)

@@ -164,10 +164,10 @@ func TestLoadPrompts(t *testing.T) {
 		t.Fatalf("Failed to write global config: %v", err)
 	}
 
-	// Create project config (.sidecar/config.json) with prompts
-	sidecarDir := filepath.Join(projectDir, ".sidecar")
-	if err := os.MkdirAll(sidecarDir, 0755); err != nil {
-		t.Fatalf("Failed to create .sidecar dir: %v", err)
+	// Create project config (.forge/config.json) with prompts
+	forgeDir := filepath.Join(projectDir, ".forge")
+	if err := os.MkdirAll(forgeDir, 0755); err != nil {
+		t.Fatalf("Failed to create .forge dir: %v", err)
 	}
 	projectConfig := `{
   "prompts": [
@@ -183,7 +183,7 @@ func TestLoadPrompts(t *testing.T) {
     }
   ]
 }`
-	err = os.WriteFile(filepath.Join(sidecarDir, "config.json"), []byte(projectConfig), 0644)
+	err = os.WriteFile(filepath.Join(forgeDir, "config.json"), []byte(projectConfig), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write project config: %v", err)
 	}
@@ -337,11 +337,11 @@ func TestDefaultPrompts(t *testing.T) {
 
 	// Verify expected prompt names exist
 	expectedNames := map[string]bool{
-		"Begin Work on Ticket":    false,
-		"Code Review Ticket":      false,
-		"Plan to Epic (No Impl)":  false,
+		"Begin Work on Ticket":     false,
+		"Code Review Ticket":       false,
+		"Plan to Epic (No Impl)":   false,
 		"Plan to Epic + Implement": false,
-		"TD Review Session":       false,
+		"TD Review Session":        false,
 	}
 
 	for _, p := range prompts {
