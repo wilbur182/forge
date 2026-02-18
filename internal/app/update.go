@@ -12,15 +12,15 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/community"
-	"github.com/marcus/sidecar/internal/config"
-	"github.com/marcus/sidecar/internal/mouse"
-	"github.com/marcus/sidecar/internal/palette"
-	"github.com/marcus/sidecar/internal/plugin"
-	"github.com/marcus/sidecar/internal/state"
-	"github.com/marcus/sidecar/internal/styles"
-	"github.com/marcus/sidecar/internal/theme"
-	"github.com/marcus/sidecar/internal/version"
+	"github.com/wilbur182/forge/internal/community"
+	"github.com/wilbur182/forge/internal/config"
+	"github.com/wilbur182/forge/internal/mouse"
+	"github.com/wilbur182/forge/internal/palette"
+	"github.com/wilbur182/forge/internal/plugin"
+	"github.com/wilbur182/forge/internal/state"
+	"github.com/wilbur182/forge/internal/styles"
+	"github.com/wilbur182/forge/internal/theme"
+	"github.com/wilbur182/forge/internal/version"
 )
 
 // isMouseEscapeSequence returns true if the key message appears to be

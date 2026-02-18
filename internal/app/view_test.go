@@ -6,8 +6,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/config"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/config"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 func TestGetRepoNameBounds_EmptyRepoName(t *testing.T) {

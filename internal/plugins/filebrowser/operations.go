@@ -16,8 +16,8 @@ import (
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/marcus/sidecar/internal/msg"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/msg"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 // openFile returns a command to open a file in the user's editor.

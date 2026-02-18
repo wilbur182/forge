@@ -1,7 +1,7 @@
 package kiro
 
 import (
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 // SearchMessages searches message content within a session.

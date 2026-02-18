@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 const (

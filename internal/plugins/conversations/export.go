@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/atotto/clipboard"
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 // ExportSessionAsMarkdown converts a session and its messages to markdown format.

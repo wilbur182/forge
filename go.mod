@@ -1,4 +1,4 @@
-module github.com/marcus/sidecar
+module github.com/wilbur182/forge
 
 go 1.25.5
 

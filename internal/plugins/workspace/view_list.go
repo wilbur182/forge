@@ -7,8 +7,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/marcus/sidecar/internal/styles"
-	"github.com/marcus/sidecar/internal/ui"
+	"github.com/wilbur182/forge/internal/styles"
+	"github.com/wilbur182/forge/internal/ui"
 )
 
 // Modal style functions - return fresh styles using current theme colors.

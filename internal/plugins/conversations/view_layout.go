@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcus/sidecar/internal/adapter"
-	"github.com/marcus/sidecar/internal/styles"
-	"github.com/marcus/sidecar/internal/ui"
+	"github.com/wilbur182/forge/internal/adapter"
+	"github.com/wilbur182/forge/internal/styles"
+	"github.com/wilbur182/forge/internal/ui"
 )
 
 // renderTwoPane renders the two-pane layout with sessions on the left and messages on the right.

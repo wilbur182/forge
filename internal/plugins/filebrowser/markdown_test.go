@@ -3,7 +3,7 @@ package filebrowser
 import (
 	"testing"
 
-	"github.com/marcus/sidecar/internal/markdown"
+	"github.com/wilbur182/forge/internal/markdown"
 )
 
 func TestIsMarkdownFile(t *testing.T) {

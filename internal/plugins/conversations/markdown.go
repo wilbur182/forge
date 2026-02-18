@@ -1,6 +1,6 @@
 package conversations
 
-import "github.com/marcus/sidecar/internal/markdown"
+import "github.com/wilbur182/forge/internal/markdown"
 
 // GlamourRenderer is an alias to the shared markdown renderer.
 type GlamourRenderer = markdown.Renderer

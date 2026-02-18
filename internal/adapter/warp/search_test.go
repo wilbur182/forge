@@ -3,7 +3,7 @@ package warp
 import (
 	"testing"
 
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 func TestSearchMessages_InterfaceCompliance(t *testing.T) {

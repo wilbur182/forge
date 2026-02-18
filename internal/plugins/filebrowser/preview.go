@@ -11,8 +11,8 @@ import (
 	"github.com/alecthomas/chroma/v2/quick"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/marcus/sidecar/internal/image"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/image"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 const (

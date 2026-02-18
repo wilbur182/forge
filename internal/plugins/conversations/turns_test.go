@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 func TestGroupMessagesIntoTurns(t *testing.T) {

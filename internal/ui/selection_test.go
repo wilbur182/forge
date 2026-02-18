@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marcus/sidecar/internal/mouse"
+	"github.com/wilbur182/forge/internal/mouse"
 )
 
 // --- SelectionPoint tests ---

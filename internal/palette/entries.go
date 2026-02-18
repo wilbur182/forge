@@ -3,8 +3,8 @@ package palette
 import (
 	"strings"
 
-	"github.com/marcus/sidecar/internal/keymap"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/keymap"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 // Layer represents the contextual hierarchy of a command.

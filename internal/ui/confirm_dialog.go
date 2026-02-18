@@ -2,8 +2,8 @@ package ui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcus/sidecar/internal/modal"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/modal"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 // ConfirmDialog is a reusable confirmation modal with interactive buttons.

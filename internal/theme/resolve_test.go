@@ -3,8 +3,8 @@ package theme
 import (
 	"testing"
 
-	"github.com/marcus/sidecar/internal/config"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/config"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 func TestResolveTheme(t *testing.T) {

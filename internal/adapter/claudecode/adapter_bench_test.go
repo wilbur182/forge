@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/marcus/sidecar/internal/adapter/cache"
-	"github.com/marcus/sidecar/internal/adapter/testutil"
+	"github.com/wilbur182/forge/internal/adapter/cache"
+	"github.com/wilbur182/forge/internal/adapter/testutil"
 )
 
 // Benchmark targets (td-336ee0):

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 func TestDetect(t *testing.T) {

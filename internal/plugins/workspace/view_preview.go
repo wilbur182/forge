@@ -7,9 +7,9 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/marcus/sidecar/internal/features"
-	"github.com/marcus/sidecar/internal/styles"
-	"github.com/marcus/sidecar/internal/ui"
+	"github.com/wilbur182/forge/internal/features"
+	"github.com/wilbur182/forge/internal/styles"
+	"github.com/wilbur182/forge/internal/ui"
 )
 
 // renderPreviewContent renders the preview pane content (no borders).

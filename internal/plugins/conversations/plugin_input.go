@@ -5,9 +5,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/adapter"
-	appmsg "github.com/marcus/sidecar/internal/msg"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/adapter"
+	appmsg "github.com/wilbur182/forge/internal/msg"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 // Update methods for handling key events in various views

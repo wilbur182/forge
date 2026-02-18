@@ -1,8 +1,8 @@
 package workspace
 
 import (
-	"github.com/marcus/sidecar/internal/features"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/features"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 // Commands returns the available commands.

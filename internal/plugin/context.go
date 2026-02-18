@@ -3,9 +3,9 @@ package plugin
 import (
 	"log/slog"
 
-	"github.com/marcus/sidecar/internal/adapter"
-	"github.com/marcus/sidecar/internal/config"
-	"github.com/marcus/sidecar/internal/event"
+	"github.com/wilbur182/forge/internal/adapter"
+	"github.com/wilbur182/forge/internal/config"
+	"github.com/wilbur182/forge/internal/event"
 )
 
 // BindingRegistrar allows plugins to register key bindings dynamically.

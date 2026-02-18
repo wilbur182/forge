@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/marcus/sidecar/internal/config"
+	"github.com/wilbur182/forge/internal/config"
 )
 
 // setupTestConfig sets up a temp config path for tests that write to config.

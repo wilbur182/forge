@@ -10,12 +10,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcus/sidecar/internal/markdown"
-	"github.com/marcus/sidecar/internal/modal"
-	"github.com/marcus/sidecar/internal/mouse"
-	"github.com/marcus/sidecar/internal/styles"
-	"github.com/marcus/sidecar/internal/ui"
-	"github.com/marcus/sidecar/internal/version"
+	"github.com/wilbur182/forge/internal/markdown"
+	"github.com/wilbur182/forge/internal/modal"
+	"github.com/wilbur182/forge/internal/mouse"
+	"github.com/wilbur182/forge/internal/styles"
+	"github.com/wilbur182/forge/internal/ui"
+	"github.com/wilbur182/forge/internal/version"
 )
 
 const changelogURL = "https://raw.githubusercontent.com/marcus/sidecar/main/CHANGELOG.md"
@@ -152,7 +152,7 @@ func (m *Model) ensureUpdatePreviewModal() {
 			modal.Btn(" Later ", "cancel"),
 		}
 	case version.InstallMethodBinary:
-		downloadURL := fmt.Sprintf("https://github.com/marcus/sidecar/releases/tag/%s",
+		downloadURL := fmt.Sprintf("https://github.com/wilbur182/forge/releases/tag/%s",
 			m.updateAvailable.LatestVersion)
 		methodHint = styles.Muted.Render("Download: " + downloadURL)
 		buttons = []modal.ButtonDef{
@@ -447,10 +447,10 @@ func (m *Model) ensureUpdateErrorModal() {
 		manualFix = "brew update && brew upgrade sidecar"
 	case version.InstallMethodGo:
 		methodName = "go install"
-		manualFix = "go install github.com/marcus/sidecar/cmd/sidecar@latest"
+		manualFix = "go install github.com/wilbur182/forge/cmd/sidecar@latest"
 	default:
 		methodName = "binary"
-		manualFix = "github.com/marcus/sidecar/releases"
+		manualFix = "github.com/wilbur182/forge/releases"
 	}
 
 	infoLine := styles.Muted.Render(fmt.Sprintf(
@@ -461,7 +461,7 @@ func (m *Model) ensureUpdateErrorModal() {
 	errorText := errorStyle.Render("  " + errorMsg)
 
 	fixHint := styles.Muted.Render("Manual fix: " + manualFix)
-	reportHint := styles.Muted.Render("Report: github.com/marcus/sidecar/issues")
+	reportHint := styles.Muted.Render("Report: github.com/wilbur182/forge/issues")
 
 	m.updateErrorModal = modal.New("Update Failed",
 		modal.WithWidth(modalW),

@@ -5,10 +5,10 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/modal"
-	"github.com/marcus/sidecar/internal/msg"
-	"github.com/marcus/sidecar/internal/plugin"
-	"github.com/marcus/sidecar/internal/ui"
+	"github.com/wilbur182/forge/internal/modal"
+	"github.com/wilbur182/forge/internal/msg"
+	"github.com/wilbur182/forge/internal/plugin"
+	"github.com/wilbur182/forge/internal/ui"
 )
 
 // showErrorModal sets up the error modal state and switches to the error view.

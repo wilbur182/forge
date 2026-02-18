@@ -1,9 +1,9 @@
 package theme
 
 import (
-	"github.com/marcus/sidecar/internal/community"
-	"github.com/marcus/sidecar/internal/config"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/community"
+	"github.com/wilbur182/forge/internal/config"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 // ResolvedTheme represents a fully-determined theme configuration.

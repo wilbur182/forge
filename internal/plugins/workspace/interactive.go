@@ -12,10 +12,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	app "github.com/marcus/sidecar/internal/app"
-	"github.com/marcus/sidecar/internal/features"
-	"github.com/marcus/sidecar/internal/styles"
-	"github.com/marcus/sidecar/internal/tty"
+	app "github.com/wilbur182/forge/internal/app"
+	"github.com/wilbur182/forge/internal/features"
+	"github.com/wilbur182/forge/internal/styles"
+	"github.com/wilbur182/forge/internal/tty"
 	"golang.org/x/term"
 )
 

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/app"
+	"github.com/wilbur182/forge/internal/app"
 )
 
 // fetchPRList runs gh pr list and returns open PRs.

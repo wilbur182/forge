@@ -4,10 +4,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/mouse"
-	"github.com/marcus/sidecar/internal/msg"
-	"github.com/marcus/sidecar/internal/state"
-	"github.com/marcus/sidecar/internal/ui"
+	"github.com/wilbur182/forge/internal/mouse"
+	"github.com/wilbur182/forge/internal/msg"
+	"github.com/wilbur182/forge/internal/state"
+	"github.com/wilbur182/forge/internal/ui"
 )
 
 // dragForwardThrottle is the minimum interval between forwarding mouse drag

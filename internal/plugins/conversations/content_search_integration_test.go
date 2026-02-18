@@ -6,8 +6,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/adapter"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/adapter"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 // MockSearchAdapter implements adapter.MessageSearcher for testing.

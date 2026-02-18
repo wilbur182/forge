@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/mouse"
+	"github.com/wilbur182/forge/internal/mouse"
 )
 
 func TestNew(t *testing.T) {

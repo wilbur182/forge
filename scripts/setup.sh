@@ -681,12 +681,12 @@ main() {
                     style_success "sidecar installed: $SIDECAR_VERSION"
                 elif command -v go &> /dev/null; then
                     echo "Installing from source..."
-                    go install -ldflags "-X main.Version=${sc_version}" "github.com/marcus/sidecar/cmd/sidecar@${sc_version}"
+                    go install -ldflags "-X main.Version=${sc_version}" "github.com/wilbur182/forge/cmd/sidecar@${sc_version}"
                     SIDECAR_VERSION=$(get_sidecar_version)
                     style_success "sidecar installed: $SIDECAR_VERSION"
                 else
                     style_error "Installation failed. Install Go or download from:"
-                    echo "  https://github.com/marcus/sidecar/releases"
+                    echo "  https://github.com/wilbur182/forge/releases"
                 fi
             fi
         else

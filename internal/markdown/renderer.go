@@ -7,7 +7,7 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/charmbracelet/glamour"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 const (

@@ -12,9 +12,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/app"
-	"github.com/marcus/sidecar/internal/palette"
-	"github.com/marcus/sidecar/internal/tdroot"
+	"github.com/wilbur182/forge/internal/app"
+	"github.com/wilbur182/forge/internal/palette"
+	"github.com/wilbur182/forge/internal/tdroot"
 )
 
 // WorkDirDeletedMsg signals that the current working directory was deleted.

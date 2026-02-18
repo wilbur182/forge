@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 // wrapText wraps text to the specified width.

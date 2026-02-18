@@ -13,9 +13,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcus/sidecar/internal/features"
-	"github.com/marcus/sidecar/internal/state"
-	"github.com/marcus/sidecar/internal/tty"
+	"github.com/wilbur182/forge/internal/features"
+	"github.com/wilbur182/forge/internal/state"
+	"github.com/wilbur182/forge/internal/tty"
 )
 
 // Shell session constants

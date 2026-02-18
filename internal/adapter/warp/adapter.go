@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 	_ "github.com/mattn/go-sqlite3"
 )
 

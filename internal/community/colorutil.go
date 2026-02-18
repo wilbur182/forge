@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 const achromaticEpsilon = 1e-6

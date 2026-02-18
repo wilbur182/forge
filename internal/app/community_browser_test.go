@@ -3,8 +3,8 @@ package app
 import (
 	"testing"
 
-	"github.com/marcus/sidecar/internal/community"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/community"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 func TestBuildUnifiedThemeList(t *testing.T) {

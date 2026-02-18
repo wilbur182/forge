@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/marcus/sidecar/internal/config"
+	"github.com/wilbur182/forge/internal/config"
 )
 
 // ErrNotInitialized is returned when the feature manager is not initialized.

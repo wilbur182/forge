@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/marcus/sidecar/internal/plugin"
+	"github.com/wilbur182/forge/internal/plugin"
 )
 
 func TestFileOpMode(t *testing.T) {

@@ -3,7 +3,7 @@ package conversations
 import (
 	"testing"
 
-	"github.com/marcus/sidecar/internal/adapter"
+	"github.com/wilbur182/forge/internal/adapter"
 )
 
 func TestAdapterAbbrev(t *testing.T) {

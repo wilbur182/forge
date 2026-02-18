@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
-	"github.com/marcus/sidecar/internal/styles"
+	"github.com/wilbur182/forge/internal/styles"
 )
 
 // AnsiResetRe matches ANSI reset sequences (both \x1b[0m and \x1b[m).

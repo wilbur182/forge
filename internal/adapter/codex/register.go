@@ -1,6 +1,6 @@
 package codex
 
-import "github.com/marcus/sidecar/internal/adapter"
+import "github.com/wilbur182/forge/internal/adapter"
 
 func init() {
 	adapter.RegisterFactory(func() adapter.Adapter {
