@@ -2,202 +2,142 @@
 
 One window. All workflows.
 
-**Status: Monorepo structure initialized.** Forge is a unified TUI combining [Sidecar](https://github.com/marcus/sidecar) (companion tools) and [OpenCode](https://github.com/code-yeongyu/oh-my-opencode) (AI agent) into a single development environment.
+**Status: v0.1.0 Released.** Forge is a unified TUI development environment that combines the best of companion tools with native AI agent integration.
 
-[Architecture](./FORGE.md) · [Development Setup](#development-setup)
-
-![Forge: Unified TUI](docs/screenshots/sidecar-git.png)
+[Architecture](./FORGE.md) · [Development Setup](#development)
 
 ## Overview
 
-Forge puts your entire development workflow in one window: plan tasks with [td](https://github.com/marcus/td), chat with an integrated AI agent, review diffs, stage commits, browse code, and manage workspaces—all without context switching.
+Forge puts your entire development workflow in one window: plan tasks with [td](https://github.com/marcus/td), monitor AI agent conversations, review diffs, stage commits, browse code, and manage workspaces—all without context switching.
 
-**This is a fork of [Sidecar](https://github.com/marcus/sidecar) with integrated OpenCode agent support via WASM.**
+**Forge is a rebranded fork of [Sidecar](https://github.com/marcus/sidecar) with native OpenCode session integration.**
 
-## Quick Install
+## Installation
 
-### macOS (recommended)
+### From Source
 
-```bash
-brew install marcus/tap/sidecar
-```
-
-This builds from source and avoids macOS Gatekeeper warnings.
-
-### Linux / Other
+Ensure you have Go 1.21+ installed.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/marcus/sidecar/main/scripts/setup.sh | bash
-```
+# Build the binary
+go build -o forge ./cmd/forge
 
-**More options:** [Binary downloads](https://github.com/marcus/sidecar/releases) · [Manual install](docs/getting-started.md)
+# Install to your $GOPATH/bin
+go install ./cmd/forge
+```
 
 ## Requirements
 
 - macOS, Linux, or WSL
-- Go 1.21+ (only if building from source)
+- Go 1.21+ (for building from source)
 
 ## Quick Start
 
 After installation, run from any project directory:
 
 ```bash
-sidecar
+forge
 ```
 
 ## Suggested Use
 
-Split your terminal horizontally: run your coding agent (Claude Code, Cursor, etc.) on the left and sidecar on the right.
+Split your terminal horizontally: run your coding agent (Claude Code, OpenCode, etc.) on the left and Forge on the right.
 
 ```
 ┌─────────────────────────────┬─────────────────────┐
 │                             │                     │
-│   Claude Code / Cursor      │      Sidecar        │
+│   AI Agent (OpenCode/etc.)  │       Forge         │
 │                             │                     │
-│   $ claude                  │   [Git] [Files]     │
-│   > fix the auth bug...     │   [Tasks] [Workspaces]│
+│   $ opencode                │   [Git] [Files]     │
+│   > fix the auth bug...     │   [Tasks] [Conversations]│
 │                             │                     │
 └─────────────────────────────┴─────────────────────┘
 ```
-
-**Tip:** You can run two sidecar instances side-by-side to create a dashboard view. For example, keep one on the [Tasks] plugin and the other on [Git] or [Workspaces] to monitor everything at once.
 
 As the agent works, you can:
 
 - Watch tasks move through the workflow in TD Monitor
 - See files change in real-time in the Git plugin
-- Browse and edit code yourself in the File Browser
-- View and resume conversations across all supported agent adapters
+- Browse and preview code in the File Browser
+- **View and resume conversations** across all supported agent adapters
 - Switch between built-in and community themes with live previews
-
-This setup gives you visibility into what the agent is doing without interrupting your workflow. The entire dev loop—planning, monitoring, reviewing, committing—happens in the terminal while agents write the code.
 
 ## Usage
 
 ```bash
 # Run from any project directory
-sidecar
+forge
 
 # Specify project root
-sidecar --project /path/to/project
+forge --project /path/to/project
 
 # Enable debug logging
-sidecar --debug
+forge --debug
 
 # Check version
-sidecar --version
+forge --version
 ```
-
-## Updates
-
-Sidecar checks for updates on startup. When a new version is available, a toast notification appears. Press `!` to open the diagnostics modal and see the update command.
 
 ## Plugins
 
 ### Git Status
 
-View staged, modified, and untracked files with a split-pane interface. The sidebar shows files and recent commits; the main pane shows syntax-highlighted diffs. [Full documentation →](https://marcus.github.io/sidecar/docs/git-plugin)
-
-![Git Status with Diff](docs/screenshots/sidecar-git.png)
+View staged, modified, and untracked files with a split-pane interface. The sidebar shows files and recent commits; the main pane shows syntax-highlighted diffs.
 
 **Features:**
-
 - Stage/unstage files with `s`/`u`
 - View diffs inline or full-screen with `d`
 - Toggle side-by-side diff view with `v`
 - Browse commit history and view commit diffs
 - Auto-refresh on file system changes
 
-### Conversations
+### Conversations (OpenCode Integration)
 
-Browse session history from multiple AI coding agents with message content, token usage, and search. Supports Amp Code, Claude Code, Codex, Cursor CLI, Gemini CLI, Kiro, OpenCode, Pi Agent, and Warp. [Full documentation →](https://marcus.github.io/sidecar/docs/conversations-plugin)
+Browse session history from multiple AI coding agents with message content, token usage, and search. Forge features deep integration with OpenCode, automatically discovering sessions in your local storage.
 
-![Conversations](docs/screenshots/sidecar-conversations.png)
+**Supported Agents:**
+- OpenCode
+- Claude Code
+- Codex
+- Gemini CLI
+- Cursor
+- Amp
+- Kiro
+- Warp
 
 **Features:**
-
 - Unified view across all supported agents
 - View all sessions grouped by date
 - Search sessions with `/`
 - Expand messages to see full content
-- Track token usage per session
 
 ### TD Monitor
 
-Integration with [TD](https://github.com/marcus/td), a task management system designed for AI agents working across context windows. TD helps agents track work, log progress, and maintain context across sessions—essential for AI-assisted development where context windows reset between conversations. [Full documentation →](https://marcus.github.io/sidecar/docs/td)
-
-![TD Monitor](docs/screenshots/sidecar-td.png)
+Integration with [TD](https://github.com/marcus/td), a task management system designed for AI agents working across context windows.
 
 **Features:**
-
 - Current focused task display
 - Scrollable task list with status indicators
 - Activity log with session context
-- Quick review submission with `r`
-
-See the [TD repository](https://github.com/marcus/td) for installation and CLI usage.
 
 ### File Browser
 
-Navigate project files with a tree view and syntax-highlighted preview. [Full documentation →](https://marcus.github.io/sidecar/docs/files-plugin)
-
-![File Browser](docs/screenshots/sidecar-files.png)
+Navigate project files with a tree view and syntax-highlighted preview.
 
 **Features:**
-
 - Collapsible directory tree
 - Code preview with syntax highlighting
 - Auto-refresh on file changes
 
 ### Workspaces
 
-Manage workspaces for parallel development with integrated agent support. Create isolated branches as sibling directories, link tasks from TD, and launch coding agents directly from sidecar. [Full documentation →](https://marcus.github.io/sidecar/docs/workspaces-plugin)
-
-![Workspaces](docs/screenshots/sidecar-workspaces.png)
+Manage workspaces for parallel development with integrated agent support. Create isolated branches as sibling directories, link tasks from TD, and launch coding agents directly from Forge.
 
 **Features:**
-
 - Create and delete workspaces with `n`/`D`
 - Link TD tasks to workspaces for context tracking
-- Launch coding agents (Claude, Codex, Gemini, Cursor, OpenCode, Pi) with `a`
+- Launch coding agents (Claude, OpenCode, Codex, Gemini, Cursor) with `a`
 - Merge workflow: commit, push, create PR, and cleanup with `m`
-- Auto-adds sidecar state files to .gitignore
-- Preview diffs and task details in split-pane view
-
-## Project Switcher
-
-Press `@` to switch between configured projects without restarting sidecar.
-
-1. Add projects to `~/.config/sidecar/config.json`:
-
-```json
-{
-  "projects": {
-    "list": [
-      { "name": "sidecar", "path": "~/code/sidecar" },
-      { "name": "td", "path": "~/code/td" },
-      { "name": "my-app", "path": "~/projects/my-app" }
-    ]
-  }
-}
-```
-
-2. Press `@` to open the project switcher modal
-3. Select with `j/k` or click, press `Enter` to switch
-
-All plugins reinitialize with the new project context. State (active plugin, cursor positions) is remembered per project.
-
-## Worktree Switcher
-
-Press `W` to switch between git worktrees within the current repository. When you switch away from a project and return later, sidecar remembers which worktree you were working in and restores it automatically.
-
-## Themes
-
-Press `#` to open the theme switcher. Choose from built-in themes (default, dracula) or press `Tab` to browse 453 community color schemes derived from iTerm2-Color-Schemes.
-
-The community browser supports search filtering, live preview as you navigate, and color swatches for each scheme. Press `Enter` to save a scheme as your active theme.
-
-See [Theme Creation Skill](.claude/skills/create-theme/SKILL.md) for custom theme creation and color palette reference.
 
 ## Keyboard Shortcuts
 
@@ -217,124 +157,22 @@ See [Theme Creation Skill](.claude/skills/create-theme/SKILL.md) for custom them
 | `r`                 | Refresh                          |
 | `?`                 | Toggle help                      |
 
-### Git Status Shortcuts
-
-| Key   | Action                    |
-| ----- | ------------------------- |
-| `s`   | Stage file                |
-| `u`   | Unstage file              |
-| `d`   | View diff (full-screen)   |
-| `v`   | Toggle side-by-side diff  |
-| `h/l` | Switch sidebar/diff focus |
-| `c`   | Commit staged changes     |
-
-### Workspace Shortcuts
-
-| Key | Action                  |
-| --- | ----------------------- |
-| `n` | Create new workspace     |
-| `D` | Delete workspace         |
-| `a` | Launch/attach agent     |
-| `t` | Link/unlink TD task     |
-| `m` | Start merge workflow    |
-| `p` | Push branch             |
-| `o` | Open in finder/terminal |
-
 ## Configuration
 
-Config file: `~/.config/sidecar/config.json`
-
-```json
-{
-  "plugins": {
-    "git-status": { "enabled": true, "refreshInterval": "1s" },
-    "td-monitor": { "enabled": true, "refreshInterval": "2s" },
-    "conversations": { "enabled": true },
-    "file-browser": { "enabled": true },
-    "workspaces": { "enabled": true }
-  },
-  "ui": {
-    "showClock": true,
-    "theme": {
-      "name": "default",
-      "overrides": {}
-    }
-  }
-}
-```
-
-## Contributing
-
-- **Bug reports**: [Open an issue](https://github.com/marcus/sidecar/issues)
-- **Feature requests**: Check the [Sidecar Roadmap](https://github.com/users/marcus/projects/3) for planned features and backlog
+Config file: `~/.config/forge/config.json`
 
 ## Development
 
 ```bash
-make build        # Build to ./bin/sidecar
-make test         # Run tests
-make test-v       # Verbose test output
-make install-dev  # Install with git version info
-make fmt          # Format code
-make fmt-check    # Verify formatting for changed Go files
-make fmt-check-all # Verify formatting across full codebase
-make lint         # Lint new issues only (merge-base with main)
-make lint-all     # Lint entire codebase (includes legacy debt)
+go build -o forge ./cmd/forge
+go test ./...
 ```
-
-### Go Lint Baseline
-
-- Formatting: changed Go files must be `gofmt`-clean (`make fmt-check`)
-- Correctness lint: `errcheck`, `govet`, `ineffassign`, `staticcheck`, `unused`
-- Enforcement: CI runs tests and blocks new lint issues on PRs (`.github/workflows/go-ci.yml`)
-- Debt tracking: run `make lint-all` to measure and burn down legacy lint debt
-
-## Privacy
-
-Forge inherits Sidecar's local-first architecture: runs locally with no telemetry, analytics, or tracking requests. The only network calls are GitHub API version checks on startup (cached for 3 hours) and user-initiated changelog fetches. Agent interactions with LLM providers use your configured API keys. See [PRIVACY.md](PRIVACY.md) for full details on data access, file reads/writes, and network behavior.
-
-## Development Setup
-
-### Architecture
-
-Forge is a monorepo combining:
-
-- **Sidecar** (Go): TUI framework, plugins (git, files, tasks, workspaces)
-- **OpenCode Agent** (WASM): Integrated AI agent with tool execution
-- **Bridge** (Go/WASM): Integration layer for agent ↔ host communication
-
-See [FORGE.md](./FORGE.md) for detailed architecture and migration strategy.
-
-### Building
-
-```bash
-# Build Forge core
-make build
-
-# Build WASM agent (phase 2)
-make build-wasm
-
-# Run tests
-make test
-
-# Run Forge
-./bin/forge
-```
-
-### Status: Phase 1 - Foundation
-
-- [x] Fork repositories
-- [x] Create monorepo structure
-- [ ] Set up WASM build pipeline
-- [ ] Port OpenCode agent to WASM
-- [ ] Implement Go WASM runtime
-- [ ] Unify plugin system
 
 ## Attribution
 
 **Forge** is a fork of [Sidecar](https://github.com/marcus/sidecar) by [Marcus](https://github.com/marcus).
 
-Built with [OpenCode](https://github.com/code-yeongyu/oh-my-opencode) by the Sisyphus project.
+Integrates [OpenCode](https://github.com/code-yeongyu/oh-my-opencode) session support.
 
 ## License
 

@@ -1,51 +1,44 @@
-# Forge Architecture
+# Forge Architecture (v0.1.0)
 
 ## Overview
 
-Forge is a unified TUI system that combines the best of Sidecar (companion tools) and OpenCode (AI agent) into a single, cohesive development environment.
+Forge is a unified TUI development environment that puts your entire workflow—agent chat, git, files, tasks, and workspaces—into a single terminal window.
+
+It is a fully rebranded fork of [marcus/sidecar](https://github.com/marcus/sidecar), developed as `github.com/wilbur182/forge`. It integrates the best of Sidecar's companion tools with native support for viewing and resuming AI agent conversations, specifically featuring deep integration with OpenCode.
 
 ## Core Philosophy
 
-**One window. All workflows.** No more split terminals. No more context switching. Everything—agent chat, git, files, tasks, conversations—in a single TUI.
+**One window. All workflows.** No more split terminals. No more context switching. Everything you need to monitor and manage your development loop is accessible via a single interface.
 
 ## Architecture
+
+Forge is built using the **Bubble Tea** TUI framework and **Lipgloss** for styling.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        FORGE TUI                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  UI Layer (Bubble Tea + Lipgloss)                               │
-│  ├─ Tabbed interface (Agent | Git | Files | Tasks | ...)        │
+│  ├─ Tabbed interface (Git | Files | Tasks | Conversations | ...) │
 │  ├─ Split-pane support                                          │
 │  └─ Unified keybinding system                                   │
 ├─────────────────────────────────────────────────────────────────┤
 │  Plugin System                                                  │
-│  ├─ Core Plugins (Go native)                                    │
-│  │  ├─ Git Status                                               │
-│  │  ├─ File Browser                                             │
-│  │  ├─ TD Task Monitor                                          │
-│  │  └─ Workspaces                                               │
-│  ├─ Agent Plugin (WASM runtime)                                 │
-│  │  └─ Conversations (migrated to agent context)                │
-│  └─ External Plugins (WASM or Go plugins)                       │
-│     └─ Community extensions                                     │
+│  ├─ Git Status: Interactive diffing and staging                 │
+│  ├─ File Browser: Code preview and navigation                   │
+│  ├─ TD Monitor: Task tracking integration                       │
+│  ├─ Workspaces: Multi-agent project management                  │
+│  └─ Conversations: Unified agent session history                │
 ├─────────────────────────────────────────────────────────────────┤
-│  Shared Context Layer                                           │
-│  ├─ Project/workspace state manager                             │
-│  ├─ Event bus for inter-plugin communication                    │
-│  └─ Unified file system watcher                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  Agent Runtime (WASM)                                           │
-│  ├─ OpenCode agent compiled to WASM                             │
-│  ├─ LLM provider abstraction (Claude, GPT, Gemini, Copilot)     │
-│  ├─ Tool execution bridge (Go ↔ WASM)                           │
-│  └─ Conversation history & context management                   │
+│  Adapter Layer (internal/adapter/)                              │
+│  ├─ OpenCode: Reads from ~/.local/share/opencode/storage/       │
+│  ├─ Claude Code, Codex, Gemini CLI, Cursor, Amp, Kiro, Warp     │
+│  └─ Platform-native session discovery                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  Platform Layer                                                 │
 │  ├─ Git operations                                              │
 │  ├─ File system operations                                      │
-│  ├─ Terminal/process management                                 │
-│  └─ LLM API clients                                             │
+│  └─ Terminal/process management                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,196 +47,77 @@ Forge is a unified TUI system that combines the best of Sidecar (companion tools
 ```
 forge/
 ├── cmd/forge/                    # Main TUI entry point
+│   └── main.go                   # Builds the 'forge' binary
+├── cmd/sidecar/                  # Backward compatibility wrapper
 │   └── main.go
 ├── internal/
-│   ├── core/                     # Core app framework (from Sidecar)
+│   ├── core/                     # TUI framework and application loop
 │   ├── plugins/                  # Plugin implementations
-│   │   ├── gitstatus/
-│   │   ├── filebrowser/
-│   │   ├── tdmonitor/
-│   │   ├── workspaces/
-│   │   └── agent/                # NEW: Agent plugin with WASM runtime
-│   ├── agent-wasm-runtime/       # NEW: WASM execution environment
-│   │   ├── runtime.go            # WASM runtime manager
-│   │   ├── bridge.go             # Go ↔ WASM bridge
-│   │   └── callbacks.go          # Host function callbacks
-│   ├── bridge/                   # NEW: Integration layer
-│   │   ├── context.go            # Shared context manager
-│   │   └── events.go             # Event bus
+│   │   ├── gitstatus/            # Git staging and diffing
+│   │   ├── filebrowser/          # Tree view and previews
+│   │   ├── tdmonitor/            # Integration with 'td' task manager
+│   │   ├── workspaces/           # Workspace and agent launcher
+│   │   └── conversations/        # Unified agent session viewer
+│   ├── adapter/                  # AI agent session discovery
+│   │   ├── opencode/             # OpenCode session integration
+│   │   ├── claudecode/           # Claude Code session integration
+│   │   └── ...                   # Other agent adapters
 │   └── config/                   # Configuration management
-├── packages/
-│   └── agent-wasm/               # NEW: OpenCode agent WASM build
-│       ├── src/                  # TypeScript source (from forge-agent)
-│       ├── build/                # Build scripts
-│       └── dist/                 # Compiled WASM output
-├── configs/
-│   └── forge.json                # Default configuration
-├── docs/
-│   └── architecture/             # Architecture documentation
-└── scripts/
-    └── build-wasm.sh             # WASM build automation
+├── internal/agent-wasm-runtime/  # Future: WASM stubs (not implemented)
+├── packages/agent-wasm/          # Future: WASM stubs (not implemented)
+└── configs/
+    └── forge.json                # Default configuration
 ```
 
 ## Component Integration
 
-### 1. Agent Plugin ←→ Core System
+### 1. OpenCode Integration
 
-The agent plugin replaces Sidecar's read-only conversation viewer with a full interactive agent:
+Forge features deep integration with OpenCode. The OpenCode adapter (`internal/adapter/opencode/`) automatically discovers and reads agent sessions from:
+- `~/.local/share/opencode/storage/` (Linux/General)
+- `~/Library/Application Support/opencode/storage/` (macOS)
 
-**Before (Sidecar)**:
-- Conversations plugin: Read-only viewer of agent history
-- External agent runs in separate terminal
+These sessions are displayed in the Conversations plugin, allowing you to monitor agent progress in real-time.
 
-**After (Forge)**:
-- Agent plugin: Interactive chat + history + tools
-- Agent runs inside Forge via WASM
+### 2. Supported Agents
 
-**Integration Points**:
-- Agent UI uses Bubble Tea components (like other plugins)
-- Agent tools call Go bridge functions (file ops, bash, etc.)
-- Agent context shared with other plugins via event bus
+The Conversations and Workspace plugins support a wide array of AI agents:
+- Claude Code
+- OpenCode
+- Codex
+- Gemini CLI
+- Cursor
+- Amp
+- Kiro
+- Warp
 
-### 2. Shared Context
+### 3. Backward Compatibility
 
-All plugins share unified context:
-
-```go
-type ProjectContext struct {
-    RootPath      string
-    CurrentBranch string
-    ActiveTask    *td.Task
-    OpenFiles     []string
-    AgentSession  *AgentSession
-}
-```
-
-Events broadcast to all plugins:
-- `FileChangedEvent` → Git plugin refreshes, Agent sees file changes
-- `TaskUpdatedEvent` → TD monitor updates, Agent gets context
-- `AgentMessageEvent` → Conversations view updates
-
-### 3. WASM Bridge
-
-The Go runtime exposes host functions to WASM:
-
-```go
-// Host functions callable from WASM agent
-func hostReadFile(path string) ([]byte, error)
-func hostWriteFile(path string, content []byte) error
-func hostExecuteCommand(cmd string, args []string) (string, error)
-func hostListDirectory(path string) ([]FileInfo, error)
-func hostSearchCode(query string) ([]SearchResult, error)
-func hostSendLLMRequest(provider string, messages []Message) (string, error)
-```
-
-## Migration Strategy
-
-### Phase 1: Foundation (Current)
-- [x] Fork repositories
-- [ ] Create monorepo structure
-- [ ] Set up WASM build pipeline
-- [ ] Document architecture
-
-### Phase 2: Agent Integration
-- [ ] Port OpenCode agent to WASM-compatible subset
-- [ ] Implement WASM runtime in Go
-- [ ] Create bridge layer for tool execution
-- [ ] Build agent plugin UI
-
-### Phase 3: Unification
-- [ ] Merge conversation viewer into agent plugin
-- [ ] Implement shared context layer
-- [ ] Add event bus for inter-plugin communication
-- [ ] Unify keybindings and UI components
-
-### Phase 4: Polish
-- [ ] Single-window UX refinements
-- [ ] Performance optimization
-- [ ] Plugin API documentation
-- [ ] Community plugin examples
-
-## Key Design Decisions
-
-### Why WASM for the Agent?
-
-1. **Language flexibility**: Keep OpenCode's TypeScript agent logic
-2. **Security**: Sandboxed execution environment
-3. **Portability**: Agent can run in other WASM hosts
-4. **Performance**: Near-native speed for compute-heavy tasks
-
-### Why Go for the Core?
-
-1. **Sidecar's foundation**: Already proven, battle-tested
-2. **Binary size**: Single static binary, easy distribution
-3. **TUI ecosystem**: Bubble Tea, Lipgloss mature libraries
-4. **Plugin system**: Go plugins or WASM plugins both supported
-
-### Plugin Architecture
-
-Plugins are self-contained units with:
-- **Model**: Plugin state and business logic
-- **View**: Bubble Tea view function
-- **Update**: Message handler
-- **Commands**: Keybindings for footer
-
-Agent plugin follows same pattern but delegates LLM interaction to WASM runtime.
+To ensure a smooth transition for users coming from Sidecar, Forge maintains a `cmd/sidecar/` entry point. While the primary binary is `forge`, `sidecar` can still be built and used as a compatibility alias.
 
 ## Configuration
 
-```json
-{
-  "forge": {
-    "version": "1.0.0",
-    "agent": {
-      "enabled": true,
-      "defaultProvider": "claude",
-      "providers": {
-        "claude": { "model": "claude-opus-4.5" },
-        "openai": { "model": "gpt-5.2" },
-        "gemini": { "model": "gemini-3-pro" }
-      }
-    },
-    "plugins": {
-      "git-status": { "enabled": true },
-      "file-browser": { "enabled": true },
-      "td-monitor": { "enabled": true },
-      "workspaces": { "enabled": true },
-      "agent": { "enabled": true }
-    },
-    "ui": {
-      "layout": "tabs",
-      "theme": "default"
-    }
-  }
-}
-```
+Forge uses a JSON configuration file located at `~/.config/forge/config.json`. This file controls plugin enablement, refresh intervals, and UI preferences.
 
 ## Development Workflow
 
+Forge is written in Go (v1.21+).
+
 ```bash
-# Build everything
-make build
+# Build the forge binary
+go build -o forge ./cmd/forge
 
-# Build just the Go core
-make build-core
-
-# Build WASM agent
-make build-wasm
+# Install to $GOPATH/bin
+go install ./cmd/forge
 
 # Run tests
-make test
-
-# Run Forge
-./bin/forge
+go test ./...
 ```
 
-## Future Considerations
+## Future Phase: WASM Integration
 
-- **Remote development**: WASM agent could run on remote server
-- **Multi-agent**: Multiple agents in different tabs/workspaces
-- **Collaboration**: Shared sessions between developers
-- **Custom tools**: Plugin API for user-defined tools
+While stubs exist in the codebase for a WASM-based agent runtime, this is currently considered a future phase of development. The current version of Forge focuses on native integration and session discovery of external agents.
 
 ## License
 
-MIT (same as Sidecar and OpenCode)
+MIT (Forked from marcus/sidecar)
