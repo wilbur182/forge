@@ -30,6 +30,7 @@ import (
 	"github.com/wilbur182/forge/internal/features"
 	"github.com/wilbur182/forge/internal/keymap"
 	"github.com/wilbur182/forge/internal/plugin"
+	"github.com/wilbur182/forge/internal/plugins/chat"
 	"github.com/wilbur182/forge/internal/plugins/conversations"
 	"github.com/wilbur182/forge/internal/plugins/filebrowser"
 	"github.com/wilbur182/forge/internal/plugins/gitstatus"
@@ -169,6 +170,10 @@ func main() {
 	registry := plugin.NewRegistry(pluginCtx)
 
 	// Register plugins (order determines tab order)
+	// Chat plugin is the primary view — registered first
+	if err := registry.Register(chat.New()); err != nil {
+		logger.Warn("failed to register chat plugin", "err", err)
+	}
 	// TD plugin registers its bindings dynamically via p.ctx.Keymap
 	if err := registry.Register(tdmonitor.New()); err != nil {
 		logger.Warn("failed to register tdmonitor plugin", "err", err)
